@@ -269,7 +269,7 @@ export default {
 
       this.socket.update(now, this);
     },
-    closeAllWindow(e) {
+    closeAllWindow(_e) {
       for (let i in this.windows) {
         this.windows[i] = false;
       }

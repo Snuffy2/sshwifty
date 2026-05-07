@@ -32,8 +32,21 @@ export default [...compat.extends(
     rules: {
         "vue/component-name-in-template-casing": ["error", "PascalCase"],
         "vue/multi-word-component-names": "off",
+        "vue/no-v-html": "off",
         "no-console": "off",
         "no-debugger": "off",
-        "no-unused-vars": "warn",
+        "no-unused-vars": ["warn", {
+            args: "after-used",
+            argsIgnorePattern: "^_",
+            varsIgnorePattern: "^_",
+            caughtErrors: "none",
+        }],
+    },
+}, {
+    files: ["**/*_test.js"],
+    languageOptions: {
+        globals: {
+            ...globals.mocha,
+        },
     },
 }];
