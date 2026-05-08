@@ -250,7 +250,7 @@ export default {
   beforeDestroy() {
     window.removeEventListener("beforeunload", this.onBrowserClose);
 
-    if (this.ticker === null) {
+    if (this.ticker !== null) {
       clearInterval(this.ticker);
       this.ticker = null;
     }
