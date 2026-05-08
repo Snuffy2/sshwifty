@@ -22,6 +22,7 @@
 package server
 
 import (
+	"errors"
 	"net"
 	"time"
 
@@ -84,12 +85,12 @@ func (c conn) normalizeTimeout(t time.Time, m time.Duration) time.Time {
 }
 
 // SetDeadline calls SetReadDeadline and SetWriteDeadline with the normalised
-// deadline and always returns nil.
+// deadline.
 func (c conn) SetDeadline(dl time.Time) error {
-	c.SetReadDeadline(dl)
-	c.SetWriteDeadline(dl)
+	rErr := c.SetReadDeadline(dl)
+	wErr := c.SetWriteDeadline(dl)
 
-	return nil
+	return errors.Join(rErr, wErr)
 }
 
 // SetReadDeadline forwards dl to the underlying TimeoutConn after clamping it

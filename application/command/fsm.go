@@ -133,18 +133,18 @@ func emptyFSM() FSM {
 }
 
 // bootup calls the machine's Bootup method with the initial data reader and
-// scratch buffer, then stores the returned FSMState. It panics if Bootup
-// returns a nil state. On failure the FSMError is returned without changing
-// the active state.
+// scratch buffer, then stores the returned FSMState. On failure the FSMError
+// is returned without changing the active state. It panics only if Bootup
+// reports success with a nil state.
 func (f *FSM) bootup(r *rw.LimitedReader, b []byte) FSMError {
 	s, err := f.m.Bootup(r, b)
 
-	if s == nil {
-		panic("FSMState must not be nil")
-	}
-
 	if !err.Succeed() {
 		return err
+	}
+
+	if s == nil {
+		panic("FSMState must not be nil")
 	}
 
 	f.s = s

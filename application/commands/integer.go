@@ -15,9 +15,6 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-// Package commands – integer.go defines a compact variable-length 16-bit
-// unsigned integer type used in the command wire protocol. Values 0–127 encode
-// in one byte; values 128–16383 encode in two bytes using a continuation bit.
 package commands
 
 import (

@@ -52,10 +52,10 @@ export class Subscribe {
   }
 
   /**
-   * Returns how many resolve/reject events are in the pending queue, including
-   * any currently-registered waiter.
+   * Returns the number of queued producer events in `this.pending` plus one
+   * when `this.res` or `this.rej` is non-null for an active consumer waiter.
    *
-   * @returns {number} Count of queued and active pending events.
+   * @returns {number} Count from `this.pending.length` plus any active waiter.
    */
   pendings() {
     return (

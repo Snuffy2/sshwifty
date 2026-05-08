@@ -80,7 +80,7 @@ func (r *ResponseWriter) WriteHeader(statusCode int) {
 // http.ResponseWriter does not implement http.Hijacker.
 var (
 	errResponseWriterCannotBeHijacked = errors.New(
-		"unable to hijack a disabled ResponseWriter")
+		"underlying ResponseWriter does not implement http.Hijacker")
 )
 
 // Hijack takes over the TCP connection from the HTTP server by delegating to

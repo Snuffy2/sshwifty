@@ -387,8 +387,13 @@ class Chart {
    * @returns {void}
    */
   clear() {
-    this.drawer.removeAllEl();
-    this.el.removeChild(this.getGroupRoot());
+    if (this.group === null) {
+      return;
+    }
+
+    this.drawer.removeAllEl(this.group);
+    this.el.removeChild(this.group);
+    this.group = null;
   }
 }
 

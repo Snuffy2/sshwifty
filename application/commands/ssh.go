@@ -15,10 +15,6 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-// Package commands – ssh.go implements the SSH command, which opens an
-// interactive PTY session to a remote SSH server on behalf of the browser
-// client. It handles fingerprint verification, credential exchange, terminal
-// resizing, and concurrent stdout/stderr forwarding over the stream protocol.
 package commands
 
 import (

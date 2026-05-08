@@ -155,10 +155,10 @@ type commonInput struct {
 	// Login pass for socks5 server, optional
 	Socks5Password string
 
-	// Hooks, default 1s
+	// Hooks maps hook types to command lists
 	Hooks Hooks
 
-	// HookTimeout execution timeout
+	// HookTimeout execution timeout, default 1s
 	HookTimeout int
 
 	// Servers

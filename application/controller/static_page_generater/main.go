@@ -119,6 +119,14 @@ func getMimeTypeByExtension(ext string) string {
 		return "image/x-icon"
 	case ".md":
 		return "text/markdown"
+	case ".map":
+		return "text/plain"
+	case ".txt":
+		return "text/plain"
+	case ".woff":
+		return "font/woff"
+	case ".woff2":
+		return "font/woff2"
 	default:
 		return mime.TypeByExtension(ext)
 	}
@@ -304,9 +312,9 @@ func getMimeTypeByExtension(ext string) string {
 	case ".txt":
 		return "text/plain"
 	case ".woff":
-		return "application/font-woff"
+		return "font/woff"
 	case ".woff2":
-		return "application/font-woff2"
+		return "font/woff2"
 	default:
 		return mime.TypeByExtension(ext)
 	}
@@ -361,7 +369,7 @@ func parseFile(
 	}
 	if strings.HasPrefix(mimeType, "image/") {
 		// Don't compress images
-	} else if strings.HasPrefix(mimeType, "application/font-woff") {
+	} else if strings.HasPrefix(mimeType, "font/woff") {
 		// Don't compress web fonts
 	} else if mimeType == "text/plain" {
 		// Don't compress plain text

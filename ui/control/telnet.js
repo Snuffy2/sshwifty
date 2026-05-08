@@ -125,7 +125,8 @@ class Parser {
     switch (cmd) {
       case cmdDo:
         return this.sendNego(cmdWont, o);
-      case (cmdWill, cmdWont):
+      case cmdWill:
+      case cmdWont:
         return this.sendNego(cmdDont, o);
     }
   }

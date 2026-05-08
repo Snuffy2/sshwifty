@@ -26,7 +26,6 @@
 import Exception from "./exception.js";
 
 /** @type {number} Header type byte for control frames. */
-/** @type {number} Header type byte for control frames. */
 export const CONTROL = 0x00;
 /** @type {number} Header type byte for stream data frames. */
 export const STREAM = 0x40;

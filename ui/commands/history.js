@@ -184,7 +184,7 @@ export class History {
       break;
     }
 
-    this.saver(this, this.records);
+    this.store();
   }
 
   /**

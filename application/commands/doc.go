@@ -15,15 +15,6 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+// Package commands registers the built-in SSH and Telnet protocol commands
+// and provides their wire-format value types.
 package commands
-
-import "github.com/Snuffy2/sshwifty/application/command"
-
-// New creates and returns the fully populated command.Commands array with
-// Telnet at index 0 and SSH at index 1, ready to be passed to a Commander.
-func New() command.Commands {
-	return command.Commands{
-		command.Register("Telnet", newTelnet, parseTelnetConfig),
-		command.Register("SSH", newSSH, parseSSHConfig),
-	}
-}

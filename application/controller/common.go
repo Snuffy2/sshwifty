@@ -38,11 +38,10 @@ var (
 	serverMessageFormatLink = regexp.MustCompile(`\[(.*?)\]\((.*?)\)`)
 )
 
-// parseServerMessage converts a limited subset of Markdown inline links in
-// input into HTML anchor tags suitable for embedding in an HTML page. Only
-// [title](url) patterns are transformed; all other text is returned verbatim.
-// It returns input unchanged if no matches are found or if a match result is
-// malformed.
+// parseServerMessage transforms [title](url) patterns into HTML anchor tags.
+// It does not perform HTML escaping; input must already be trusted/sanitized,
+// or callers must escape/encode title and URL values before embedding output.
+// All other text is returned verbatim.
 func parseServerMessage(input string) (result string) {
 	// Yep, this is a new low, throwing regexp at a flat text format now...will
 	// rewrite the entire thing in a new version with a proper parser, maybe

@@ -57,9 +57,9 @@ type HookCommand []string
 // hook fires. Multiple commands may be registered for the same type.
 type Hooks map[HookType][]HookCommand
 
-// verify validates all HookType keys and their command lists, returning a
-// descriptive error if any key is unsupported or any command list is empty or
-// contains an empty command.
+// verify validates all HookType keys and their command lists. Unsupported keys
+// fail via HookType.verify. Empty command lists are allowed and ignored; only
+// individual empty HookCommand entries (len(v[i]) <= 0) produce an error.
 func (h Hooks) verify() error {
 	for k, v := range h {
 		if err := k.verify(); err != nil {

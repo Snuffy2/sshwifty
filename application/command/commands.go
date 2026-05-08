@@ -133,6 +133,13 @@ func (c Commands) Reconfigure(
 				continue
 			}
 
+			if c[i].configurator == nil {
+				return nil, fmt.Errorf(
+					"configurator for Command %q is undefined",
+					c[i].name,
+				)
+			}
+
 			newPP, pErr := c[i].configurator(p[pp])
 
 			if pErr == nil {

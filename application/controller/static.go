@@ -35,9 +35,6 @@ import (
 type staticData struct {
 	// data is the raw (uncompressed) content of the file.
 	data []byte
-	// dataHash is an ETag-compatible hash of data, reserved for future cache
-	// validation use.
-	dataHash string
 	// compressed is the gzip-compressed form of data. It is empty when
 	// compression was skipped for this file type.
 	compressed []byte

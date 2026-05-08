@@ -31,7 +31,6 @@ import * as common from "./common.js";
 import Exception from "./exception.js";
 
 /** @type {number} Loopback address type identifier (no address data). */
-/** @type {number} Loopback address type identifier (no address data). */
 export const LOOPBACK = 0x00;
 /** @type {number} IPv4 address type identifier (4-byte address data). */
 export const IPV4 = 0x01;

@@ -15,9 +15,6 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-// Package commands – string.go defines the String wire type used in the command
-// protocol. A String is a length-prefixed byte sequence where the length is
-// encoded as a variable-length Integer.
 package commands
 
 import (

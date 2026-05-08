@@ -18,6 +18,7 @@
 package network
 
 import (
+	"errors"
 	"net"
 	"time"
 )
@@ -162,12 +163,12 @@ func (c *TimeoutConn) Write(b []byte) (int, error) {
 }
 
 // SetDeadline sets both the read and write deadlines by delegating to
-// SetReadDeadline and SetWriteDeadline. It always returns nil.
+// SetReadDeadline and SetWriteDeadline.
 func (c *TimeoutConn) SetDeadline(t time.Time) error {
-	c.SetReadDeadline(t)
-	c.SetWriteDeadline(t)
+	rErr := c.SetReadDeadline(t)
+	wErr := c.SetWriteDeadline(t)
 
-	return nil
+	return errors.Join(rErr, wErr)
 }
 
 // ReadTimeoutConn wraps a net.Conn to enforce only a read timeout, delegating

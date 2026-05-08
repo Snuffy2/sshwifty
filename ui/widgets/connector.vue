@@ -399,7 +399,7 @@ export default {
     };
   },
   watch: {
-    async connector(oldV, newV) {
+    async connector(newV, _oldV) {
       if (this.currentConnector !== null) {
         await this.closeWizard();
       }

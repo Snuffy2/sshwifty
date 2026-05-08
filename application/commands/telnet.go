@@ -15,10 +15,6 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-// Package commands – telnet.go implements the Telnet command, which
-// establishes a raw TCP connection to a remote host and bidirectionally relays
-// data between the browser client and the remote server over the stream
-// protocol.
 package commands
 
 import (

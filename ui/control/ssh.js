@@ -166,7 +166,7 @@ class Control {
     if (this.closed) {
       return;
     }
-    return this.charsetEncoder.write(data);
+    this.charsetEncoder.write(data);
   }
 
   /**
@@ -181,7 +181,7 @@ class Control {
     if (this.closed) {
       return;
     }
-    return this.sender(common.strToBinary(data));
+    this.sender(common.strToBinary(data));
   }
 
   /**

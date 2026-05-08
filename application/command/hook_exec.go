@@ -105,7 +105,7 @@ func (e ExecHook) mergeParametersWithEnvirons(
 	params HookParameters,
 	environs []string,
 ) []string {
-	newEnvs := make([]string, len(environs)+params.Items())
+	newEnvs := make([]string, len(environs), len(environs)+params.Items())
 	if copy(newEnvs, environs) != len(environs) {
 		panic("Not all environ items were copied")
 	}

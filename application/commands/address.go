@@ -15,10 +15,6 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-// Package commands – address.go defines the Address wire type used by SSH and
-// Telnet commands to represent a remote endpoint. It handles four address
-// families (loopback, IPv4, IPv6, hostname) and provides serialisation and
-// deserialisation against the binary wire format.
 package commands
 
 import (
