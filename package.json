@@ -5,6 +5,9 @@
   "private": true,
   "main": "",
   "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
   "devDependencies": {
     "@azurity/pure-nerd-font": "^3.0.5",
     "@babel/core": "^7.29.0",
@@ -74,6 +77,9 @@
     "serialize-javascript": "^7.0.5",
     "diff": "^8.0.3",
     "postcss": "^8.4.31",
+    "consolidate": "^1.0.4",
+    "glob": "^13.0.6",
+    "sharp": "^0.34.5",
     "minimatch@3": {
       "brace-expansion": "^1.1.14"
     },
