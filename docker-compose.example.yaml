@@ -1,13 +1,11 @@
 services:
   sshwifty:
-    image: sshwifty:dev
+    image: ghcr.io/snuffy2/sshwifty:latest
     container_name: sshwifty
-    user: "nobody:nobody"
-    build: ./
     restart: unless-stopped
-    # environment:
-    #   - SSHWIFTY_SHAREDKEY=WEB_ACCESS_PASSWORD
     ports:
-      - "127.0.0.1:8182:8182/tcp"
-    stdin_open: true
-    tty: true
+      - "8182:8182"
+    volumes:
+      - ./sshwifty.conf.json:/etc/sshwifty/sshwifty.conf.json:ro
+    environment:
+      SSHWIFTY_CONFIG: /etc/sshwifty/sshwifty.conf.json
