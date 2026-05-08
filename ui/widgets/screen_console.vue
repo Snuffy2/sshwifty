@@ -513,6 +513,7 @@ export default {
       default: () => null,
     },
   },
+  emits: ["stopped", "warning", "info", "updated"],
   /**
    * @returns {{
    *   screenKeys: Array,
