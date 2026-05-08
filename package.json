@@ -23,7 +23,6 @@
     "copy-webpack-plugin": "^14.0.0",
     "css-loader": "^7.1.4",
     "css-minimizer-webpack-plugin": "^8.0.0",
-    "cwebp-bin": "^8.0.0",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.5",
@@ -66,5 +65,10 @@
     "test": "npm run generate && npm run testonly"
   },
   "author": "",
-  "license": "AGPL-3.0-only"
+  "license": "AGPL-3.0-only",
+  "overrides": {
+    "serialize-javascript": "^7.0.5",
+    "diff": "^8.0.3",
+    "postcss": "^8.4.31"
+  }
 }
