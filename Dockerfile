@@ -37,12 +37,13 @@ RUN set -ex && \
 
 # Main building environment
 FROM libbase AS builder
+ARG SSHWIFTY_VERSION=dev
 RUN set -ex && \
     cd / && \
     export PATH=$PATH:/ && \
     ([ -z "$HTTP_PROXY" ] || (git config --global http.proxy "$HTTP_PROXY" && npm config set proxy "$HTTP_PROXY")) && \
     ([ -z "$HTTPS_PROXY" ] || (git config --global https.proxy "$HTTPS_PROXY" && npm config set https-proxy "$HTTPS_PROXY")) && \
-    (cd /tmp/.build/sshwifty && npm run build && mv ./sshwifty /)
+    (cd /tmp/.build/sshwifty && SSHWIFTY_VERSION="$SSHWIFTY_VERSION" npm run build && mv ./sshwifty /)
 
 # Build the final image for running
 FROM alpine:latest

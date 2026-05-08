@@ -18,7 +18,7 @@ const compat = new FlatCompat({
 
 export default [
   ...compat.extends(
-    "plugin:vue/recommended",
+    "plugin:vue/vue2-recommended",
     "eslint:recommended",
     "prettier",
     "plugin:prettier/recommended",
@@ -27,13 +27,11 @@ export default [
     languageOptions: {
       globals: {
         ...globals.node,
+        ...globals.browser,
         $nuxt: true,
       },
       ecmaVersion: 13,
       sourceType: "module",
-      parserOptions: {
-        parser: "@babel/eslint-parser",
-      },
     },
     rules: {
       "vue/component-name-in-template-casing": ["error", "PascalCase"],

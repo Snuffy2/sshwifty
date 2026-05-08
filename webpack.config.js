@@ -160,6 +160,9 @@ export default {
       stream: import.meta.resolve("stream-browserify"),
     },
   },
+  performance: {
+    hints: false,
+  },
   optimization: {
     nodeEnv: process.env.NODE_ENV,
     concatenateModules: true,

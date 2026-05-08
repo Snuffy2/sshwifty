@@ -48,14 +48,13 @@ export class Address {
   static async read(rd) {
     let readed = await reader.readN(rd, 3),
       portNum = 0,
-      addrType = LOOPBACK,
       addrData = null;
 
     portNum |= readed[0];
     portNum <<= 8;
     portNum |= readed[1];
 
-    addrType = readed[2];
+    const addrType = readed[2];
 
     switch (addrType) {
       case LOOPBACK:

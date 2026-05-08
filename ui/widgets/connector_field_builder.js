@@ -86,7 +86,7 @@ export function build(tabIndex, i, field) {
      * @returns {number} The tab index to assign to the next field.
      */
     nextTabIndex() {
-      let nextTabIndex = 0;
+      let nextTabIndex;
 
       if (this.field.readonly) {
         nextTabIndex = this.tabIndex;
