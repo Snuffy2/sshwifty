@@ -440,6 +440,7 @@ export default {
       default: "",
     },
   },
+  emits: ["max"],
   /**
    * @returns {{chart: Chart|null, previousMax: number}}
    *   `chart` — the active Chart controller (initialised in `mounted`).

@@ -24,10 +24,7 @@ export function bytePerSecondString(n) {
   }
 
   return (
-    Number(remain.toFixed(2)).toLocaleString() +
-    " <span>" +
-    nUnit +
-    "</span>"
+    Number(remain.toFixed(2)).toLocaleString() + " <span>" + nUnit + "</span>"
   );
 }
 
@@ -57,10 +54,7 @@ export function mSecondString(n) {
   }
 
   return (
-    Number(remain.toFixed(2)).toLocaleString() +
-    " <span>" +
-    nUnit +
-    "</span>"
+    Number(remain.toFixed(2)).toLocaleString() + " <span>" + nUnit + "</span>"
   );
 }
 

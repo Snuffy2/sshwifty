@@ -9,8 +9,8 @@ import {
   specialKeyHTML,
 } from "./formatters.js";
 
-describe("widget formatters", function() {
-  it("formats bytes per second using binary units", function() {
+describe("widget formatters", function () {
+  it("formats bytes per second using binary units", function () {
     assert.strictEqual(bytePerSecondString(512), "512 <span>byte/s</span>");
     assert.strictEqual(bytePerSecondString(1536), "1.5 <span>kib/s</span>");
     assert.strictEqual(
@@ -19,13 +19,13 @@ describe("widget formatters", function() {
     );
   });
 
-  it("formats millisecond values using time units", function() {
+  it("formats millisecond values using time units", function () {
     assert.strictEqual(mSecondString(-1), "??");
     assert.strictEqual(mSecondString(42), "42 <span>ms</span>");
     assert.strictEqual(mSecondString(1500), "1.5 <span>s</span>");
   });
 
-  it("formats special toolbar keys as keyboard icon HTML", function() {
+  it("formats special toolbar keys as keyboard icon HTML", function () {
     assert.strictEqual(
       specialKeyHTML("Ctrl+Alt+Del"),
       '<span class="tb-key-icon icon icon-keyboardkey1">Ctrl</span>+' +

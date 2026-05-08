@@ -42,6 +42,7 @@ export default {
       default: () => [],
     },
   },
+  emits: ["select"],
   methods: {
     /**
      * Emits the `select` event with the chosen connector descriptor.

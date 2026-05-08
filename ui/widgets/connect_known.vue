@@ -166,6 +166,7 @@ export default {
       default: () => [],
     },
   },
+  emits: ["select", "select-preset", "remove", "clear-session"],
   /**
    * @returns {{knownList: Array, reloaded: boolean, busy: boolean}}
    *   `knownList` — internal copy of knowns in reverse insertion order with copy-link state.
@@ -287,8 +288,8 @@ export default {
       ev.preventDefault();
 
       this.busy = true;
-      this.$set(known, "copying", true);
-      this.$set(known, "copyStatus", "Copying");
+      known.copying = true;
+      known.copyStatus = "Copying";
 
       let lnk = this.launcherBuilder(known.data);
 
@@ -296,18 +297,18 @@ export default {
         await navigator.clipboard.writeText(lnk);
 
         (() => {
-          this.$set(known, "copyStatus", "Copied!");
+          known.copyStatus = "Copied!";
         })();
       } catch (e) {
         (() => {
-          this.$set(known, "copyStatus", "Failed");
+          known.copyStatus = "Failed";
           ev.target.setAttribute("href", lnk);
         })();
       }
 
       setTimeout(() => {
-        this.$set(known, "copyStatus", "Copy link");
-        this.$set(known, "copying", false);
+        known.copyStatus = "Copy link";
+        known.copying = false;
       }, 2000);
 
       this.busy = false;

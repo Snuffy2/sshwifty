@@ -75,6 +75,7 @@ export default {
       default: "",
     },
   },
+  emits: ["current", "retap", "close"],
   watch: {
     tab(newVal) {
       this.switchTabTo(newVal);

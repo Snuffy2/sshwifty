@@ -88,6 +88,7 @@ export default {
       default: () => {},
     },
   },
+  emits: ["stopped", "warning", "info", "updated"],
   methods: {
     /**
      * Maps a screen UI identifier to a registered component name.

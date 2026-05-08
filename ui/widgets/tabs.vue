@@ -73,6 +73,7 @@ export default {
       default: "",
     },
   },
+  emits: ["current", "retap", "close", "list"],
   methods: {
     /**
      * Emits the `list` event with the current tabs array, signalling the parent

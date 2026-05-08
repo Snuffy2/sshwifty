@@ -149,6 +149,14 @@ export default {
       default: false,
     },
   },
+  emits: [
+    "display",
+    "connector-select",
+    "known-select",
+    "known-remove",
+    "preset-select",
+    "known-clear-session",
+  ],
   /**
    * @returns {{tab: string, canSelect: boolean}}
    *   `tab` — active panel: `"new"` or `"known"`.

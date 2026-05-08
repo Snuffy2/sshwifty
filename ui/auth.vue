@@ -100,6 +100,7 @@ export default {
       default: "",
     },
   },
+  emits: ["auth"],
   data() {
     return {
       submitting: false,

@@ -173,6 +173,7 @@ export default {
       },
     },
   },
+  emits: ["display"],
   /**
    * @returns {{inoutBoundMax: number, inboundMax: number, outboundMax: number}}
    *   `inboundMax` and `outboundMax` track the latest data maxima from each traffic chart.

@@ -350,6 +350,7 @@ export default {
       default: () => null,
     },
   },
+  emits: ["cancel", "done"],
   /**
    * @returns {{
    *   currentConnector: Object|null,

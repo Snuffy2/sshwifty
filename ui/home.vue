@@ -246,6 +246,7 @@ export default {
       default: () => null,
     },
   },
+  emits: ["navigate-to", "tab-opened", "tab-closed", "tab-updated"],
   data() {
     let history = home_history.build(this);
 
