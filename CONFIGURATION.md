@@ -157,7 +157,7 @@ as a starting point for your own configuration.
     },
     {
       "ListenInterface": "0.0.0.0",
-      "ListenPort": 8182,
+      "ListenPort": 8183,
       "InitialTimeout": 3
     }
   ],
