@@ -21,10 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-only
       <div class="counters">
         <div class="counter">
           <div class="name">Delay</div>
-          <div
-            class="value"
-            v-html="$options.filters.mSecondString(status.delay)"
-          ></div>
+          <div class="value" v-html="mSecondString(status.delay)"></div>
         </div>
       </div>
 
@@ -58,17 +55,14 @@ SPDX-License-Identifier: AGPL-3.0-only
       <div class="counters">
         <div class="counter">
           <div class="name">Inbound</div>
-          <div
-            class="value"
-            v-html="$options.filters.bytePerSecondString(status.inbound)"
-          ></div>
+          <div class="value" v-html="bytePerSecondString(status.inbound)"></div>
         </div>
 
         <div class="counter">
           <div class="name">Outbound</div>
           <div
             class="value"
-            v-html="$options.filters.bytePerSecondString(status.outbound)"
+            v-html="bytePerSecondString(status.outbound)"
           ></div>
         </div>
       </div>
@@ -137,6 +131,7 @@ import "./status.css";
 
 import Window from "./window.vue";
 import Chart from "./chart.vue";
+import { bytePerSecondString, mSecondString } from "./formatters.js";
 
 /**
  * @fileoverview Connection status overlay widget. Displays latency and
@@ -157,72 +152,6 @@ export default {
   components: {
     window: Window,
     chart: Chart,
-  },
-  filters: {
-    /**
-     * Formats a bytes-per-second value as a human-readable string with an
-     * appropriate binary unit (byte/s through tib/s), wrapped in an HTML
-     * `<span>` for the unit suffix.
-     *
-     * @param {number} n - Raw value in bytes per second.
-     * @returns {string} HTML string, e.g. `"1.23 <span>kib/s</span>"`.
-     */
-    bytePerSecondString(n) {
-      const bNames = ["byte/s", "kib/s", "mib/s", "gib/s", "tib/s"];
-      let remain = n,
-        nUnit = bNames[0];
-
-      for (let i in bNames) {
-        nUnit = bNames[i];
-
-        if (remain < 1024) {
-          break;
-        }
-
-        remain /= 1024;
-      }
-
-      return (
-        Number(remain.toFixed(2)).toLocaleString() +
-        " <span>" +
-        nUnit +
-        "</span>"
-      );
-    },
-    /**
-     * Formats a millisecond value as a human-readable string with an appropriate
-     * time unit (ms, s, or m), wrapped in an HTML `<span>` for the unit suffix.
-     * Returns `"??"` for negative values (i.e. unmeasured delay).
-     *
-     * @param {number} n - Latency value in milliseconds.
-     * @returns {string} HTML string, e.g. `"42.00 <span>ms</span>"`, or `"??"`.
-     */
-    mSecondString(n) {
-      if (n < 0) {
-        return "??";
-      }
-
-      const bNames = ["ms", "s", "m"];
-      let remain = n,
-        nUnit = bNames[0];
-
-      for (let i in bNames) {
-        nUnit = bNames[i];
-
-        if (remain < 1000) {
-          break;
-        }
-
-        remain /= 1000;
-      }
-
-      return (
-        Number(remain.toFixed(2)).toLocaleString() +
-        " <span>" +
-        nUnit +
-        "</span>"
-      );
-    },
   },
   props: {
     display: {
@@ -258,6 +187,24 @@ export default {
     };
   },
   methods: {
+    /**
+     * Formats a bytes-per-second value for display.
+     *
+     * @param {number} n - Raw value in bytes per second.
+     * @returns {string} HTML string containing the formatted value and unit.
+     */
+    bytePerSecondString(n) {
+      return bytePerSecondString(n);
+    },
+    /**
+     * Formats a millisecond value for display.
+     *
+     * @param {number} n - Latency value in milliseconds.
+     * @returns {string} HTML string containing the formatted value and unit, or "??".
+     */
+    mSecondString(n) {
+      return mSecondString(n);
+    },
     /**
      * Updates the tracked inbound maximum and recomputes the shared y-axis maximum.
      * Called when the inbound traffic chart emits a `max` event.
