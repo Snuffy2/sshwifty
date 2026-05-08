@@ -1,3 +1,7 @@
+// Copyright (C) 2019-2026 Ni Rui <ranqus@gmail.com>
+// Copyright (C) 2026 Snuffy2
+// SPDX-License-Identifier: AGPL-3.0-only
+
 // Package command implements the command dispatch layer that multiplexes
 // multiple logical streams over a single WebSocket connection. It defines the
 // wire protocol header format, the finite-state machine (FSM) that drives each

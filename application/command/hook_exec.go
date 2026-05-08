@@ -1,3 +1,7 @@
+// Copyright (C) 2019-2026 Ni Rui <ranqus@gmail.com>
+// Copyright (C) 2026 Snuffy2
+// SPDX-License-Identifier: AGPL-3.0-only
+
 // hook_exec.go implements ExecHook, which satisfies the Hook interface by
 // launching an external OS process. Hook parameters are injected as environment
 // variables prefixed with SSHWIFTY_HOOK_, while all existing SSHWIFTY_*

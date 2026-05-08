@@ -1,3 +1,7 @@
+// Copyright (C) 2019-2026 Ni Rui <ranqus@gmail.com>
+// Copyright (C) 2026 Snuffy2
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import globals from "globals";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
