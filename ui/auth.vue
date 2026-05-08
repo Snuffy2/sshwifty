@@ -79,7 +79,7 @@ export default {
        *   only when `binding.value` is truthy.
        * @returns {void}
        */
-      inserted(el, binding) {
+      mounted(el, binding) {
         if (!binding.value) {
           return;
         }
