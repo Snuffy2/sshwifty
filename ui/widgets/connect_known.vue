@@ -286,6 +286,7 @@ export default {
       }
 
       ev.preventDefault();
+      let target = ev.currentTarget;
 
       this.busy = true;
       known.copying = true;
@@ -297,17 +298,19 @@ export default {
         await navigator.clipboard.writeText(lnk);
 
         known.copyStatus = "Copied!";
-      } catch (e) {
+      } catch {
         known.copyStatus = "Failed";
-        ev.target.setAttribute("href", lnk);
+        if (target instanceof Element) {
+          target.setAttribute("href", lnk);
+        }
+      } finally {
+        this.busy = false;
       }
 
       setTimeout(() => {
         known.copyStatus = "Copy link";
         known.copying = false;
       }, 2000);
-
-      this.busy = false;
     },
     /**
      * Emits `remove` with the uid of the known remote to delete.

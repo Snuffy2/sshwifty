@@ -456,7 +456,7 @@ export default {
   },
   watch: {
     values: {
-      deep: 1,
+      deep: true,
       handler() {
         if (!this.enabled) {
           return;
