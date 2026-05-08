@@ -1,0 +1,21 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "dependencyDashboard": true,
+  "enabledManagers": [
+    "docker-compose",
+    "dockerfile",
+    "github-actions",
+    "gomod",
+    "npm"
+  ],
+  "labels": ["dependencies"],
+  "prConcurrentLimit": 10,
+  "packageRules": [
+    {
+      "description": "Mark workflow dependency updates for the repository labeler.",
+      "matchManagers": ["github-actions"],
+      "addLabels": ["github-workflows"]
+    }
+  ]
+}
