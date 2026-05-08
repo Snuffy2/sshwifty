@@ -18,7 +18,7 @@
 # operator files such as real config JSON are not accidentally baked into images.
 
 # Build the application binary
-FROM golang:1.26-bookworm AS builder
+FROM golang:1.26-trixie AS builder
 WORKDIR /src
 ARG SSHWIFTY_VERSION=dev
 RUN set -eux; \
