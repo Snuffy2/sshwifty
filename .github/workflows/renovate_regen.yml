@@ -1,0 +1,56 @@
+# Copyright (C) 2019-2026 Ni Rui <ranqus@gmail.com>
+# Copyright (C) 2026 Snuffy2
+# SPDX-License-Identifier: AGPL-3.0-only
+
+name: Renovate Regenerate Locks
+
+on:
+  push:
+    branches:
+      - renovate/*
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: renovate-regenerate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  regenerate:
+    if: startsWith(github.ref_name, 'renovate/')
+    name: Regenerate dependency lockfiles
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Update go.sum
+        run: go mod tidy
+
+      - name: Update package-lock.json
+        run: npm install --package-lock-only --ignore-scripts
+
+      - name: Commit and Push
+        uses: stefanzweifel/git-auto-commit-action@v7
+        with:
+          commit_message: "chore: regenerate dependency lockfiles"
+          file_pattern: go.mod go.sum package-lock.json
