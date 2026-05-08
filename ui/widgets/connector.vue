@@ -335,7 +335,7 @@ function buildEmptyCurrent() {
 export default {
   directives: {
     focus: {
-      inserted(el, binding) {
+      mounted(el, binding) {
         if (!binding.value) {
           return;
         }
