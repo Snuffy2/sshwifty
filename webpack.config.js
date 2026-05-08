@@ -306,6 +306,10 @@ export default {
             to: path.join(__dirname, ".tmp", "dist"),
           },
           {
+            from: path.join(__dirname, "CONFIGURATION.md"),
+            to: path.join(__dirname, ".tmp", "dist"),
+          },
+          {
             from: path.join(__dirname, "DEPENDENCIES.md"),
             to: path.join(__dirname, ".tmp", "dist"),
           },
