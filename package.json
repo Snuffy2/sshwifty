@@ -19,7 +19,6 @@
     "@xterm/xterm": "^6.0.0",
     "babel-loader": "^10.1.1",
     "buffer": "^6.0.3",
-    "clean-webpack-plugin": "^4.0.0",
     "copy-webpack-plugin": "^14.0.0",
     "css-loader": "^7.1.4",
     "css-minimizer-webpack-plugin": "^8.0.0",
@@ -58,7 +57,7 @@
   },
   "scripts": {
     "dev": "CGO_ENABLED=0 NODE_ENV=development webpack watch --mode=development --config=webpack.config.js",
-    "clean": "rm .tmp/ -rf || true",
+    "clean": "rm -rf .tmp/ || true",
     "generate": "npm run clean && CGO_ENABLED=0 NODE_ENV=production webpack build --mode=production --config=webpack.config.js",
     "build": "npm run generate && CGO_ENABLED=0 go build -ldflags \"-s -w -X github.com/Snuffy2/sshwifty/application.version=$(git describe --always --dirty='*' --tag)\"",
     "lint": "eslint \"ui/**/*.{js,vue}\"",
@@ -71,6 +70,15 @@
   "overrides": {
     "serialize-javascript": "^7.0.5",
     "diff": "^8.0.3",
-    "postcss": "^8.4.31"
+    "postcss": "^8.4.31",
+    "minimatch@3": {
+      "brace-expansion": "^1.1.14"
+    },
+    "minimatch@9": {
+      "brace-expansion": "^2.0.3"
+    },
+    "minimatch@10": {
+      "brace-expansion": "^5.0.5"
+    }
   }
 }

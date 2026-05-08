@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 
 # Build the build base environment
-FROM debian:latest AS base
+FROM golang:1.26.2-bookworm AS base
 RUN set -ex && \
     cd / && \
     echo '#!/bin/sh' > /try.sh && echo 'res=1; for i in $(seq 0 36); do $@; res=$?; [ $res -eq 0 ] && exit $res || sleep 10; done; exit $res' >> /try.sh && chmod +x /try.sh && \
@@ -13,7 +13,7 @@ RUN set -ex && \
     ([ -z "$HTTP_PROXY" ] || (echo "Acquire::http::Proxy \"$HTTP_PROXY\";" >> /etc/apt/apt.conf)) && \
     ([ -z "$HTTPS_PROXY" ] || (echo "Acquire::https::Proxy \"$HTTPS_PROXY\";" >> /etc/apt/apt.conf)) && \
     (echo "Acquire::Retries \"32\";" >> /etc/apt/apt.conf) && \
-    echo '#!/bin/sh' > /install.sh && echo 'apt-get -y update && apt-get -y install build-essential curl git nodejs npm golang-go' >> /install.sh && chmod +x /install.sh && \
+    echo '#!/bin/sh' > /install.sh && echo 'apt-get -y update && apt-get -y install build-essential curl git nodejs npm' >> /install.sh && chmod +x /install.sh && \
     /try.sh /install.sh && rm /install.sh && \
     ([ -z "$HTTP_PROXY" ] || (git config --global http.proxy "$HTTP_PROXY" && npm config set proxy "$HTTP_PROXY")) && \
     ([ -z "$HTTPS_PROXY" ] || (git config --global https.proxy "$HTTPS_PROXY" && npm config set https-proxy "$HTTPS_PROXY")) && \
@@ -32,7 +32,7 @@ RUN set -ex && \
     export DEBIAN_FRONTEND=noninteractive && \
     ls -l /tmp/.build/sshwifty && \
     /child.sh \
-        "cd /tmp/.build/sshwifty && echo '#!/bin/sh' > /npm_install.sh && echo \"npm install || (npm cache clean -f && rm ~/.npm/_* -rf && false)\" >> /npm_install.sh && chmod +x /npm_install.sh && /try.sh /npm_install.sh && rm /npm_install.sh" \
+        "cd /tmp/.build/sshwifty && echo '#!/bin/sh' > /npm_install.sh && echo \"npm ci || (npm cache clean -f && rm ~/.npm/_* -rf && false)\" >> /npm_install.sh && chmod +x /npm_install.sh && /try.sh /npm_install.sh && rm /npm_install.sh" \
         'cd /tmp/.build/sshwifty && /try.sh go mod download'
 
 # Main building environment

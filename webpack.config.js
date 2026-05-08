@@ -14,7 +14,6 @@ import { VueLoaderPlugin  } from "vue-loader";
 import WebpackFavicons from "webpack-favicons";
 import CopyPlugin from "copy-webpack-plugin";
 import TerserPlugin from "terser-webpack-plugin";
-import { CleanWebpackPlugin } from "clean-webpack-plugin";
 import ESLintPlugin from "eslint-webpack-plugin";
 
 const __dirname = path.resolve(path.dirname(''));
@@ -450,7 +449,6 @@ export default {
       plugins.push(new webpack.optimize.AggressiveMergingPlugin({
         minSizeReduce: 1.5
       }));
-      plugins.push(new CleanWebpackPlugin());
     }
     return plugins;
   })(),
