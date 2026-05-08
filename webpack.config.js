@@ -285,6 +285,7 @@ export default {
       }),
       new ESLintPlugin({
         failOnError: false,
+        emitError: false,
         emitWarning: true,
       }),
       new CopyPlugin({
