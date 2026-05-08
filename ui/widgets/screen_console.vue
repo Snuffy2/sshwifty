@@ -93,6 +93,7 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { FitAddon } from "@xterm/addon-fit";
+import { markRaw } from "vue";
 import { isNumber } from "../commands/common.js";
 import { consoleScreenKeys } from "./screen_console_keys.js";
 import { specialKeyHTML } from "./formatters.js";
@@ -199,21 +200,23 @@ class Term {
     this.control = control;
     this.closed = false;
     this.fontSize = termDefaultFontSize;
-    this.term = new Terminal({
-      allowProposedApi: true,
-      allowTransparency: false,
-      cursorBlink: true,
-      cursorStyle: "block",
-      fontFamily: termTypeFaces + ", " + termFallbackTypeFace,
-      fontSize: this.fontSize,
-      letterSpacing: 1,
-      lineHeight: 1.3,
-      logLevel: process.env.NODE_ENV === "development" ? "info" : "off",
-      theme: {
-        background: this.control.color(),
-      },
-    });
-    this.fit = new FitAddon();
+    this.term = markRaw(
+      new Terminal({
+        allowProposedApi: true,
+        allowTransparency: false,
+        cursorBlink: true,
+        cursorStyle: "block",
+        fontFamily: termTypeFaces + ", " + termFallbackTypeFace,
+        fontSize: this.fontSize,
+        letterSpacing: 1,
+        lineHeight: 1.3,
+        logLevel: process.env.NODE_ENV === "development" ? "info" : "off",
+        theme: {
+          background: this.control.color(),
+        },
+      }),
+    );
+    this.fit = markRaw(new FitAddon());
 
     this.term.onData((data) => {
       if (this.closed) {
@@ -307,11 +310,11 @@ class Term {
     }
     this.term.open(root);
     this.term.loadAddon(this.fit);
-    this.term.loadAddon(new WebLinksAddon());
-    this.term.loadAddon(new Unicode11Addon());
+    this.term.loadAddon(markRaw(new WebLinksAddon()));
+    this.term.loadAddon(markRaw(new Unicode11Addon()));
     try {
       if (webglSupported()) {
-        this.term.loadAddon(new WebglAddon());
+        this.term.loadAddon(markRaw(new WebglAddon()));
       }
     } catch {
       // ignore: WebGL addon failed to load
@@ -531,7 +534,7 @@ export default {
   data() {
     return {
       screenKeys: consoleScreenKeys,
-      term: new Term(this.control),
+      term: markRaw(new Term(this.control)),
       typefaces: termTypeFaces,
       runner: null,
       eventHandlers: {

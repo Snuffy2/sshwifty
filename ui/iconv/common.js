@@ -45,7 +45,7 @@ const defaultCharset = "UTF-8";
  * https://github.com/pillarjs/iconv-lite/wiki/Supported-Encodings
  *
  */
-export const charset = [defaultCharset.toLocaleLowerCase()].concat(
+export const charset = [defaultCharset.toLowerCase()].concat(
   [
     // Unicode
     defaultCharset,
@@ -101,7 +101,7 @@ export const charset = [defaultCharset.toLocaleLowerCase()].concat(
     "koi8-ru",
     "koi8-t",
   ]
-    .map((v) => v.toLocaleLowerCase())
+    .map((v) => v.toLowerCase())
     .filter((v) => iconv.encodingExists(v))
     .sort(),
 );

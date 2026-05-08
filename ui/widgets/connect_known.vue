@@ -60,7 +60,7 @@ SPDX-License-Identifier: AGPL-3.0-only
               >
                 {{ known.data.title }}
               </h4>
-              Last: {{ known.data.last.toLocaleString() }}
+              Last: {{ known.data.last.toLocaleString("en-US") }}
             </div>
           </li>
         </ul>

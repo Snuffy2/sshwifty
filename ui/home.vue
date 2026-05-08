@@ -134,6 +134,8 @@ SPDX-License-Identifier: AGPL-3.0-only
  */
 import "./home.css";
 
+import { markRaw } from "vue";
+
 import ConnectWidget from "./widgets/connect.vue";
 import StatusWidget from "./widgets/status.vue";
 import Connector from "./widgets/connector.vue";
@@ -259,15 +261,15 @@ export default {
       },
       socket: home_socket.build(this),
       connector: {
-        historyRec: history,
+        historyRec: markRaw(history),
         connector: null,
-        connectors: this.commands.all(),
+        connectors: markRaw(this.commands.all()),
         inputting: false,
         acquired: false,
         busy: false,
         knowns: history.all(),
       },
-      presets: this.commands.mergePresets(this.presetData),
+      presets: markRaw(this.commands.mergePresets(this.presetData)),
       tab: {
         current: -1,
         lastID: 0,
@@ -457,14 +459,16 @@ export default {
           id: connector.id(),
           name: connector.name(),
           description: connector.description(),
-          wizard: connector.wizard(
-            stream,
-            self.controls,
-            self.connector.historyRec,
-            presets.emptyPreset(),
-            null,
-            false,
-            () => {},
+          wizard: markRaw(
+            connector.wizard(
+              stream,
+              self.controls,
+              self.connector.historyRec,
+              presets.emptyPreset(),
+              null,
+              false,
+              () => {},
+            ),
           ),
         };
 
@@ -486,14 +490,16 @@ export default {
           id: preset.command.id(),
           name: preset.command.name(),
           description: preset.command.description(),
-          wizard: preset.command.wizard(
-            stream,
-            self.controls,
-            self.connector.historyRec,
-            preset.preset,
-            null,
-            [],
-            () => {},
+          wizard: markRaw(
+            preset.command.wizard(
+              stream,
+              self.controls,
+              self.connector.historyRec,
+              preset.preset,
+              null,
+              [],
+              () => {},
+            ),
           ),
         };
 
@@ -547,16 +553,18 @@ export default {
           id: connector.id(),
           name: connector.name(),
           description: connector.description(),
-          wizard: connector.execute(
-            stream,
-            self.controls,
-            self.connector.historyRec,
-            known.data,
-            known.session,
-            known.keptSessions,
-            () => {
-              self.connector.knowns = self.connector.historyRec.all();
-            },
+          wizard: markRaw(
+            connector.execute(
+              stream,
+              self.controls,
+              self.connector.historyRec,
+              known.data,
+              known.session,
+              known.keptSessions,
+              () => {
+                self.connector.knowns = self.connector.historyRec.all();
+              },
+            ),
           ),
         };
 
@@ -617,16 +625,18 @@ export default {
           id: connector.id(),
           name: connector.name(),
           description: connector.description(),
-          wizard: connector.launch(
-            stream,
-            this.controls,
-            this.connector.historyRec,
-            ll.query,
-            (n) => {
-              self.connector.knowns = self.connector.historyRec.all();
+          wizard: markRaw(
+            connector.launch(
+              stream,
+              this.controls,
+              this.connector.historyRec,
+              ll.query,
+              (n) => {
+                self.connector.knowns = self.connector.historyRec.all();
 
-              done(n.data().success);
-            },
+                done(n.data().success);
+              },
+            ),
           ),
         };
 
@@ -739,7 +749,7 @@ export default {
           id: this.tab.lastID++,
           name: data.name,
           info: data.info,
-          control: data.control,
+          control: markRaw(data.control),
           ui: data.ui,
           toolbar: false,
           indicator: {
