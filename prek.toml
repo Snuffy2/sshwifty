@@ -46,6 +46,10 @@ entry = "gofmt -w"
 language = "system"
 types = ["go"]
 
+# The "eslint" and "testonly" hooks below shell out to `npm`, so Node.js and
+# npm must be available on the host. CI installs them via actions/setup-node
+# in .github/workflows/linters.yml; local contributors need them installed
+# manually.
 [[repos.hooks]]
 id = "eslint"
 name = "eslint"
