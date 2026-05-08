@@ -206,7 +206,7 @@ function startApp(rootEl) {
       window.addEventListener("resize", self.viewPortUpdaters.dimResizer);
     },
     beforeDestroy() {
-      window.removeEventListener("resize", self.viewPortUpdaters.dimResizer);
+      window.removeEventListener("resize", this.viewPortUpdaters.dimResizer);
     },
     methods: {
       /**
@@ -254,13 +254,8 @@ function startApp(rootEl) {
         const enc = new TextEncoder(),
           rTime = Number(Math.trunc(new Date().getTime() / 100000));
 
-        var finalKey = "";
-
-        if (privateKey.length <= 0) {
-          finalKey = "DEFAULT VERIFY KEY";
-        } else {
-          finalKey = privateKey;
-        }
+        const finalKey =
+          privateKey.length <= 0 ? "DEFAULT VERIFY KEY" : privateKey;
 
         return new Uint8Array(
           await cipher.hmac512(enc.encode(finalKey), enc.encode(rTime)),

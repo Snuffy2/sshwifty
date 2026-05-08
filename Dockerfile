@@ -2,57 +2,45 @@
 # Copyright (C) 2026 Snuffy2
 # SPDX-License-Identifier: AGPL-3.0-only
 
-# Build the build base environment
-FROM debian:latest AS base
-RUN set -ex && \
-    cd / && \
-    echo '#!/bin/sh' > /try.sh && echo 'res=1; for i in $(seq 0 36); do $@; res=$?; [ $res -eq 0 ] && exit $res || sleep 10; done; exit $res' >> /try.sh && chmod +x /try.sh && \
-    echo '#!/bin/sh' > /child.sh && echo 'cpid=""; ret=0; i=0; for c in "$@"; do ( (((((eval "$c"; echo $? >&3) | sed "s/^/|-($i) /" >&4) 2>&1 | sed "s/^/|-($i)!/" >&2) 3>&1) | (read xs; exit $xs)) 4>&1) & ppid=$!; cpid="$cpid $ppid"; echo "+ Child $i (PID $ppid): $c ..."; i=$((i+1)); done; for c in $cpid; do wait $c; cret=$?; [ $cret -eq 0 ] && continue; echo "* Child PID $c has failed." >&2; ret=$cret; done; exit $ret' >> /child.sh && chmod +x /child.sh && \
-    export PATH=$PATH:/ && \
-    export DEBIAN_FRONTEND=noninteractive && \
-    ([ -z "$HTTP_PROXY" ] || (echo "Acquire::http::Proxy \"$HTTP_PROXY\";" >> /etc/apt/apt.conf)) && \
-    ([ -z "$HTTPS_PROXY" ] || (echo "Acquire::https::Proxy \"$HTTPS_PROXY\";" >> /etc/apt/apt.conf)) && \
-    (echo "Acquire::Retries \"32\";" >> /etc/apt/apt.conf) && \
-    echo '#!/bin/sh' > /install.sh && echo 'apt-get -y update && apt-get -y install build-essential curl git nodejs npm golang-go' >> /install.sh && chmod +x /install.sh && \
-    /try.sh /install.sh && rm /install.sh && \
-    ([ -z "$HTTP_PROXY" ] || (git config --global http.proxy "$HTTP_PROXY" && npm config set proxy "$HTTP_PROXY")) && \
-    ([ -z "$HTTPS_PROXY" ] || (git config --global https.proxy "$HTTPS_PROXY" && npm config set https-proxy "$HTTPS_PROXY")) && \
-    export PATH=$PATH:"$(go env GOPATH)/bin" && \
-    echo '#!/bin/sh' > /install.sh && echo "(npm install -g n && n stable) || (npm cache clean -f && false)" >> /install.sh && chmod +x /install.sh && /try.sh /install.sh && rm /install.sh && \
-    git version && \
-    go version && \
-    npm version
+# Sshwifty is built as a static Go binary, but the production build also needs
+# Node because `npm run build` first runs Webpack and Webpack invokes
+# `go generate ./...` to embed the generated frontend assets into Go source.
+#
+# The builder stage therefore starts from the official Go image and installs
+# Node 24 for the frontend toolchain. It installs npm and Go dependencies before
+# copying the full source tree so Docker can reuse those dependency layers when
+# only application code changes.
+#
+# The runtime stage is Alpine and contains only the compiled `/sshwifty` binary,
+# a small entrypoint wrapper for optional Docker TLS environment variables, and a
+# curated source bundle under `/sshwifty-src` for license/source availability.
+# The source bundle is intentionally explicit instead of `COPY .` so local
+# operator files such as real config JSON are not accidentally baked into images.
 
-# Build the base environment for application libraries
-FROM base AS libbase
-COPY . /tmp/.build/sshwifty
+# Build the application binary
+FROM golang:1.26-bookworm AS builder
+WORKDIR /src
+ARG SSHWIFTY_VERSION=dev
+RUN set -eux; \
+    export DEBIAN_FRONTEND=noninteractive; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends npm; \
+    npm install -g n; \
+    n 24; \
+    apt-get clean; \
+    rm -rf /var/lib/apt/lists/*
+COPY go.mod go.sum package.json package-lock.json ./
 RUN set -ex && \
-    cd / && \
-    export PATH=$PATH:/ && \
-    export DEBIAN_FRONTEND=noninteractive && \
-    ls -l /tmp/.build/sshwifty && \
-    /child.sh \
-        "cd /tmp/.build/sshwifty && echo '#!/bin/sh' > /npm_install.sh && echo \"npm install || (npm cache clean -f && rm ~/.npm/_* -rf && false)\" >> /npm_install.sh && chmod +x /npm_install.sh && /try.sh /npm_install.sh && rm /npm_install.sh" \
-        'cd /tmp/.build/sshwifty && /try.sh go mod download'
-
-# Main building environment
-FROM libbase AS builder
+    npm ci && \
+    go mod download
+COPY . .
 RUN set -ex && \
-    cd / && \
-    export PATH=$PATH:/ && \
-    ([ -z "$HTTP_PROXY" ] || (git config --global http.proxy "$HTTP_PROXY" && npm config set proxy "$HTTP_PROXY")) && \
-    ([ -z "$HTTPS_PROXY" ] || (git config --global https.proxy "$HTTPS_PROXY" && npm config set https-proxy "$HTTPS_PROXY")) && \
-    (cd /tmp/.build/sshwifty && npm run build && mv ./sshwifty /)
+    SSHWIFTY_VERSION="$SSHWIFTY_VERSION" npm run build && \
+    mv ./sshwifty /
 
 # Build the final image for running
-FROM alpine:latest
-ENV SSHWIFTY_HOSTNAME= \
-    SSHWIFTY_SHAREDKEY= \
-    SSHWIFTY_DIALTIMEOUT=10 \
-    SSHWIFTY_SOCKS5= \
-    SSHWIFTY_SOCKS5_USER= \
-    SSHWIFTY_SOCKS5_PASSWORD= \
-    SSHWIFTY_HOOK_BEFORE_CONNECTING= \
+FROM alpine:3.22
+ENV SSHWIFTY_DIALTIMEOUT=10 \
     SSHWIFTY_HOOKTIMEOUT=30 \
     SSHWIFTY_LISTENINTERFACE=0.0.0.0 \
     SSHWIFTY_LISTENPORT=8182 \
@@ -61,20 +49,28 @@ ENV SSHWIFTY_HOSTNAME= \
     SSHWIFTY_WRITETIMEOUT=0 \
     SSHWIFTY_HEARTBEATTIMEOUT=0 \
     SSHWIFTY_READDELAY=0 \
-    SSHWIFTY_WRITEELAY=0 \
-    SSHWIFTY_TLSCERTIFICATEFILE= \
-    SSHWIFTY_TLSCERTIFICATEKEYFILE= \
-    SSHWIFTY_DOCKER_TLSCERT= \
-    SSHWIFTY_DOCKER_TLSCERTKEY= \
-    SSHWIFTY_PRESETS= \
-    SSHWIFTY_SERVERMESSAGE= \
-    SSHWIFTY_ONLYALLOWPRESETREMOTES=
+    SSHWIFTY_WRITEDELAY=0
 COPY --from=builder /sshwifty /
-COPY . /sshwifty-src
+COPY application /sshwifty-src/application
+COPY ui /sshwifty-src/ui
+COPY LICENSE.md README.md CONFIGURATION.md DEPENDENCIES.md /sshwifty-src/
+COPY go.mod go.sum package.json package-lock.json /sshwifty-src/
+COPY sshwifty.go webpack.config.js babel.config.cjs eslint.config.mjs /sshwifty-src/
+COPY preset.example.json sshwifty.conf.example.json /sshwifty-src/
 RUN set -ex && \
     adduser -D sshwifty && \
     chmod +x /sshwifty && \
-    echo '#!/bin/sh' > /sshwifty.sh && echo '([ -z "$SSHWIFTY_DOCKER_TLSCERT" ] || echo "$SSHWIFTY_DOCKER_TLSCERT" > /tmp/cert); ([ -z "$SSHWIFTY_DOCKER_TLSCERTKEY" ] || echo "$SSHWIFTY_DOCKER_TLSCERTKEY" > /tmp/certkey); if [ -f "/tmp/cert" ] && [ -f "/tmp/certkey" ]; then SSHWIFTY_TLSCERTIFICATEFILE=/tmp/cert SSHWIFTY_TLSCERTIFICATEKEYFILE=/tmp/certkey /sshwifty; else /sshwifty; fi;' >> /sshwifty.sh && chmod +x /sshwifty.sh
+    printf '%s\n' \
+        '#!/bin/sh' \
+        'set -e' \
+        '[ -z "$SSHWIFTY_DOCKER_TLSCERT" ] || { printf "%s" "$SSHWIFTY_DOCKER_TLSCERT" > /tmp/cert && chmod 600 /tmp/cert; }' \
+        '[ -z "$SSHWIFTY_DOCKER_TLSCERTKEY" ] || { printf "%s" "$SSHWIFTY_DOCKER_TLSCERTKEY" > /tmp/certkey && chmod 600 /tmp/certkey; }' \
+        'if [ -f "/tmp/cert" ] && [ -f "/tmp/certkey" ]; then' \
+        '    exec env SSHWIFTY_TLSCERTIFICATEFILE=/tmp/cert SSHWIFTY_TLSCERTIFICATEKEYFILE=/tmp/certkey /sshwifty' \
+        'fi' \
+        'exec /sshwifty' \
+        > /sshwifty.sh && \
+    chmod +x /sshwifty.sh
 USER sshwifty
 EXPOSE 8182
 ENTRYPOINT [ "/sshwifty.sh" ]

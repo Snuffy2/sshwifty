@@ -259,8 +259,8 @@ export class Streams {
    */
   async handleControl(rd) {
     let controlType = await reader.readOne(rd),
-      delay = 0,
-      echoBytes = null;
+      delay,
+      echoBytes;
 
     switch (controlType[0]) {
       case header.CONTROL_ECHO:
