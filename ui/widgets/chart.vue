@@ -13,6 +13,8 @@ SPDX-License-Identifier: AGPL-3.0-only
 <script>
 /* eslint vue/attribute-hyphenation: 0 */
 
+import { markRaw } from "vue";
+
 /**
  * @fileoverview SVG bar-chart widget used to visualise time-series metrics
  * (delay, inbound/outbound traffic) in the connection status panel.
@@ -479,11 +481,8 @@ export default {
     },
   },
   mounted() {
-    this.chart = new Chart(
-      this.$el,
-      this.width,
-      this.height,
-      buildDrawer(this.type),
+    this.chart = markRaw(
+      new Chart(this.$el, this.width, this.height, buildDrawer(this.type)),
     );
   },
   beforeUnmount() {

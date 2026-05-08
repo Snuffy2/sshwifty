@@ -13,8 +13,8 @@ export function bytePerSecondString(n) {
   let remain = n,
     nUnit = bNames[0];
 
-  for (let i in bNames) {
-    nUnit = bNames[i];
+  for (const unit of bNames) {
+    nUnit = unit;
 
     if (remain < 1024) {
       break;
@@ -24,7 +24,10 @@ export function bytePerSecondString(n) {
   }
 
   return (
-    Number(remain.toFixed(2)).toLocaleString() + " <span>" + nUnit + "</span>"
+    Number(remain.toFixed(2)).toLocaleString("en-US") +
+    " <span>" +
+    nUnit +
+    "</span>"
   );
 }
 
@@ -43,8 +46,8 @@ export function mSecondString(n) {
   let remain = n,
     nUnit = bNames[0];
 
-  for (let i in bNames) {
-    nUnit = bNames[i];
+  for (const unit of bNames) {
+    nUnit = unit;
 
     if (remain < 1000) {
       break;
@@ -54,7 +57,10 @@ export function mSecondString(n) {
   }
 
   return (
-    Number(remain.toFixed(2)).toLocaleString() + " <span>" + nUnit + "</span>"
+    Number(remain.toFixed(2)).toLocaleString("en-US") +
+    " <span>" +
+    nUnit +
+    "</span>"
   );
 }
 

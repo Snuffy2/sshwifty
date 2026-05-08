@@ -296,14 +296,10 @@ export default {
       try {
         await navigator.clipboard.writeText(lnk);
 
-        (() => {
-          known.copyStatus = "Copied!";
-        })();
+        known.copyStatus = "Copied!";
       } catch (e) {
-        (() => {
-          known.copyStatus = "Failed";
-          ev.target.setAttribute("href", lnk);
-        })();
+        known.copyStatus = "Failed";
+        ev.target.setAttribute("href", lnk);
       }
 
       setTimeout(() => {

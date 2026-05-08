@@ -5,7 +5,7 @@
 Sshwifty is a web-based SSH and Telnet client. The repository combines:
 
 - A Go backend in `sshwifty.go` and `application/`.
-- A Vue 2 frontend in `ui/`.
+- A Vue 3 frontend in `ui/`.
 - A Webpack build pipeline in `webpack.config.js`.
 - Docker packaging in `Dockerfile` and `docker-compose.example.yaml`.
 - GitHub Actions automation under `.github/`.
@@ -103,8 +103,9 @@ requests, and manual dispatch.
 - Match existing Go package structure and frontend component patterns.
 - Add or update tests for changed behavior.
 - Keep Go code formatted with `gofmt`.
-- Keep frontend code compatible with Vue 2.7 and the current Webpack/Babel
-  setup.
+- Keep frontend code compatible with Vue 3 and the current Webpack/Babel setup.
+  The supported Vue dependency set is `vue` 3.x, `@vue/compiler-sfc` 3.x, and
+  `vue-loader` 17.x; do not reintroduce `vue-template-compiler`.
 - Use existing command, stream, and connector abstractions instead of
   duplicating protocol logic.
 - Treat hook commands and connection inputs as untrusted; avoid command-line
@@ -113,7 +114,7 @@ requests, and manual dispatch.
 
 ## Frontend Notes
 
-The UI uses Vue single-file components and plain CSS under `ui/`. Tests live
+The UI uses Vue 3 single-file components and plain CSS under `ui/`. Tests live
 beside frontend modules as `*_test.js` and run under Mocha with Babel
 registration.
 

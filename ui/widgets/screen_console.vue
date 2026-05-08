@@ -569,6 +569,7 @@ export default {
     await this.init();
   },
   beforeUnmount() {
+    this.term.destroy();
     this.deinit();
   },
   methods: {
@@ -578,9 +579,7 @@ export default {
      * @param {string} key - Human-readable key label.
      * @returns {string} HTML string safe for the existing `v-html` usage.
      */
-    specialKeyHTML(key) {
-      return specialKeyHTML(key);
-    },
+    specialKeyHTML,
     /**
      * Attempts to load all listed remote font families (normal and bold weights)
      * using FontFaceObserver and returns a promise that resolves when all are ready.
@@ -775,6 +774,9 @@ export default {
             self.$emit("updated");
           }
         } catch (e) {
+          if (self.term.destroyed()) {
+            return;
+          }
           self.$emit("stopped", e);
         }
       })();

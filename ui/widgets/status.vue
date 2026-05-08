@@ -194,18 +194,14 @@ export default {
      * @param {number} n - Raw value in bytes per second.
      * @returns {string} HTML string containing the formatted value and unit.
      */
-    bytePerSecondString(n) {
-      return bytePerSecondString(n);
-    },
+    bytePerSecondString,
     /**
      * Formats a millisecond value for display.
      *
      * @param {number} n - Latency value in milliseconds.
      * @returns {string} HTML string containing the formatted value and unit, or "??".
      */
-    mSecondString(n) {
-      return mSecondString(n);
-    },
+    mSecondString,
     /**
      * Updates the tracked inbound maximum and recomputes the shared y-axis maximum.
      * Called when the inbound traffic chart emits a `max` event.
