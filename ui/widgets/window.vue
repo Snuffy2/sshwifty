@@ -56,6 +56,7 @@ export default {
       default: "",
     },
   },
+  emits: ["display"],
   /**
    * @returns {{displaying: boolean}}
    *   `displaying` — internal visibility flag; true while the overlay is shown.

@@ -41,6 +41,7 @@ export default {
       default: 0,
     },
   },
+  emits: ["switch"],
   methods: {
     /**
      * Emits the `switch` event with the target tab name.

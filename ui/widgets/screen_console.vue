@@ -76,7 +76,7 @@ SPDX-License-Identifier: AGPL-3.0-only
                 class="tb-item"
                 href="javascript:;"
                 @click="sendSpecialKey(key[1])"
-                v-html="$options.filters.specialKeyHTML(key[0])"
+                v-html="specialKeyHTML(key[0])"
               ></a>
             </li>
           </ul>
@@ -93,8 +93,10 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { FitAddon } from "@xterm/addon-fit";
+import { markRaw } from "vue";
 import { isNumber } from "../commands/common.js";
 import { consoleScreenKeys } from "./screen_console_keys.js";
+import { specialKeyHTML } from "./formatters.js";
 
 import "./screen_console.css";
 import "@xterm/xterm/css/xterm.css";
@@ -198,21 +200,23 @@ class Term {
     this.control = control;
     this.closed = false;
     this.fontSize = termDefaultFontSize;
-    this.term = new Terminal({
-      allowProposedApi: true,
-      allowTransparency: false,
-      cursorBlink: true,
-      cursorStyle: "block",
-      fontFamily: termTypeFaces + ", " + termFallbackTypeFace,
-      fontSize: this.fontSize,
-      letterSpacing: 1,
-      lineHeight: 1.3,
-      logLevel: process.env.NODE_ENV === "development" ? "info" : "off",
-      theme: {
-        background: this.control.color(),
-      },
-    });
-    this.fit = new FitAddon();
+    this.term = markRaw(
+      new Terminal({
+        allowProposedApi: true,
+        allowTransparency: false,
+        cursorBlink: true,
+        cursorStyle: "block",
+        fontFamily: termTypeFaces + ", " + termFallbackTypeFace,
+        fontSize: this.fontSize,
+        letterSpacing: 1,
+        lineHeight: 1.3,
+        logLevel: process.env.NODE_ENV === "development" ? "info" : "off",
+        theme: {
+          background: this.control.color(),
+        },
+      }),
+    );
+    this.fit = markRaw(new FitAddon());
 
     this.term.onData((data) => {
       if (this.closed) {
@@ -306,11 +310,11 @@ class Term {
     }
     this.term.open(root);
     this.term.loadAddon(this.fit);
-    this.term.loadAddon(new WebLinksAddon());
-    this.term.loadAddon(new Unicode11Addon());
+    this.term.loadAddon(markRaw(new WebLinksAddon()));
+    this.term.loadAddon(markRaw(new Unicode11Addon()));
     try {
       if (webglSupported()) {
-        this.term.loadAddon(new WebglAddon());
+        this.term.loadAddon(markRaw(new WebglAddon()));
       }
     } catch {
       // ignore: WebGL addon failed to load
@@ -490,23 +494,6 @@ class Term {
 // like to keep it that way.
 
 export default {
-  filters: {
-    /**
-     * Converts a key label string into an HTML fragment that wraps each
-     * segment of a `+`-delimited chord in a keyboard-key icon `<span>`.
-     *
-     * Example: `"Ctrl+C"` → `<span ...>Ctrl</span>+<span ...>C</span>`.
-     *
-     * @param {string} key - Human-readable key label, e.g. `"Ctrl+Alt+Del"`.
-     * @returns {string} HTML string safe for use with `v-html`.
-     */
-    specialKeyHTML(key) {
-      const head = '<span class="tb-key-icon icon icon-keyboardkey1">',
-        tail = "</span>";
-
-      return head + key.split("+").join(tail + "+" + head) + tail;
-    },
-  },
   props: {
     active: {
       type: Boolean,
@@ -529,6 +516,7 @@ export default {
       default: () => null,
     },
   },
+  emits: ["stopped", "warning", "info", "updated"],
   /**
    * @returns {{
    *   screenKeys: Array,
@@ -546,7 +534,7 @@ export default {
   data() {
     return {
       screenKeys: consoleScreenKeys,
-      term: new Term(this.control),
+      term: markRaw(new Term(this.control)),
       typefaces: termTypeFaces,
       runner: null,
       eventHandlers: {
@@ -583,10 +571,18 @@ export default {
   async mounted() {
     await this.init();
   },
-  beforeDestroy() {
+  beforeUnmount() {
+    this.term.destroy();
     this.deinit();
   },
   methods: {
+    /**
+     * Converts a key label string into keyboard-icon HTML.
+     *
+     * @param {string} key - Human-readable key label.
+     * @returns {string} HTML string safe for the existing `v-html` usage.
+     */
+    specialKeyHTML,
     /**
      * Attempts to load all listed remote font families (normal and bold weights)
      * using FontFaceObserver and returns a promise that resolves when all are ready.
@@ -781,6 +777,9 @@ export default {
             self.$emit("updated");
           }
         } catch (e) {
+          if (self.term.destroyed()) {
+            return;
+          }
           self.$emit("stopped", e);
         }
       })();

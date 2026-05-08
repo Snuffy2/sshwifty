@@ -70,6 +70,7 @@ export default {
       default: "",
     },
   },
+  emits: ["display", "current", "retap", "close"],
   watch: {
     tabs(newV) {
       if (newV.length > 0) {

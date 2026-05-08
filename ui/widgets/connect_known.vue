@@ -60,7 +60,7 @@ SPDX-License-Identifier: AGPL-3.0-only
               >
                 {{ known.data.title }}
               </h4>
-              Last: {{ known.data.last.toLocaleString() }}
+              Last: {{ known.data.last.toLocaleString("en-US") }}
             </div>
           </li>
         </ul>
@@ -166,6 +166,7 @@ export default {
       default: () => [],
     },
   },
+  emits: ["select", "select-preset", "remove", "clear-session"],
   /**
    * @returns {{knownList: Array, reloaded: boolean, busy: boolean}}
    *   `knownList` — internal copy of knowns in reverse insertion order with copy-link state.
@@ -285,32 +286,31 @@ export default {
       }
 
       ev.preventDefault();
+      let target = ev.currentTarget;
 
       this.busy = true;
-      this.$set(known, "copying", true);
-      this.$set(known, "copyStatus", "Copying");
+      known.copying = true;
+      known.copyStatus = "Copying";
 
       let lnk = this.launcherBuilder(known.data);
 
       try {
         await navigator.clipboard.writeText(lnk);
 
-        (() => {
-          this.$set(known, "copyStatus", "Copied!");
-        })();
-      } catch (e) {
-        (() => {
-          this.$set(known, "copyStatus", "Failed");
-          ev.target.setAttribute("href", lnk);
-        })();
+        known.copyStatus = "Copied!";
+      } catch {
+        known.copyStatus = "Failed";
+        if (target instanceof Element) {
+          target.setAttribute("href", lnk);
+        }
+      } finally {
+        this.busy = false;
       }
 
       setTimeout(() => {
-        this.$set(known, "copyStatus", "Copy link");
-        this.$set(known, "copying", false);
+        known.copyStatus = "Copy link";
+        known.copying = false;
       }, 2000);
-
-      this.busy = false;
     },
     /**
      * Emits `remove` with the uid of the known remote to delete.

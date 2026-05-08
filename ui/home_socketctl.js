@@ -230,7 +230,7 @@ export function build(ctx) {
 
       let avgDelay = Math.round(delayPerInterval / delaySamples);
 
-      this.message = Number(avgDelay).toLocaleString() + "ms";
+      this.message = Number(avgDelay).toLocaleString("en-US") + "ms";
       this.status.delay = avgDelay;
 
       if (avgDelay < 30) {

@@ -335,7 +335,7 @@ function buildEmptyCurrent() {
 export default {
   directives: {
     focus: {
-      inserted(el, binding) {
+      mounted(el, binding) {
         if (!binding.value) {
           return;
         }
@@ -350,6 +350,7 @@ export default {
       default: () => null,
     },
   },
+  emits: ["cancel", "done"],
   /**
    * @returns {{
    *   currentConnector: Object|null,
@@ -401,7 +402,7 @@ export default {
     this.runWizard();
     this.cancelled = false;
   },
-  async beforeDestroy() {
+  async beforeUnmount() {
     try {
       await this.closeWizard();
     } catch (e) {

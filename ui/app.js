@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Snuffy2
 // SPDX-License-Identifier: AGPL-3.0-only
 
-import Vue from "vue";
+import { createApp, markRaw } from "vue";
 import "./app.css";
 import Auth from "./auth.vue";
 import { Colors as ControlColors } from "./commands/color.js";
@@ -122,8 +122,7 @@ function startApp(rootEl) {
     ).slice(0, 16);
   }
 
-  new Vue({
-    el: rootEl,
+  createApp({
     components: {
       loading: Loading,
       auth: Auth,
@@ -145,17 +144,21 @@ function startApp(rootEl) {
         key: "",
         serverMessage: "",
         presetData: {
-          presets: new Presets([]),
+          presets: markRaw(new Presets([])),
           restricted: false,
         },
         authErr: "",
         loadErr: "",
         socket: null,
-        controls: new Controls([
-          new telnetctl.Telnet(uiControlColors),
-          new sshctl.SSH(uiControlColors),
-        ]),
-        commands: new Commands([new telnet.Command(), new ssh.Command()]),
+        controls: markRaw(
+          new Controls([
+            new telnetctl.Telnet(uiControlColors),
+            new sshctl.SSH(uiControlColors),
+          ]),
+        ),
+        commands: markRaw(
+          new Commands([new telnet.Command(), new ssh.Command()]),
+        ),
         tabUpdateIndicator: null,
         viewPort: {
           dim: {
@@ -205,7 +208,7 @@ function startApp(rootEl) {
 
       window.addEventListener("resize", self.viewPortUpdaters.dimResizer);
     },
-    beforeDestroy() {
+    beforeUnmount() {
       window.removeEventListener("resize", this.viewPortUpdaters.dimResizer);
     },
     methods: {
@@ -321,13 +324,13 @@ function startApp(rootEl) {
           ? authData.server_message
           : "";
         this.presetData = {
-          presets: new Presets(authData.presets ? authData.presets : []),
+          presets: markRaw(
+            new Presets(authData.presets ? authData.presets : []),
+          ),
           restricted: authResult.onlyAllowPresetRemotes,
         };
-        this.socket = this.buildSocket(
-          key,
-          authResult.timeout,
-          authResult.heartbeat,
+        this.socket = markRaw(
+          this.buildSocket(key, authResult.timeout, authResult.heartbeat),
         );
         this.page = "app";
       },
@@ -594,7 +597,7 @@ function startApp(rootEl) {
         }, updateIndicatorMaxDisplayTime);
       },
     },
-  });
+  }).mount(rootEl);
 }
 
 /**

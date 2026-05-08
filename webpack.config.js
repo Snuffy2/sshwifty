@@ -10,7 +10,7 @@ import HtmlWebpackPlugin from "html-webpack-plugin";
 import MiniCssExtractPlugin from "mini-css-extract-plugin";
 import CssMinimizerPlugin from "css-minimizer-webpack-plugin";
 import ImageMinimizerPlugin from "image-minimizer-webpack-plugin";
-import { VueLoaderPlugin  } from "vue-loader";
+import { VueLoaderPlugin } from "vue-loader";
 import WebpackFavicons from "webpack-favicons";
 import CopyPlugin from "copy-webpack-plugin";
 import TerserPlugin from "terser-webpack-plugin";
@@ -154,7 +154,7 @@ export default {
   },
   resolve: {
     alias: {
-      vue$: "vue/dist/vue.esm.js",
+      vue$: "vue/dist/vue.esm-bundler.js",
     },
     fallback: {
       stream: import.meta.resolve("stream-browserify"),
@@ -229,7 +229,7 @@ export default {
       {
         test: /\.css$/,
         use: [
-          inDevMode ? "vue-style-loader" : MiniCssExtractPlugin.loader,
+          inDevMode ? "style-loader" : MiniCssExtractPlugin.loader,
           "css-loader",
         ],
       },
@@ -259,15 +259,18 @@ export default {
       new webpack.ProvidePlugin({
         process: import.meta.resolve("process/browser.js"),
       }),
-      new webpack.DefinePlugin(
-        !inDevMode
+      new webpack.DefinePlugin({
+        __VUE_OPTIONS_API__: JSON.stringify(true),
+        __VUE_PROD_DEVTOOLS__: JSON.stringify(false),
+        __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: JSON.stringify(false),
+        ...(!inDevMode
           ? {
               "process.env": {
                 NODE_ENV: JSON.stringify(process.env.NODE_ENV),
               },
             }
-          : {}
-      ),
+          : {}),
+      }),
       new webpack.LoaderOptionsPlugin({
         options: {
           handlebarsLoader: {},
@@ -282,6 +285,7 @@ export default {
       }),
       new ESLintPlugin({
         failOnError: false,
+        emitError: false,
         emitWarning: true,
       }),
       new CopyPlugin({
