@@ -25,24 +25,24 @@ import (
 func TestParseServerMessage(t *testing.T) {
 	for _, test := range [][]string{
 		{
-			"<b>This is a [测试](http://nirui.org) " +
-				"[for link support](http://nirui.org)</b>.",
+			"<b>This is a [测试](http://example.com) " +
+				"[for link support](http://example.com)</b>.",
 			"&lt;b&gt;This is a " +
-				"<a href=\"http://nirui.org\" target=\"_blank\">测试</a> " +
-				"<a href=\"http://nirui.org\" target=\"_blank\">for link support</a>" +
+				"<a href=\"http://example.com\" target=\"_blank\">测试</a> " +
+				"<a href=\"http://example.com\" target=\"_blank\">for link support</a>" +
 				"&lt;/b&gt;.",
 		},
 		{
-			"[测试](http://nirui.org)",
-			"<a href=\"http://nirui.org\" target=\"_blank\">测试</a>",
+			"[测试](http://example.com)",
+			"<a href=\"http://example.com\" target=\"_blank\">测试</a>",
 		},
 		{
-			"[测试](http://nirui.org).",
-			"<a href=\"http://nirui.org\" target=\"_blank\">测试</a>.",
+			"[测试](http://example.com).",
+			"<a href=\"http://example.com\" target=\"_blank\">测试</a>.",
 		},
 		{
-			".[测试](http://nirui.org)",
-			".<a href=\"http://nirui.org\" target=\"_blank\">测试</a>",
+			".[测试](http://example.com)",
+			".<a href=\"http://example.com\" target=\"_blank\">测试</a>",
 		},
 	} {
 		result := parseServerMessage(html.EscapeString(test[0]))

@@ -306,6 +306,10 @@ export default {
             to: path.join(__dirname, ".tmp", "dist"),
           },
           {
+            from: path.join(__dirname, "CONFIGURATION.md"),
+            to: path.join(__dirname, ".tmp", "dist"),
+          },
+          {
             from: path.join(__dirname, "DEPENDENCIES.md"),
             to: path.join(__dirname, ".tmp", "dist"),
           },
@@ -343,8 +347,8 @@ export default {
         appName: "Sshwifty SSH Client",
         appShortName: "Sshwifty",
         appDescription: "Web SSH Client",
-        developerName: "Ni Rui",
-        developerURL: "https://nirui.org",
+        developerName: "Snuffy2",
+        developerURL: "https://github.com/Snuffy2/sshwifty",
         background: "#333",
         theme_color: "#333",
         appleStatusBarStyle: "black",

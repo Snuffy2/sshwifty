@@ -212,7 +212,7 @@ const initialFieldDef = {
       "telnet.org</a> for public servers.",
     type: "text",
     value: "",
-    example: "telnet.nirui.org:23",
+    example: "telnet.example.com:23",
     readonly: false,
     suggestions(_input) {
       return [];

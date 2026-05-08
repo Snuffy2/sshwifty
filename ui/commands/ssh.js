@@ -271,7 +271,7 @@ const initialFieldDef = {
     description: "",
     type: "text",
     value: "",
-    example: "ssh.nirui.org:22",
+    example: "ssh.example.com:22",
     readonly: false,
     suggestions(_input) {
       return [];

@@ -188,7 +188,7 @@ var (
 
 // This file is part of Sshwifty Project
 //
-// Copyright (C) {{ .Date.Year }} Ni Rui (ranqus@gmail.com)
+// Copyright (C) {{ .Date.Year }} Snuffy2
 //
 // https://github.com/Snuffy2/sshwifty
 //
