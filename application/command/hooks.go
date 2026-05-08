@@ -1,3 +1,7 @@
+// Copyright (C) 2019-2026 Ni Rui <ranqus@gmail.com>
+// Copyright (C) 2026 Snuffy2
+// SPDX-License-Identifier: AGPL-3.0-only
+
 // Package command – hooks.go defines the Hook interface, its parameter and
 // output abstractions, the registry that maps HookTypes to Hook slices, and the
 // Hooks aggregate that executes all registered hooks for a given event with a

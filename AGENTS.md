@@ -94,6 +94,11 @@ requests, and manual dispatch.
 ## Coding Conventions
 
 - Keep imports at the top of files and preserve existing comments.
+- New source and comment-capable config files should use the concise AGPL SPDX
+  header style at the top of the file: `Copyright (C) 2019-2026 Ni Rui
+  <ranqus@gmail.com>`, `Copyright (C) 2026 Snuffy2`, then
+  `SPDX-License-Identifier: AGPL-3.0-only`, using the file's native comment
+  syntax. Do not add the full AGPL boilerplate to new files.
 - Prefer small, root-cause fixes over broad rewrites.
 - Match existing Go package structure and frontend component patterns.
 - Add or update tests for changed behavior.
