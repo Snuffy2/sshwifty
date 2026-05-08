@@ -39,7 +39,7 @@ RUN set -ex && \
     mv ./sshwifty /
 
 # Build the final image for running
-FROM alpine:3.22
+FROM alpine:3.23
 ENV SSHWIFTY_DIALTIMEOUT=10 \
     SSHWIFTY_HOOKTIMEOUT=30 \
     SSHWIFTY_LISTENINTERFACE=0.0.0.0 \
