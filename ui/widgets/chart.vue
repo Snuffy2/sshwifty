@@ -453,12 +453,15 @@ export default {
     };
   },
   watch: {
-    values() {
-      if (!this.enabled) {
-        return;
-      }
+    values: {
+      deep: 1,
+      handler() {
+        if (!this.enabled) {
+          return;
+        }
 
-      this.draw();
+        this.draw();
+      },
     },
     max() {
       if (!this.enabled) {
