@@ -49,7 +49,7 @@ types = ["go"]
 [[repos.hooks]]
 id = "eslint"
 name = "eslint"
-entry = "npm run lint"
+entry = "npm run lint:fix"
 language = "system"
 pass_filenames = false
 
