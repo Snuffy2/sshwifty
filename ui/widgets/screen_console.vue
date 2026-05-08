@@ -583,7 +583,7 @@ export default {
   async mounted() {
     await this.init();
   },
-  beforeDestroy() {
+  beforeUnmount() {
     this.deinit();
   },
   methods: {

@@ -401,7 +401,7 @@ export default {
     this.runWizard();
     this.cancelled = false;
   },
-  async beforeDestroy() {
+  async beforeUnmount() {
     try {
       await this.closeWizard();
     } catch (e) {

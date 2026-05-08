@@ -291,7 +291,7 @@ export default {
 
     window.addEventListener("beforeunload", this.onBrowserClose);
   },
-  beforeDestroy() {
+  beforeUnmount() {
     window.removeEventListener("beforeunload", this.onBrowserClose);
 
     if (this.ticker !== null) {

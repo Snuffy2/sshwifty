@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Snuffy2
 // SPDX-License-Identifier: AGPL-3.0-only
 
-import Vue from "vue";
+import { createApp } from "vue";
 import "./app.css";
 import Auth from "./auth.vue";
 import { Colors as ControlColors } from "./commands/color.js";
@@ -122,8 +122,7 @@ function startApp(rootEl) {
     ).slice(0, 16);
   }
 
-  new Vue({
-    el: rootEl,
+  createApp({
     components: {
       loading: Loading,
       auth: Auth,
@@ -205,7 +204,7 @@ function startApp(rootEl) {
 
       window.addEventListener("resize", self.viewPortUpdaters.dimResizer);
     },
-    beforeDestroy() {
+    beforeUnmount() {
       window.removeEventListener("resize", this.viewPortUpdaters.dimResizer);
     },
     methods: {
@@ -594,7 +593,7 @@ function startApp(rootEl) {
         }, updateIndicatorMaxDisplayTime);
       },
     },
-  });
+  }).mount(rootEl);
 }
 
 /**

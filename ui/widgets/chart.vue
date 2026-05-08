@@ -482,7 +482,7 @@ export default {
       buildDrawer(this.type),
     );
   },
-  beforeDestroy() {
+  beforeUnmount() {
     this.chart.clear();
   },
   methods: {
