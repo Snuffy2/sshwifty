@@ -54,6 +54,15 @@ types = ["go"]
 # npm must be available on the host. CI installs them via actions/setup-node
 # in .github/workflows/linters.yml; local contributors need them installed
 # manually.
+
+[[repos.hooks]]
+id = "npm-lockfile"
+name = "update package-lock.json"
+entry = "npm install --package-lock-only --ignore-scripts"
+language = "system"
+files = "^(package.json|package-lock.json)$"
+pass_filenames = false
+
 [[repos.hooks]]
 id = "eslint"
 name = "eslint"
