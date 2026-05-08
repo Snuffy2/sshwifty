@@ -229,7 +229,7 @@ export default {
       {
         test: /\.css$/,
         use: [
-          inDevMode ? "vue-style-loader" : MiniCssExtractPlugin.loader,
+          inDevMode ? "style-loader" : MiniCssExtractPlugin.loader,
           "css-loader",
         ],
       },
@@ -259,15 +259,18 @@ export default {
       new webpack.ProvidePlugin({
         process: import.meta.resolve("process/browser.js"),
       }),
-      new webpack.DefinePlugin(
-        !inDevMode
+      new webpack.DefinePlugin({
+        __VUE_OPTIONS_API__: JSON.stringify(true),
+        __VUE_PROD_DEVTOOLS__: JSON.stringify(false),
+        __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: JSON.stringify(false),
+        ...(!inDevMode
           ? {
               "process.env": {
                 NODE_ENV: JSON.stringify(process.env.NODE_ENV),
               },
             }
-          : {}
-      ),
+          : {}),
+      }),
       new webpack.LoaderOptionsPlugin({
         options: {
           handlebarsLoader: {},
