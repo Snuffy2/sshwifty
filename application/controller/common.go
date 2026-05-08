@@ -23,15 +23,25 @@ import (
 	"strings"
 )
 
+// clientSupportGZIP reports whether the client advertises gzip support in its
+// Accept-Encoding header. It uses a simple substring check rather than full
+// header parsing, which is sufficient for the expected browser traffic.
 func clientSupportGZIP(r *http.Request) bool {
 	// Should be good enough
 	return strings.Contains(r.Header.Get("Accept-Encoding"), "gzip")
 }
 
+// serverMessageFormatLink is a compiled regular expression that matches
+// Markdown-style inline links of the form [title](url) within a server
+// message string.
 var (
 	serverMessageFormatLink = regexp.MustCompile(`\[(.*?)\]\((.*?)\)`)
 )
 
+// parseServerMessage transforms [title](url) patterns into HTML anchor tags.
+// It does not perform HTML escaping; input must already be trusted/sanitized,
+// or callers must escape/encode title and URL values before embedding output.
+// All other text is returned verbatim.
 func parseServerMessage(input string) (result string) {
 	// Yep, this is a new low, throwing regexp at a flat text format now...will
 	// rewrite the entire thing in a new version with a proper parser, maybe

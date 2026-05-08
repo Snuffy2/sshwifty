@@ -15,23 +15,6 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package controller
-
-import (
-	"net/http"
-
-	"github.com/Snuffy2/sshwifty/application/log"
-)
-
-// home is the controller for the root path ("/"). It embeds baseController so
-// that all HTTP verbs other than GET return ErrControllerNotImplemented
-// without additional boilerplate.
-type home struct {
-	baseController
-}
-
-// Get handles HTTP GET requests for the application root. It serves the
-// embedded "index.html" page with a 200 OK status code.
-func (h home) Get(w *ResponseWriter, r *http.Request, l log.Logger) error {
-	return serveStaticPage("index.html", http.StatusOK, w, r, l)
-}
+// Package commands registers the built-in SSH and Telnet protocol commands
+// and provides their wire-format value types.
+package commands
