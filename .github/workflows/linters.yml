@@ -32,5 +32,8 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      - name: Generate static assets
+        run: npm run generate
+
       - name: Run prek
         uses: j178/prek-action@v2
