@@ -10,7 +10,7 @@ import HtmlWebpackPlugin from "html-webpack-plugin";
 import MiniCssExtractPlugin from "mini-css-extract-plugin";
 import CssMinimizerPlugin from "css-minimizer-webpack-plugin";
 import ImageMinimizerPlugin from "image-minimizer-webpack-plugin";
-import { VueLoaderPlugin  } from "vue-loader";
+import { VueLoaderPlugin } from "vue-loader";
 import WebpackFavicons from "webpack-favicons";
 import CopyPlugin from "copy-webpack-plugin";
 import TerserPlugin from "terser-webpack-plugin";
@@ -154,7 +154,7 @@ export default {
   },
   resolve: {
     alias: {
-      vue$: "vue/dist/vue.esm.js",
+      vue$: "vue/dist/vue.esm-bundler.js",
     },
     fallback: {
       stream: import.meta.resolve("stream-browserify"),
