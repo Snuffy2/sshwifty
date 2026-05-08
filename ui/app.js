@@ -206,7 +206,7 @@ function startApp(rootEl) {
       window.addEventListener("resize", self.viewPortUpdaters.dimResizer);
     },
     beforeDestroy() {
-      window.removeEventListener("resize", self.viewPortUpdaters.dimResizer);
+      window.removeEventListener("resize", this.viewPortUpdaters.dimResizer);
     },
     methods: {
       /**

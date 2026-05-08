@@ -18,7 +18,7 @@
 # operator files such as real config JSON are not accidentally baked into images.
 
 # Build the application binary
-FROM golang:1.26.2-bookworm AS builder
+FROM golang:1.26-bookworm AS builder
 WORKDIR /src
 ARG SSHWIFTY_VERSION=dev
 RUN set -eux; \
@@ -49,7 +49,7 @@ ENV SSHWIFTY_DIALTIMEOUT=10 \
     SSHWIFTY_WRITETIMEOUT=0 \
     SSHWIFTY_HEARTBEATTIMEOUT=0 \
     SSHWIFTY_READDELAY=0 \
-    SSHWIFTY_WRITEELAY=0
+    SSHWIFTY_WRITEDELAY=0
 COPY --from=builder /sshwifty /
 COPY application /sshwifty-src/application
 COPY ui /sshwifty-src/ui
@@ -63,8 +63,8 @@ RUN set -ex && \
     printf '%s\n' \
         '#!/bin/sh' \
         'set -e' \
-        '[ -z "$SSHWIFTY_DOCKER_TLSCERT" ] || printf "%s" "$SSHWIFTY_DOCKER_TLSCERT" > /tmp/cert' \
-        '[ -z "$SSHWIFTY_DOCKER_TLSCERTKEY" ] || printf "%s" "$SSHWIFTY_DOCKER_TLSCERTKEY" > /tmp/certkey' \
+        '[ -z "$SSHWIFTY_DOCKER_TLSCERT" ] || { printf "%s" "$SSHWIFTY_DOCKER_TLSCERT" > /tmp/cert && chmod 600 /tmp/cert; }' \
+        '[ -z "$SSHWIFTY_DOCKER_TLSCERTKEY" ] || { printf "%s" "$SSHWIFTY_DOCKER_TLSCERTKEY" > /tmp/certkey && chmod 600 /tmp/certkey; }' \
         'if [ -f "/tmp/cert" ] && [ -f "/tmp/certkey" ]; then' \
         '    exec env SSHWIFTY_TLSCERTIFICATEFILE=/tmp/cert SSHWIFTY_TLSCERTIFICATEKEYFILE=/tmp/certkey /sshwifty' \
         'fi' \

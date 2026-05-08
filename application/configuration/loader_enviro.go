@@ -93,7 +93,7 @@ func Environ() Loader {
 				parseEnvUintDefault("SSHWIFTY_READDELAY", 0, 32),
 			),
 			WriteDelay: castUintToInt(
-				parseEnvUintDefault("SSHWIFTY_WRITEELAY", 0, 32),
+				parseEnvUintDefault("SSHWIFTY_WRITEDELAY", 0, 32),
 			),
 			TLSCertificateFile:    GetEnv("SSHWIFTY_TLSCERTIFICATEFILE"),
 			TLSCertificateKeyFile: GetEnv("SSHWIFTY_TLSCERTIFICATEKEYFILE"),
