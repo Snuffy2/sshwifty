@@ -90,7 +90,7 @@ jobs:
             );
 
       - name: Upload Pull Request Context
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pr-summary-context
           path: pr-summary-context/context.json
