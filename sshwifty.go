@@ -14,8 +14,12 @@ import (
 	"github.com/Snuffy2/sshwifty/application/log"
 )
 
+func shouldPrintVersion(args []string) bool {
+	return len(args) == 2 && (args[1] == "-V" || args[1] == "--version")
+}
+
 func main() {
-	if len(os.Args) == 2 && os.Args[1] == "-V" {
+	if shouldPrintVersion(os.Args) {
 		if _, err := os.Stdout.WriteString(application.Banner()); err != nil {
 			os.Exit(1)
 		}
