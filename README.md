@@ -56,7 +56,7 @@ Prerequisites:
 
 - `git`
 - `go`
-- `node`
+- `node` 24 or newer
 - `npm`
 
 Build the frontend assets and backend binary:
