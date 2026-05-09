@@ -238,9 +238,7 @@ export class Sender {
         reject: reject,
       });
 
-      if (delayCleared) {
-        self.bufferedRequests++;
-      }
+      self.bufferedRequests++;
 
       if (self.bufferedRequests >= self.maxBufferedRequests) {
         self.bufferedRequests = 0;

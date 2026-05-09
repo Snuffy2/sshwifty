@@ -108,15 +108,16 @@ describe("Sender", () => {
       },
       8,
       1000,
-      1,
+      3,
     );
 
     await Promise.all([
       sd.send(Uint8Array.from([1])),
       sd.send(Uint8Array.from([2])),
+      sd.send(Uint8Array.from([3])),
     ]);
 
-    assert.deepStrictEqual(sent, [[1, 2]]);
+    assert.deepStrictEqual(sent, [[1, 2, 3]]);
   });
 
   it("flushes buffered bytes on close", async () => {
