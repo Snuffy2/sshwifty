@@ -8,12 +8,19 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { createServer } from "vite";
 
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "..",
+);
 const devConfig = path.join(repoRoot, "sshwifty.conf.example.json");
 
 let shuttingDown = false;
 let goProcess = null;
 let viteServer = null;
+
+function npmCommand() {
+  return process.platform === "win32" ? "npm.cmd" : "npm";
+}
 
 function forwardOutput(child, label) {
   child.stdout.on("data", (data) => {
@@ -21,6 +28,30 @@ function forwardOutput(child, label) {
   });
   child.stderr.on("data", (data) => {
     process.stderr.write(`[${label}] ${data}`);
+  });
+}
+
+async function generateStaticPages() {
+  await new Promise((resolve, reject) => {
+    const child = spawn(npmCommand(), ["run", "generate"], {
+      cwd: repoRoot,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    forwardOutput(child, "generate");
+
+    child.on("error", reject);
+    child.on("exit", (code, signal) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      reject(
+        new Error(
+          `static asset generation failed with code ${code} signal ${signal}`,
+        ),
+      );
+    });
   });
 }
 
@@ -40,7 +71,9 @@ function startGo() {
   forwardOutput(child, "go");
 
   child.on("error", (error) => {
-    process.stderr.write(`[dev] failed to start Go backend: ${error.message}\n`);
+    process.stderr.write(
+      `[dev] failed to start Go backend: ${error.message}\n`,
+    );
     void shutdown(1);
   });
 
@@ -135,6 +168,7 @@ process.on("SIGTERM", () => {
 });
 
 try {
+  await generateStaticPages();
   startGo();
   await startVite();
 } catch (error) {
