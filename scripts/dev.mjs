@@ -7,6 +7,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { createServer } from "vite";
+import { ensureDevStaticAssets } from "./dev-static-assets.mjs";
 
 const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -252,6 +253,7 @@ process.on(
 );
 
 try {
+  ensureDevStaticAssets(repoRoot);
   startGo();
   await startVite();
 } catch (error) {
