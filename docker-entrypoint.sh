@@ -5,17 +5,23 @@
 
 set -e
 
-if [ -n "$SSHWIFTY_DOCKER_TLSCERT" ]; then
+rm -f /tmp/cert /tmp/certkey
+
+if [ -n "$SSHWIFTY_DOCKER_TLSCERT" ] && [ -z "$SSHWIFTY_DOCKER_TLSCERTKEY" ]; then
+    echo "SSHWIFTY_DOCKER_TLSCERTKEY is required when SSHWIFTY_DOCKER_TLSCERT is set" >&2
+    exit 1
+fi
+
+if [ -z "$SSHWIFTY_DOCKER_TLSCERT" ] && [ -n "$SSHWIFTY_DOCKER_TLSCERTKEY" ]; then
+    echo "SSHWIFTY_DOCKER_TLSCERT is required when SSHWIFTY_DOCKER_TLSCERTKEY is set" >&2
+    exit 1
+fi
+
+if [ -n "$SSHWIFTY_DOCKER_TLSCERT" ] && [ -n "$SSHWIFTY_DOCKER_TLSCERTKEY" ]; then
     printf "%s" "$SSHWIFTY_DOCKER_TLSCERT" > /tmp/cert
     chmod 600 /tmp/cert
-fi
-
-if [ -n "$SSHWIFTY_DOCKER_TLSCERTKEY" ]; then
     printf "%s" "$SSHWIFTY_DOCKER_TLSCERTKEY" > /tmp/certkey
     chmod 600 /tmp/certkey
-fi
-
-if [ -f "/tmp/cert" ] && [ -f "/tmp/certkey" ]; then
     exec env SSHWIFTY_TLSCERTIFICATEFILE=/tmp/cert SSHWIFTY_TLSCERTIFICATEKEYFILE=/tmp/certkey /sshwifty
 fi
 

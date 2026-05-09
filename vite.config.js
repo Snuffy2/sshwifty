@@ -147,11 +147,7 @@ function sshwiftyPublicAssetsPlugin(command) {
         next();
       };
 
-      server.middlewares.stack.unshift({
-        route: "",
-        handle: rewriteShellRequest,
-      });
-
+      server.middlewares.use(rewriteShellRequest);
       server.middlewares.use((req, res, next) => {
         const requestUrl = req.url ?? "";
         const [requestPath] = requestUrl.split("?", 1);
@@ -170,7 +166,18 @@ function sshwiftyPublicAssetsPlugin(command) {
           passthroughContentTypes.get(assetFile) ?? "text/plain; charset=utf-8";
 
         res.setHeader("Content-Type", contentType);
-        fs.createReadStream(filePath).pipe(res);
+        const stream = fs.createReadStream(filePath);
+        stream.on("error", (error) => {
+          console.error(
+            `Failed to stream public asset ${assetFile} from ${filePath}:`,
+            error,
+          );
+          if (!res.headersSent) {
+            res.statusCode = error.code === "ENOENT" ? 404 : 500;
+          }
+          res.end();
+        });
+        stream.pipe(res);
       });
     },
   };
@@ -267,7 +274,7 @@ export default defineConfig(({ command, mode }) => ({
       },
       {
         find: /^events$/,
-        replacement: path.join(repoRoot, "node_modules", "events", "events.js"),
+        replacement: "events",
       },
       {
         find: /^string_decoder$/,

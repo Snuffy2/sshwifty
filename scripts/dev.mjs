@@ -76,21 +76,35 @@ async function stopGo() {
   goProcess = null;
 
   await new Promise((resolve) => {
-    child.once("exit", resolve);
-    if (process.platform === "win32") {
-      child.kill("SIGINT");
-    } else {
-      process.kill(-child.pid, "SIGINT");
-    }
-    setTimeout(() => {
-      if (!child.killed) {
+    let escalationTimer = null;
+    const hasExited = () =>
+      child.exitCode !== null || child.signalCode !== null;
+    const sendSignal = (signal) => {
+      if (hasExited()) {
+        return;
+      }
+      try {
         if (process.platform === "win32") {
-          child.kill("SIGTERM");
+          child.kill(signal);
         } else {
-          process.kill(-child.pid, "SIGTERM");
+          process.kill(-child.pid, signal);
+        }
+      } catch (error) {
+        if (error.code !== "ESRCH") {
+          throw error;
         }
       }
-    }, 3000).unref();
+    };
+
+    child.once("exit", (...args) => {
+      clearTimeout(escalationTimer);
+      resolve(...args);
+    });
+    sendSignal("SIGINT");
+    escalationTimer = setTimeout(() => {
+      sendSignal("SIGTERM");
+    }, 3000);
+    escalationTimer.unref();
   });
 }
 
