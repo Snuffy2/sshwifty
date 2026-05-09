@@ -57,10 +57,7 @@ function restorePublicAssetTokens(source) {
   let updated = source;
 
   for (const publicPath of passthroughPublicAssets.keys()) {
-    updated = updated.replaceAll(
-      passthroughAssetToken(publicPath),
-      publicPath,
-    );
+    updated = updated.replaceAll(passthroughAssetToken(publicPath), publicPath);
   }
 
   return updated;
@@ -104,14 +101,17 @@ function normalizeHtmlOutputsPlugin() {
         fs.rmSync(nestedPath);
       }
 
-      if (fs.existsSync(nestedHtmlDir) && fs.readdirSync(nestedHtmlDir).length === 0) {
+      if (
+        fs.existsSync(nestedHtmlDir) &&
+        fs.readdirSync(nestedHtmlDir).length === 0
+      ) {
         fs.rmdirSync(nestedHtmlDir);
       }
     },
   };
 }
 
-function sshwiftyPublicAssetsPlugin(command) {
+function sshwiftyPublicAssetsPlugin() {
   return {
     name: "sshwifty-public-assets",
     transformIndexHtml: {
@@ -249,7 +249,7 @@ export default defineConfig(({ command, mode }) => ({
     vue(),
     browserNodePolyfillsPlugin(),
     copyRootFilesPlugin(),
-    sshwiftyPublicAssetsPlugin(command),
+    sshwiftyPublicAssetsPlugin(),
     restoreDevHtmlAssetsPlugin(command),
     normalizeHtmlOutputsPlugin(),
   ],
