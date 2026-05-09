@@ -34,12 +34,28 @@ function npmCommand() {
  * @param {string} label Output label to add before each chunk.
  */
 function forwardOutput(child, label) {
-  child.stdout.on("data", (data) => {
-    process.stdout.write(`[${label}] ${data}`);
-  });
-  child.stderr.on("data", (data) => {
-    process.stderr.write(`[${label}] ${data}`);
-  });
+  child.stdout.on(
+    "data",
+    /**
+     * Forward a stdout chunk from the child process.
+     *
+     * @param {Buffer | string} data Output chunk.
+     */
+    (data) => {
+      process.stdout.write(`[${label}] ${data}`);
+    },
+  );
+  child.stderr.on(
+    "data",
+    /**
+     * Forward a stderr chunk from the child process.
+     *
+     * @param {Buffer | string} data Error output chunk.
+     */
+    (data) => {
+      process.stderr.write(`[${label}] ${data}`);
+    },
+  );
 }
 
 /**
@@ -48,27 +64,44 @@ function forwardOutput(child, label) {
  * @returns {Promise<void>} Resolves after generation succeeds.
  */
 async function generateStaticPages() {
-  await new Promise((resolve, reject) => {
-    const child = spawn(npmCommand(), ["run", "generate"], {
-      cwd: repoRoot,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+  await new Promise(
+    /**
+     * Run the generation command and settle with its process result.
+     *
+     * @param {() => void} resolve Promise resolver.
+     * @param {(reason?: unknown) => void} reject Promise rejecter.
+     */
+    (resolve, reject) => {
+      const child = spawn(npmCommand(), ["run", "generate"], {
+        cwd: repoRoot,
+        stdio: ["ignore", "pipe", "pipe"],
+      });
 
-    forwardOutput(child, "generate");
+      forwardOutput(child, "generate");
 
-    child.on("error", reject);
-    child.on("exit", (code, signal) => {
-      if (code === 0) {
-        resolve();
-        return;
-      }
-      reject(
-        new Error(
-          `static asset generation failed with code ${code} signal ${signal}`,
-        ),
+      child.on("error", reject);
+      child.on(
+        "exit",
+        /**
+         * Convert the generator process exit state into a promise outcome.
+         *
+         * @param {number | null} code Process exit code.
+         * @param {NodeJS.Signals | null} signal Signal that ended the process.
+         */
+        (code, signal) => {
+          if (code === 0) {
+            resolve();
+            return;
+          }
+          reject(
+            new Error(
+              `static asset generation failed with code ${code} signal ${signal}`,
+            ),
+          );
+        },
       );
-    });
-  });
+    },
+  );
 }
 
 /**
@@ -89,23 +122,40 @@ function startGo() {
 
   forwardOutput(child, "go");
 
-  child.on("error", (error) => {
-    process.stderr.write(
-      `[dev] failed to start Go backend: ${error.message}\n`,
-    );
-    void shutdown(1);
-  });
+  child.on(
+    "error",
+    /**
+     * Shut down the supervisor if the Go backend cannot start.
+     *
+     * @param {Error} error Spawn error.
+     */
+    (error) => {
+      process.stderr.write(
+        `[dev] failed to start Go backend: ${error.message}\n`,
+      );
+      void shutdown(1);
+    },
+  );
 
-  child.on("exit", (code, signal) => {
-    goProcess = null;
-    if (shuttingDown) {
-      return;
-    }
-    process.stderr.write(
-      `[dev] Go backend exited unexpectedly with code ${code} signal ${signal}\n`,
-    );
-    void shutdown(code === 0 || code === null ? 1 : code);
-  });
+  child.on(
+    "exit",
+    /**
+     * Stop the dev stack if the backend exits before supervisor shutdown.
+     *
+     * @param {number | null} code Process exit code.
+     * @param {NodeJS.Signals | null} signal Signal that ended the process.
+     */
+    (code, signal) => {
+      goProcess = null;
+      if (shuttingDown) {
+        return;
+      }
+      process.stderr.write(
+        `[dev] Go backend exited unexpectedly with code ${code} signal ${signal}\n`,
+      );
+      void shutdown(code === 0 || code === null ? 1 : code);
+    },
+  );
 
   goProcess = child;
 }
@@ -137,37 +187,68 @@ async function stopGo() {
   const child = goProcess;
   goProcess = null;
 
-  await new Promise((resolve) => {
-    let escalationTimer = null;
-    const hasExited = () =>
-      child.exitCode !== null || child.signalCode !== null;
-    const sendSignal = (signal) => {
-      if (hasExited()) {
-        return;
-      }
-      try {
-        if (process.platform === "win32") {
-          child.kill(signal);
-        } else {
-          process.kill(-child.pid, signal);
+  await new Promise(
+    /**
+     * Send shutdown signals and resolve when the backend process exits.
+     *
+     * @param {(...args: unknown[]) => void} resolve Promise resolver.
+     */
+    (resolve) => {
+      let escalationTimer = null;
+      /**
+       * Report whether the child process has already terminated.
+       *
+       * @returns {boolean} True once exit code or signal is populated.
+       */
+      const hasExited = () =>
+        child.exitCode !== null || child.signalCode !== null;
+      /**
+       * Send a process signal if the child process is still running.
+       *
+       * @param {NodeJS.Signals} signal Signal to send.
+       */
+      const sendSignal = (signal) => {
+        if (hasExited()) {
+          return;
         }
-      } catch (error) {
-        if (error.code !== "ESRCH") {
-          throw error;
+        try {
+          if (process.platform === "win32") {
+            child.kill(signal);
+          } else {
+            process.kill(-child.pid, signal);
+          }
+        } catch (error) {
+          if (error.code !== "ESRCH") {
+            throw error;
+          }
         }
-      }
-    };
+      };
 
-    child.once("exit", (...args) => {
-      clearTimeout(escalationTimer);
-      resolve(...args);
-    });
-    sendSignal("SIGINT");
-    escalationTimer = setTimeout(() => {
-      sendSignal("SIGTERM");
-    }, 3000);
-    escalationTimer.unref();
-  });
+      child.once(
+        "exit",
+        /**
+         * Clear pending escalation and resolve with the process exit details.
+         *
+         * @param {unknown[]} args Process exit event arguments.
+         */
+        (...args) => {
+          clearTimeout(escalationTimer);
+          resolve(...args);
+        },
+      );
+      sendSignal("SIGINT");
+      escalationTimer = setTimeout(
+        /**
+         * Escalate shutdown if the interrupt signal did not stop the backend.
+         */
+        () => {
+          sendSignal("SIGTERM");
+        },
+        3000,
+      );
+      escalationTimer.unref();
+    },
+  );
 }
 
 /**
@@ -199,13 +280,25 @@ async function shutdown(exitCode) {
   process.exit(exitCode);
 }
 
-process.on("SIGINT", () => {
-  void shutdown(0);
-});
+process.on(
+  "SIGINT",
+  /**
+   * Stop the dev stack after an interactive interrupt.
+   */
+  () => {
+    void shutdown(0);
+  },
+);
 
-process.on("SIGTERM", () => {
-  void shutdown(0);
-});
+process.on(
+  "SIGTERM",
+  /**
+   * Stop the dev stack after a termination request.
+   */
+  () => {
+    void shutdown(0);
+  },
+);
 
 try {
   await generateStaticPages();

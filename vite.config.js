@@ -124,6 +124,9 @@ function copyRootFilesPlugin() {
   return {
     name: "copy-root-files",
     apply: "build",
+    /**
+     * Copy root documentation files after Vite writes the build bundle.
+     */
     closeBundle() {
       fs.mkdirSync(distDir, { recursive: true });
       for (const fileName of copiedRootFiles) {
@@ -145,6 +148,10 @@ function normalizeHtmlOutputsPlugin() {
   return {
     name: "normalize-html-outputs",
     apply: "build",
+    /**
+     * Move generated HTML from Vite's nested input paths to Sshwifty's flat
+     * static asset layout.
+     */
     closeBundle() {
       const nestedHtmlDir = path.join(distDir, "ui");
 
@@ -184,10 +191,22 @@ function sshwiftyPublicAssetsPlugin() {
     enforce: "pre",
     transformIndexHtml: {
       order: "pre",
+      /**
+       * Protect fixed public asset routes from Vite asset rewriting.
+       *
+       * @param {string} html Source HTML.
+       * @returns {string} HTML with temporary passthrough tokens.
+       */
       handler(html) {
         return replacePublicAssetPaths(html, passthroughAssetToken);
       },
     },
+    /**
+     * Restore passthrough public asset routes in emitted string assets.
+     *
+     * @param {unknown} _ Rollup output options.
+     * @param {import("rollup").OutputBundle} bundle Generated bundle.
+     */
     generateBundle(_, bundle) {
       for (const chunk of Object.values(bundle)) {
         if (chunk.type !== "asset" || typeof chunk.source !== "string") {
@@ -197,7 +216,19 @@ function sshwiftyPublicAssetsPlugin() {
         chunk.source = restorePublicAssetTokens(chunk.source);
       }
     },
+    /**
+     * Add development middleware for Sshwifty shell and fixed public assets.
+     *
+     * @param {import("vite").ViteDevServer} server Vite dev server.
+     */
     configureServer(server) {
+      /**
+       * Rewrite shell entry requests to the Vite-served index document.
+       *
+       * @param {import("node:http").IncomingMessage} req HTTP request.
+       * @param {import("node:http").ServerResponse} _res HTTP response.
+       * @param {() => void} next Next middleware callback.
+       */
       const rewriteShellRequest = (req, _res, next) => {
         const requestUrl = req.url ?? "";
         const [requestPath, requestQuery = ""] = requestUrl.split("?", 2);
@@ -217,37 +248,55 @@ function sshwiftyPublicAssetsPlugin() {
       };
 
       server.middlewares.use(rewriteShellRequest);
-      server.middlewares.use((req, res, next) => {
-        const requestUrl = req.url ?? "";
-        const [requestPath] = requestUrl.split("?", 1);
+      server.middlewares.use(
+        /**
+         * Serve selected public assets from fixed compatibility routes.
+         *
+         * @param {import("node:http").IncomingMessage} req HTTP request.
+         * @param {import("node:http").ServerResponse} res HTTP response.
+         * @param {() => void} next Next middleware callback.
+         */
+        (req, res, next) => {
+          const requestUrl = req.url ?? "";
+          const [requestPath] = requestUrl.split("?", 1);
 
-        const assetFile =
-          passthroughPublicAssets.get(requestPath) ??
-          rootCompatibilityAssets.get(requestPath);
+          const assetFile =
+            passthroughPublicAssets.get(requestPath) ??
+            rootCompatibilityAssets.get(requestPath);
 
-        if (!assetFile) {
-          next();
-          return;
-        }
-
-        const filePath = path.join(publicDir, assetFile);
-        const contentType =
-          passthroughContentTypes.get(assetFile) ?? "text/plain; charset=utf-8";
-
-        res.setHeader("Content-Type", contentType);
-        const stream = fs.createReadStream(filePath);
-        stream.on("error", (error) => {
-          console.error(
-            `Failed to stream public asset ${assetFile} from ${filePath}:`,
-            error,
-          );
-          if (!res.headersSent) {
-            res.statusCode = error.code === "ENOENT" ? 404 : 500;
+          if (!assetFile) {
+            next();
+            return;
           }
-          res.end();
-        });
-        stream.pipe(res);
-      });
+
+          const filePath = path.join(publicDir, assetFile);
+          const contentType =
+            passthroughContentTypes.get(assetFile) ??
+            "text/plain; charset=utf-8";
+
+          res.setHeader("Content-Type", contentType);
+          const stream = fs.createReadStream(filePath);
+          stream.on(
+            "error",
+            /**
+             * Convert file stream failures into HTTP errors.
+             *
+             * @param {NodeJS.ErrnoException} error Stream error.
+             */
+            (error) => {
+              console.error(
+                `Failed to stream public asset ${assetFile} from ${filePath}:`,
+                error,
+              );
+              if (!res.headersSent) {
+                res.statusCode = error.code === "ENOENT" ? 404 : 500;
+              }
+              res.end();
+            },
+          );
+          stream.pipe(res);
+        },
+      );
     },
   };
 }
@@ -263,6 +312,12 @@ function browserNodePolyfillsPlugin() {
 
   return {
     name: "sshwifty-browser-node-polyfills",
+    /**
+     * Resolve the virtual module used to install browser globals.
+     *
+     * @param {string} id Import identifier.
+     * @returns {string | null} Resolved virtual id, or null for other ids.
+     */
     resolveId(id) {
       if (id === virtualModuleId) {
         return resolvedVirtualModuleId;
@@ -270,6 +325,12 @@ function browserNodePolyfillsPlugin() {
 
       return null;
     },
+    /**
+     * Load the virtual module that installs Buffer and process globals.
+     *
+     * @param {string} id Resolved import identifier.
+     * @returns {string | null} Virtual module source, or null for other ids.
+     */
     load(id) {
       if (id !== resolvedVirtualModuleId) {
         return null;
@@ -285,6 +346,11 @@ globalThis.process ??= __process;
     },
     transformIndexHtml: {
       order: "pre",
+      /**
+       * Inject the virtual globals module before browser application scripts.
+       *
+       * @returns {import("vite").HtmlTagDescriptor[]} Script descriptor.
+       */
       handler() {
         return [
           {
@@ -312,6 +378,12 @@ function restoreDevHtmlAssetsPlugin(command) {
     name: "restore-dev-html-assets",
     transformIndexHtml: {
       order: "post",
+      /**
+       * Restore passthrough asset routes when Vite serves development HTML.
+       *
+       * @param {string} html Source HTML.
+       * @returns {string} Unchanged build HTML or restored development HTML.
+       */
       handler(html) {
         if (command === "build") {
           return html;
@@ -323,87 +395,95 @@ function restoreDevHtmlAssetsPlugin(command) {
   };
 }
 
-export default defineConfig(({ command, mode }) => ({
-  base: "/sshwifty/assets/",
-  plugins: [
-    vue(),
-    browserNodePolyfillsPlugin(),
-    copyRootFilesPlugin(),
-    sshwiftyPublicAssetsPlugin(),
-    restoreDevHtmlAssetsPlugin(command),
-    normalizeHtmlOutputsPlugin(),
-  ],
-  publicDir,
-  resolve: {
-    alias: [
-      {
-        find: /^~(.*)$/,
-        replacement: "$1",
-      },
-      {
-        find: "vue",
-        replacement: "vue/dist/vue.esm-bundler.js",
-      },
-      {
-        find: /^stream$/,
-        replacement: "stream-browserify",
-      },
-      {
-        find: /^buffer$/,
-        replacement: "buffer",
-      },
-      {
-        find: /^events$/,
-        replacement: "events",
-      },
-      {
-        find: /^string_decoder$/,
-        replacement: "string_decoder",
-      },
-      {
-        find: /^process$/,
-        replacement: "process/browser",
-      },
+export default defineConfig(
+  /**
+   * Build the Vite configuration for the current command and mode.
+   *
+   * @param {{ command: string, mode: string }} env Vite config environment.
+   * @returns {import("vite").UserConfig} Vite configuration.
+   */
+  ({ command, mode }) => ({
+    base: "/sshwifty/assets/",
+    plugins: [
+      vue(),
+      browserNodePolyfillsPlugin(),
+      copyRootFilesPlugin(),
+      sshwiftyPublicAssetsPlugin(),
+      restoreDevHtmlAssetsPlugin(command),
+      normalizeHtmlOutputsPlugin(),
     ],
-  },
-  define: {
-    __VUE_OPTIONS_API__: JSON.stringify(true),
-    __VUE_PROD_DEVTOOLS__: JSON.stringify(false),
-    __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: JSON.stringify(false),
-    "process.env.NODE_ENV": JSON.stringify(mode),
-  },
-  build: {
-    target: ["es2020"],
-    outDir: distDir,
-    emptyOutDir: true,
-    sourcemap: command === "serve",
-    rollupOptions: {
-      input: {
-        index: path.join(repoRoot, "ui", "index.html"),
-        error: path.join(repoRoot, "ui", "error.html"),
-      },
-      output: {
-        manualChunks: vendorChunkName,
-        entryFileNames: "[name]-[hash].js",
-        chunkFileNames: "chunk-[hash].js",
-        assetFileNames: "asset-[hash][extname]",
+    publicDir,
+    resolve: {
+      alias: [
+        {
+          find: /^~(.*)$/,
+          replacement: "$1",
+        },
+        {
+          find: "vue",
+          replacement: "vue/dist/vue.esm-bundler.js",
+        },
+        {
+          find: /^stream$/,
+          replacement: "stream-browserify",
+        },
+        {
+          find: /^buffer$/,
+          replacement: "buffer",
+        },
+        {
+          find: /^events$/,
+          replacement: "events",
+        },
+        {
+          find: /^string_decoder$/,
+          replacement: "string_decoder",
+        },
+        {
+          find: /^process$/,
+          replacement: "process/browser",
+        },
+      ],
+    },
+    define: {
+      __VUE_OPTIONS_API__: JSON.stringify(true),
+      __VUE_PROD_DEVTOOLS__: JSON.stringify(false),
+      __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: JSON.stringify(false),
+      "process.env.NODE_ENV": JSON.stringify(mode),
+    },
+    build: {
+      target: ["es2020"],
+      outDir: distDir,
+      emptyOutDir: true,
+      sourcemap: command === "serve",
+      rollupOptions: {
+        input: {
+          index: path.join(repoRoot, "ui", "index.html"),
+          error: path.join(repoRoot, "ui", "error.html"),
+        },
+        output: {
+          manualChunks: vendorChunkName,
+          entryFileNames: "[name]-[hash].js",
+          chunkFileNames: "chunk-[hash].js",
+          assetFileNames: "asset-[hash][extname]",
+        },
       },
     },
-  },
-  server: {
-    host: "127.0.0.1",
-    port: 5173,
-    strictPort: true,
-    proxy: {
-      "/sshwifty/socket": {
-        target: backendTarget,
-        ws: true,
+    server: {
+      host: "127.0.0.1",
+      port: 5173,
+      strictPort: true,
+      proxy: {
+        "/sshwifty/socket": {
+          target: backendTarget,
+          ws: true,
+        },
       },
     },
-  },
-  test: {
-    include: ["ui/**/*_test.js"],
-    globals: true,
-    environment: "node",
-  },
-}));
+    test: {
+      include: ["ui/**/*_test.js"],
+      globals: true,
+      environment: "node",
+    },
+  }),
+);
