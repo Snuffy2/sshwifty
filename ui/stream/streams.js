@@ -111,7 +111,7 @@ export class Streams {
       }
     }
 
-    this.clear(ee);
+    await this.clear(ee);
 
     if (ee !== null) {
       throw new Exception("Streams is closed: " + ee, false);
@@ -124,7 +124,7 @@ export class Streams {
    * @param {Exception} e An error caused this clear. Null when no error
    *
    */
-  clear(e) {
+  async clear(e) {
     if (this.stop) {
       return;
     }
@@ -155,7 +155,7 @@ export class Streams {
     }
 
     try {
-      this.sender.close();
+      await this.sender.close();
     } catch (e) {
       process.env.NODE_ENV === "development" && console.trace(e);
     }
