@@ -9,9 +9,11 @@ import { Colors as ControlColors } from "./commands/color.js";
 import { Commands } from "./commands/commands.js";
 import { Controls } from "./commands/controls.js";
 import { Presets } from "./commands/presets.js";
+import * as mosh from "./commands/mosh.js";
 import * as ssh from "./commands/ssh.js";
 import * as telnet from "./commands/telnet.js";
 import "./common.css";
+import * as moshctl from "./control/mosh.js";
 import * as sshctl from "./control/ssh.js";
 import * as telnetctl from "./control/telnet.js";
 import * as cipher from "./crypto.js";
@@ -154,10 +156,15 @@ function startApp(rootEl) {
           new Controls([
             new telnetctl.Telnet(uiControlColors),
             new sshctl.SSH(uiControlColors),
+            new moshctl.Mosh(uiControlColors),
           ]),
         ),
         commands: markRaw(
-          new Commands([new telnet.Command(), new ssh.Command()]),
+          new Commands([
+            new telnet.Command(),
+            new ssh.Command(),
+            new mosh.Command(),
+          ]),
         ),
         tabUpdateIndicator: null,
         viewPort: {
