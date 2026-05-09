@@ -27,7 +27,7 @@ RUN npm ci
 FROM golang:1.26-trixie AS builder
 WORKDIR /src
 ARG SSHWIFTY_VERSION=dev
-ARG SSHWIFTY_SOURCE_URL
+ARG SSHWIFTY_SOURCE_URL=https://github.com/Snuffy2/sshwifty
 COPY go.mod go.sum ./
 RUN go mod download
 COPY --from=frontend-deps /usr/local/bin/node /usr/local/bin/node
@@ -44,7 +44,7 @@ RUN set -ex && \
 
 # Build the final image for running
 FROM alpine:3.23
-ARG SSHWIFTY_SOURCE_URL
+ARG SSHWIFTY_SOURCE_URL=https://github.com/Snuffy2/sshwifty
 LABEL org.opencontainers.image.licenses="AGPL-3.0-only"
 ENV SSHWIFTY_DIALTIMEOUT=10 \
     SSHWIFTY_HOOKTIMEOUT=30 \
@@ -59,7 +59,6 @@ ENV SSHWIFTY_DIALTIMEOUT=10 \
 COPY --from=builder /sshwifty /
 COPY docker-entrypoint.sh /sshwifty.sh
 RUN set -ex && \
-    : "${SSHWIFTY_SOURCE_URL:?SSHWIFTY_SOURCE_URL build argument is required for Docker image source notices}" && \
     printf '%s\n' \
         'Sshwifty source code' \
         '' \
