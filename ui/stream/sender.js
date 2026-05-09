@@ -221,12 +221,9 @@ export class Sender {
       return Promise.reject(new Exception("Sender has been cleared", false));
     }
 
-    let delayCleared = false;
-
     if (this.sendDelay !== null) {
       clearTimeout(this.sendDelay);
       this.sendDelay = null;
-      delayCleared = true;
     }
 
     const self = this;
