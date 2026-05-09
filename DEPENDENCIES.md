@@ -10,13 +10,13 @@ Major dependencies includes:
 ## For front-end application
 
 - [Vue](https://vuejs.org), Licensed under MIT license
-- [Babel](https://babeljs.io/), Licensed under MIT license
+- [Vite](https://vite.dev/), Licensed under MIT license
+- [Vitest](https://vitest.dev/), Licensed under MIT license
 - [XTerm.js](https://xtermjs.org/), Licensed under MIT license
 - [normalize.css](https://github.com/necolas/normalize.css), Licensed under MIT license
 - [Roboto font](https://en.wikipedia.org/wiki/Roboto), Licensed under Apache license
   Packaged by [Christian Hoffmeister](https://github.com/choffmeister/roboto-fontface-bower), Licensed under Apache 2.0
 - [iconv-lite](https://github.com/ashtuchkin/iconv-lite), Licensed under MIT license
-- [buffer](https://github.com/feross/buffer), Licensed under MIT license
 - [fontfaceobserver](https://github.com/bramstein/fontfaceobserver), [View license](https://github.com/bramstein/fontfaceobserver/blob/master/LICENSE)
 - [Hack Font](https://github.com/source-foundry/Hack), [View license](https://github.com/source-foundry/Hack/blob/master/LICENSE.md)
 - [Nerd Fonts](https://www.nerdfonts.com/), packaged by [@azurity/pure-nerd-font](http://github.com/azurity/pure-nerd-font)
