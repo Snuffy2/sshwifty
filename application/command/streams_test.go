@@ -5,7 +5,14 @@
 package command
 
 import (
+	"bytes"
+	"errors"
+	"sync"
 	"testing"
+
+	"github.com/Snuffy2/sshwifty/application/configuration"
+	"github.com/Snuffy2/sshwifty/application/log"
+	"github.com/Snuffy2/sshwifty/application/rw"
 )
 
 func TestStreamInitialHeader(t *testing.T) {
@@ -80,5 +87,208 @@ func TestStreamHeader(t *testing.T) {
 			s[0], s[1])
 
 		return
+	}
+}
+
+type testStreamMachine struct {
+	state        FSMState
+	bootupErr    FSMError
+	closeErr     error
+	releaseErr   error
+	closeCalls   int
+	releaseCalls int
+}
+
+func (m *testStreamMachine) Bootup(
+	_ *rw.LimitedReader,
+	_ []byte,
+) (FSMState, FSMError) {
+	if !m.bootupErr.Succeed() {
+		return nil, m.bootupErr
+	}
+
+	return m.state, NoFSMError()
+}
+
+func (m *testStreamMachine) Close() error {
+	m.closeCalls++
+
+	return m.closeErr
+}
+
+func (m *testStreamMachine) Release() error {
+	m.releaseCalls++
+
+	return m.releaseErr
+}
+
+func newTestStreamFetcher(chunks ...[]byte) *rw.FetchReader {
+	current := 0
+
+	reader := rw.NewFetchReader(func() ([]byte, error) {
+		if current >= len(chunks) {
+			return nil, errors.New("unexpected fetch")
+		}
+
+		chunk := chunks[current]
+		current++
+
+		return chunk, nil
+	})
+
+	return &reader
+}
+
+func newBootedTestStream(
+	t *testing.T,
+	machine *testStreamMachine,
+) stream {
+	t.Helper()
+
+	st := newStream()
+	st.f = newFSM(machine)
+
+	bootReader := newTestStreamFetcher()
+	bootLimitedReader := rw.NewLimitedReader(bootReader, 0)
+	bootErr := st.f.bootup(&bootLimitedReader, nil)
+
+	if !bootErr.Succeed() {
+		t.Fatalf("expected bootup to succeed, got %v", bootErr)
+	}
+
+	return st
+}
+
+func TestStreamCloseIsIdempotent(t *testing.T) {
+	const streamID = 7
+
+	machine := &testStreamMachine{
+		state: func(_ *FSM, _ *rw.LimitedReader, _ StreamHeader, _ []byte) error {
+			return nil
+		},
+		bootupErr: NoFSMError(),
+	}
+	output := bytes.NewBuffer(make([]byte, 0, 2))
+	bufferPool := NewBufferPool(4096)
+	handler := newHandler(
+		Configuration{},
+		&Commands{},
+		*newTestStreamFetcher(),
+		output,
+		&sync.Mutex{},
+		0,
+		0,
+		log.NewDitch(),
+		NewHooks(configuration.HookSettings{}),
+		&bufferPool,
+	)
+
+	handler.streams[streamID] = newBootedTestStream(t, machine)
+
+	header := HeaderClose
+	header.Set(streamID)
+
+	if closeErr := handler.handleClose(header, streamID, log.NewDitch()); closeErr != nil {
+		t.Fatalf("expected first close to succeed, got %v", closeErr)
+	}
+
+	closeErr := handler.handleClose(header, streamID, log.NewDitch())
+	if !errors.Is(closeErr, ErrStreamsStreamClosingInactiveStream) {
+		t.Fatalf(
+			"expected duplicate close to return %v, got %v",
+			ErrStreamsStreamClosingInactiveStream,
+			closeErr,
+		)
+	}
+
+	expected := []byte{byte(HeaderCompleted | streamID)}
+	if !bytes.Equal(output.Bytes(), expected) {
+		t.Fatalf("expected one completion frame %v, got %v", expected, output.Bytes())
+	}
+
+	if machine.closeCalls != 1 {
+		t.Fatalf("expected Close to be called once, got %d", machine.closeCalls)
+	}
+
+	if releaseErr := handler.streams[streamID].release(); releaseErr != nil {
+		t.Fatalf("expected release to succeed, got %v", releaseErr)
+	}
+
+	if machine.releaseCalls != 1 {
+		t.Fatalf(
+			"expected Release to be called once, got %d",
+			machine.releaseCalls,
+		)
+	}
+}
+
+func TestStreamErrorCompletesStream(t *testing.T) {
+	const streamID = 9
+
+	streamErr := errors.New("stream tick failed")
+	machine := &testStreamMachine{
+		state: func(_ *FSM, _ *rw.LimitedReader, _ StreamHeader, _ []byte) error {
+			return streamErr
+		},
+		bootupErr: NoFSMError(),
+	}
+	output := bytes.NewBuffer(make([]byte, 0, 1))
+	bufferPool := NewBufferPool(4096)
+	handler := newHandler(
+		Configuration{},
+		&Commands{},
+		*newTestStreamFetcher(),
+		output,
+		&sync.Mutex{},
+		0,
+		0,
+		log.NewDitch(),
+		NewHooks(configuration.HookSettings{}),
+		&bufferPool,
+	)
+
+	handler.streams[streamID] = newBootedTestStream(t, machine)
+
+	streamHeader := StreamHeader{}
+	streamHeader.Set(0, 0)
+
+	handler.receiver = *newTestStreamFetcher(streamHeader[:])
+	header := HeaderStream
+	header.Set(streamID)
+	tickErr := handler.handleStream(header, streamID, log.NewDitch())
+
+	if !errors.Is(tickErr, streamErr) {
+		t.Fatalf("expected tick to return %v, got %v", streamErr, tickErr)
+	}
+
+	if !handler.streams[streamID].running() {
+		t.Fatal("expected stream to remain active until close/release after tick error")
+	}
+
+	handler.streams.shutdown()
+
+	if handler.streams[streamID].running() {
+		t.Fatal("expected stream to be inactive after shutdown")
+	}
+
+	futureTickErr := handler.streams[streamID].tick(
+		header,
+		newTestStreamFetcher(streamHeader[:]),
+		make([]byte, 1),
+	)
+	if !errors.Is(futureTickErr, ErrStreamsStreamOperateInactiveStream) {
+		t.Fatalf(
+			"expected future write after shutdown to return %v, got %v",
+			ErrStreamsStreamOperateInactiveStream,
+			futureTickErr,
+		)
+	}
+
+	if machine.closeCalls != 1 {
+		t.Fatalf("expected Close to be called once, got %d", machine.closeCalls)
+	}
+
+	if machine.releaseCalls != 1 {
+		t.Fatalf("expected Release to be called once, got %d", machine.releaseCalls)
 	}
 }

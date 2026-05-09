@@ -352,18 +352,16 @@ func (c *streams) get(id byte) (*stream, error) {
 // running, ensuring every active command receives a close notification before
 // the handler exits.
 func (c *streams) shutdown() {
-	cc := *c
-
-	for i := range cc {
-		if !cc[i].running() {
+	for i := range c {
+		if !c[i].running() {
 			continue
 		}
 
-		if !cc[i].closed {
-			cc[i].close()
+		if !c[i].closed {
+			c[i].close()
 		}
 
-		cc[i].release()
+		c[i].release()
 	}
 }
 
@@ -477,6 +475,10 @@ func (c *stream) tick(
 // running.
 func (c *stream) close() error {
 	if !c.f.running() {
+		return ErrStreamsStreamClosingInactiveStream
+	}
+
+	if c.closed {
 		return ErrStreamsStreamClosingInactiveStream
 	}
 
