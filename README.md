@@ -10,6 +10,10 @@ work made this fork possible.
 
 ![Screenshot](Screenshot.png)
 
+## Supported browsers
+
+ES2020-era browsers and newer, including Chrome 80+, Edge 80+, Firefox 78+, and Safari 14+.
+
 ## Docker
 
 Run Sshwifty with Docker Compose:
@@ -56,7 +60,7 @@ Prerequisites:
 
 - `git`
 - `go`
-- `node`
+- `node` 24 or newer
 - `npm`
 
 Build the frontend assets and backend binary:
@@ -74,9 +78,11 @@ Run the development server:
 npm run dev
 ```
 
-The development command uses `sshwifty.conf.example.json` and enables debug
-mode. The generated production binary is written to `./sshwifty` by
-`npm run build`.
+The development command starts the Go backend with `sshwifty.conf.example.json`
+and serves the frontend through Vite with HMR. Vite proxies backend routes such
+as `/sshwifty/socket` to the Go process.
+
+The generated production binary is written to `./sshwifty` by `npm run build`.
 
 Useful development checks:
 
@@ -86,6 +92,9 @@ npm run testonly
 npm run lint
 go test ./...
 ```
+
+`npm run generate` produces the Vite assets and then refreshes the embedded Go
+static assets.
 
 ## License
 

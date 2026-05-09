@@ -6,11 +6,14 @@
 
 !application/*
 !ui/*
+!scripts/
+!scripts/**
 !*.md
 !*.go
 !*.sum
 !*.mod
+!Dockerfile
+!docker-entrypoint.sh
 !*.json
 !*.js
-!*.cjs
 !*.mjs

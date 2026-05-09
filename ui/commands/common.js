@@ -8,7 +8,6 @@
  * SSH and Telnet command modules.
  */
 
-import * as buffer from "buffer";
 import Exception from "./exception.js";
 import * as iconv from "../iconv/common.js";
 
@@ -249,15 +248,24 @@ export function strToUint8Array(d) {
 }
 
 /**
- * Convert string into a binary {Uint8Array}
+ * Convert a binary string into a {Uint8Array}.
  *
- * @param {string} d Input
+ * Each character is truncated to the low byte so browser-native conversion
+ * matches the legacy Buffer binary encoding behavior.
  *
- * @returns {Uint8Array} Output
+ * @param {string} d Input binary string.
+ *
+ * @returns {Uint8Array} Byte array containing one byte per input character.
  *
  */
 export function strToBinary(d) {
-  return new Uint8Array(buffer.Buffer.from(d, "binary").buffer);
+  let result = new Uint8Array(d.length);
+
+  for (let i = 0, j = d.length; i < j; i++) {
+    result[i] = d.charCodeAt(i) & 0xff;
+  }
+
+  return result;
 }
 
 const hostnameVerifier = new RegExp("^([0-9A-Za-z_.-]+)$");

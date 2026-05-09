@@ -54,7 +54,7 @@ export default [
     files: ["**/*_test.js"],
     languageOptions: {
       globals: {
-        ...globals.mocha,
+        ...globals.vitest,
       },
     },
   },

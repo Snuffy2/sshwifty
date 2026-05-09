@@ -120,7 +120,7 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			clientLogger)
 	case "/manifest.json":
 		err = serveStaticCacheData(
-			"manifest.json",
+			"site.webmanifest",
 			staticFileExt(".json"),
 			&ctlResponder,
 			r,

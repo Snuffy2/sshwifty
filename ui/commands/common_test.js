@@ -6,6 +6,12 @@ import assert from "assert";
 import * as common from "./common.js";
 
 describe("Common", () => {
+  it("strToBinary preserves high-bit binary characters", () => {
+    const result = common.strToBinary("\x00\x7f\x80\xff");
+
+    assert.deepStrictEqual(result, Uint8Array.from([0, 127, 128, 255]));
+  });
+
   it("parseIPv4", () => {
     let tests = [
       {

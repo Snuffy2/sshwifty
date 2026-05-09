@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 
 # Sshwifty is built as a static Go binary, but the production build also needs
-# Node because `npm run build` first runs Webpack and Webpack invokes
-# `go generate ./...` to embed the generated frontend assets into Go source.
+# Node because `npm run build` first runs Vite and then `go generate ./...` to
+# embed the generated frontend assets into Go source.
 #
 # The builder stage therefore starts from the official Go image and installs
 # Node 24 for the frontend toolchain. It installs npm and Go dependencies before
@@ -55,21 +55,13 @@ COPY application /sshwifty-src/application
 COPY ui /sshwifty-src/ui
 COPY LICENSE.md README.md CONFIGURATION.md DEPENDENCIES.md /sshwifty-src/
 COPY go.mod go.sum package.json package-lock.json /sshwifty-src/
-COPY sshwifty.go webpack.config.js babel.config.cjs eslint.config.mjs /sshwifty-src/
+COPY Dockerfile docker-entrypoint.sh sshwifty.go vite.config.js eslint.config.mjs /sshwifty-src/
+COPY scripts /sshwifty-src/scripts
 COPY preset.example.json sshwifty.conf.example.json /sshwifty-src/
+COPY docker-entrypoint.sh /sshwifty.sh
 RUN set -ex && \
     adduser -D sshwifty && \
     chmod +x /sshwifty && \
-    printf '%s\n' \
-        '#!/bin/sh' \
-        'set -e' \
-        '[ -z "$SSHWIFTY_DOCKER_TLSCERT" ] || { printf "%s" "$SSHWIFTY_DOCKER_TLSCERT" > /tmp/cert && chmod 600 /tmp/cert; }' \
-        '[ -z "$SSHWIFTY_DOCKER_TLSCERTKEY" ] || { printf "%s" "$SSHWIFTY_DOCKER_TLSCERTKEY" > /tmp/certkey && chmod 600 /tmp/certkey; }' \
-        'if [ -f "/tmp/cert" ] && [ -f "/tmp/certkey" ]; then' \
-        '    exec env SSHWIFTY_TLSCERTIFICATEFILE=/tmp/cert SSHWIFTY_TLSCERTIFICATEKEYFILE=/tmp/certkey /sshwifty' \
-        'fi' \
-        'exec /sshwifty' \
-        > /sshwifty.sh && \
     chmod +x /sshwifty.sh
 USER sshwifty
 EXPOSE 8182
