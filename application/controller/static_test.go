@@ -77,6 +77,16 @@ func TestLoadStaticPagesRequiresShellPages(t *testing.T) {
 	}, "static_assets")
 }
 
+// TestEmbeddedStaticPagesIncludeApplicationShell verifies generated static
+// assets are embedded into the package test binary.
+func TestEmbeddedStaticPagesIncludeApplicationShell(t *testing.T) {
+	for _, name := range []string{"index.html", "error.html", "README.md"} {
+		if _, ok := staticPages[name]; !ok {
+			t.Fatalf("expected embedded static page %q", name)
+		}
+	}
+}
+
 // TestStaticContentType verifies project-specific MIME type overrides for
 // embedded assets.
 func TestStaticContentType(t *testing.T) {
