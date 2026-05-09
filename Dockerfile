@@ -55,22 +55,13 @@ COPY application /sshwifty-src/application
 COPY ui /sshwifty-src/ui
 COPY LICENSE.md README.md CONFIGURATION.md DEPENDENCIES.md /sshwifty-src/
 COPY go.mod go.sum package.json package-lock.json /sshwifty-src/
-COPY sshwifty.go vite.config.js eslint.config.mjs /sshwifty-src/
+COPY Dockerfile docker-entrypoint.sh sshwifty.go vite.config.js eslint.config.mjs /sshwifty-src/
 COPY scripts /sshwifty-src/scripts
 COPY preset.example.json sshwifty.conf.example.json /sshwifty-src/
+COPY docker-entrypoint.sh /sshwifty.sh
 RUN set -ex && \
     adduser -D sshwifty && \
     chmod +x /sshwifty && \
-    printf '%s\n' \
-        '#!/bin/sh' \
-        'set -e' \
-        '[ -z "$SSHWIFTY_DOCKER_TLSCERT" ] || { printf "%s" "$SSHWIFTY_DOCKER_TLSCERT" > /tmp/cert && chmod 600 /tmp/cert; }' \
-        '[ -z "$SSHWIFTY_DOCKER_TLSCERTKEY" ] || { printf "%s" "$SSHWIFTY_DOCKER_TLSCERTKEY" > /tmp/certkey && chmod 600 /tmp/certkey; }' \
-        'if [ -f "/tmp/cert" ] && [ -f "/tmp/certkey" ]; then' \
-        '    exec env SSHWIFTY_TLSCERTIFICATEFILE=/tmp/cert SSHWIFTY_TLSCERTIFICATEKEYFILE=/tmp/certkey /sshwifty' \
-        'fi' \
-        'exec /sshwifty' \
-        > /sshwifty.sh && \
     chmod +x /sshwifty.sh
 USER sshwifty
 EXPOSE 8182
