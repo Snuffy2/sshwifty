@@ -12,8 +12,9 @@
 #
 # The runtime stage is Alpine and contains only the compiled `/sshwifty` binary
 # and a small entrypoint wrapper for optional Docker TLS environment variables.
-# Source availability is provided by the app's GitHub source link and the OCI
-# source metadata label rather than by copying source files into the image.
+# Source availability is provided by the app's source link and the OCI source
+# metadata label rather than by copying source files into the image. Release
+# builds pass an immutable commit archive URL as SSHWIFTY_SOURCE_URL.
 
 # Build the frontend dependencies
 FROM node:24-trixie AS frontend-deps
@@ -25,6 +26,7 @@ RUN npm ci
 FROM golang:1.26-trixie AS builder
 WORKDIR /src
 ARG SSHWIFTY_VERSION=dev
+ARG SSHWIFTY_SOURCE_URL=https://github.com/Snuffy2/sshwifty
 COPY go.mod go.sum ./
 RUN go mod download
 COPY --from=frontend-deps /usr/local/bin/node /usr/local/bin/node
@@ -36,12 +38,13 @@ COPY --from=frontend-deps /src/node_modules ./node_modules
 COPY package.json package-lock.json ./
 COPY . .
 RUN set -ex && \
-    SSHWIFTY_VERSION="$SSHWIFTY_VERSION" npm run build && \
+    SSHWIFTY_SOURCE_URL="$SSHWIFTY_SOURCE_URL" SSHWIFTY_VERSION="$SSHWIFTY_VERSION" npm run build && \
     mv ./sshwifty /
 
 # Build the final image for running
 FROM alpine:3.23
-LABEL org.opencontainers.image.source="https://github.com/Snuffy2/sshwifty" \
+ARG SSHWIFTY_SOURCE_URL=https://github.com/Snuffy2/sshwifty
+LABEL org.opencontainers.image.source="$SSHWIFTY_SOURCE_URL" \
     org.opencontainers.image.licenses="AGPL-3.0-only"
 ENV SSHWIFTY_DIALTIMEOUT=10 \
     SSHWIFTY_HOOKTIMEOUT=30 \

@@ -34,10 +34,11 @@ services:
 
 Then open `http://localhost:8182`.
 
-The container image does not bundle the repository source tree. The running app
-links to the source repository at
-[`github.com/Snuffy2/sshwifty`](https://github.com/Snuffy2/sshwifty), and the
-image includes an OCI source label with the same URL.
+The container image does not bundle the repository source tree. Published
+images build the running app and OCI source label with an immutable GitHub
+commit archive URL for the source used to produce that image. Local builds
+default to [`github.com/Snuffy2/sshwifty`](https://github.com/Snuffy2/sshwifty)
+unless `SSHWIFTY_SOURCE_URL` is provided as a Docker build argument.
 
 For reverse proxy deployments, publish the service only on localhost:
 

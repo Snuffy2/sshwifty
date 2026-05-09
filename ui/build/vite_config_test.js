@@ -59,6 +59,13 @@ describe("vite config cleanup guards", () => {
     }
   });
 
+  test("vite.config.js exposes the configured source URL to the frontend", () => {
+    const viteConfig = readSource(viteConfigPath);
+
+    expect(viteConfig).toContain("SSHWIFTY_SOURCE_URL");
+    expect(viteConfig).toContain("__SSHWIFTY_SOURCE_URL__");
+  });
+
   test("ui/index.html uses BASE_URL asset links and local scripts", () => {
     const indexHtml = readSource(indexHtmlPath);
 

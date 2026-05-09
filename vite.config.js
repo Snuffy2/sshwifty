@@ -13,6 +13,8 @@ const uiRoot = path.join(repoRoot, "ui");
 const distDir = path.join(repoRoot, ".tmp", "dist");
 const backendTarget = "http://127.0.0.1:8182";
 const publicDir = path.join(uiRoot, "public");
+const sourceURL =
+  process.env.SSHWIFTY_SOURCE_URL ?? "https://github.com/Snuffy2/sshwifty";
 
 const copiedRootFiles = [
   "README.md",
@@ -284,11 +286,7 @@ export default defineConfig(
   ({ command, mode }) => ({
     base: "/sshwifty/assets/",
     root: uiRoot,
-    plugins: [
-      vue(),
-      copyRootFilesPlugin(),
-      sshwiftyPublicAssetsPlugin(),
-    ],
+    plugins: [vue(), copyRootFilesPlugin(), sshwiftyPublicAssetsPlugin()],
     publicDir,
     resolve: {
       alias: [
@@ -322,6 +320,7 @@ export default defineConfig(
       __VUE_OPTIONS_API__: JSON.stringify(true),
       __VUE_PROD_DEVTOOLS__: JSON.stringify(false),
       __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: JSON.stringify(false),
+      __SSHWIFTY_SOURCE_URL__: JSON.stringify(sourceURL),
       "process.env.NODE_ENV": JSON.stringify(mode),
     },
     build: {

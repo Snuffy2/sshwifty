@@ -66,5 +66,6 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             SSHWIFTY_VERSION=${{ github.event_name == 'release' && github.event.release.tag_name || inputs.tag_name }}
+            SSHWIFTY_SOURCE_URL=https://github.com/Snuffy2/sshwifty/archive/${{ github.sha }}.tar.gz
           cache-from: type=gha
           cache-to: type=gha,mode=max
