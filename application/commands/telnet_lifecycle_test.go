@@ -5,6 +5,7 @@
 package commands
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/Snuffy2/sshwifty/application/command"
@@ -18,15 +19,17 @@ func TestTelnetCommandKeepsBufferPoolScopedToSession(t *testing.T) {
 	bufferPool := command.NewBufferPool(4096)
 	poolPtr := &bufferPool
 
-	client, ok := newTelnet(
+	r := newTelnet(
 		log.NewDitch(),
 		command.NewHooks(configuration.HookSettings{}),
 		command.StreamResponder{},
 		command.Configuration{},
 		poolPtr,
-	).(*telnetClient)
+	)
+	gotType := reflect.TypeOf(r)
+	client, ok := r.(*telnetClient)
 	if !ok {
-		t.Fatalf("expected *telnetClient, got %T", client)
+		t.Fatalf("expected *telnetClient, got %v", gotType)
 	}
 
 	if client.bufferPool != poolPtr {

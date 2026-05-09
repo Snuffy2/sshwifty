@@ -18,15 +18,16 @@ func TestSSHCommandKeepsBufferPoolScopedToSession(t *testing.T) {
 	bufferPool := command.NewBufferPool(4096)
 	poolPtr := &bufferPool
 
-	client, ok := newSSH(
+	got := newSSH(
 		log.NewDitch(),
 		command.NewHooks(configuration.HookSettings{}),
 		command.StreamResponder{},
 		command.Configuration{},
 		poolPtr,
-	).(*sshClient)
+	)
+	client, ok := got.(*sshClient)
 	if !ok {
-		t.Fatalf("expected *sshClient, got %T", client)
+		t.Fatalf("expected *sshClient, got %T", got)
 	}
 
 	if client.bufferPool != poolPtr {
