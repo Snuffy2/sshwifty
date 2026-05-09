@@ -224,6 +224,12 @@ async function stopGo() {
         }
       };
 
+      if (hasExited()) {
+        clearTimeout(escalationTimer);
+        resolve(child.exitCode, child.signalCode);
+        return;
+      }
+
       child.once(
         "exit",
         /**
