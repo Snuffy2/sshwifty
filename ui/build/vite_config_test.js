@@ -119,8 +119,8 @@ describe("vite config cleanup guards", () => {
     expect(rewriteDevShellScriptPaths(html)).toBe(
       [
         '<script type="module" src="/sshwifty/assets/@vite/client"></script>',
-        '<script type="module" src="/ui/node-globals.js"></script>',
-        '<script type="module" src="/ui/app.js"></script>',
+        '<script type="module" src="/node-globals.js"></script>',
+        '<script type="module" src="/app.js"></script>',
       ].join(""),
     );
   });
@@ -141,8 +141,8 @@ describe("vite config cleanup guards", () => {
 
     expect(html).toContain('href="/sshwifty/assets/sshwifty.svg"');
     expect(html).toContain('href="/sshwifty/assets/site.webmanifest"');
-    expect(html).toContain('src="/ui/node-globals.js"');
-    expect(html).toContain('src="/ui/app.js"');
+    expect(html).toContain('src="/node-globals.js"');
+    expect(html).toContain('src="/app.js"');
     expect(html).not.toContain("/sshwifty/assets/sshwifty/assets/");
   });
 });

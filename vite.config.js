@@ -145,8 +145,8 @@ export function resolveDevAssetRoute(requestPath) {
  */
 export function rewriteDevShellScriptPaths(html) {
   return html
-    .replaceAll('src="node-globals.js"', 'src="/ui/node-globals.js"')
-    .replaceAll('src="app.js"', 'src="/ui/app.js"');
+    .replaceAll('src="node-globals.js"', 'src="/node-globals.js"')
+    .replaceAll('src="app.js"', 'src="/app.js"');
 }
 
 /**

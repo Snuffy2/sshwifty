@@ -6,7 +6,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
-import { ensureDevStaticAssets } from "../../scripts/dev-static-assets.mjs";
+import { prepareDevStaticAssets } from "../../scripts/dev-static-assets.mjs";
 
 let testRoot = null;
 
@@ -33,7 +33,7 @@ describe("dev static assets", () => {
       "static_assets",
     );
 
-    ensureDevStaticAssets(repoRoot);
+    const cleanup = prepareDevStaticAssets(repoRoot);
 
     expect(
       fs.readFileSync(path.join(staticAssets, "index.html"), "utf8"),
@@ -41,6 +41,11 @@ describe("dev static assets", () => {
     expect(
       fs.readFileSync(path.join(staticAssets, "error.html"), "utf8"),
     ).toContain("Vite development server");
+
+    cleanup();
+
+    expect(fs.existsSync(path.join(staticAssets, "index.html"))).toBe(false);
+    expect(fs.existsSync(path.join(staticAssets, "error.html"))).toBe(false);
   });
 
   test("does not overwrite generated shell pages", () => {
@@ -55,7 +60,7 @@ describe("dev static assets", () => {
     fs.writeFileSync(path.join(staticAssets, "index.html"), "generated index");
     fs.writeFileSync(path.join(staticAssets, "error.html"), "generated error");
 
-    ensureDevStaticAssets(repoRoot);
+    const cleanup = prepareDevStaticAssets(repoRoot);
 
     expect(fs.readFileSync(path.join(staticAssets, "index.html"), "utf8")).toBe(
       "generated index",
@@ -63,5 +68,34 @@ describe("dev static assets", () => {
     expect(fs.readFileSync(path.join(staticAssets, "error.html"), "utf8")).toBe(
       "generated error",
     );
+
+    cleanup();
+
+    expect(fs.readFileSync(path.join(staticAssets, "index.html"), "utf8")).toBe(
+      "generated index",
+    );
+    expect(fs.readFileSync(path.join(staticAssets, "error.html"), "utf8")).toBe(
+      "generated error",
+    );
+  });
+
+  test("cleanup preserves generated pages written after placeholder creation", () => {
+    const repoRoot = createTestRoot();
+    const staticAssets = path.join(
+      repoRoot,
+      "application",
+      "controller",
+      "static_assets",
+    );
+
+    const cleanup = prepareDevStaticAssets(repoRoot);
+    fs.writeFileSync(path.join(staticAssets, "index.html"), "generated index");
+
+    cleanup();
+
+    expect(fs.readFileSync(path.join(staticAssets, "index.html"), "utf8")).toBe(
+      "generated index",
+    );
+    expect(fs.existsSync(path.join(staticAssets, "error.html"))).toBe(false);
   });
 });

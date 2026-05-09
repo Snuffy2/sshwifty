@@ -18,18 +18,22 @@ const shellPage = `<!doctype html>
 `;
 
 /**
- * Ensure dev-only shell pages exist so Go embed directives compile before a
- * production asset generation step has populated static_assets.
+ * Prepare dev-only shell pages so Go embed directives compile before a
+ * production asset generation step has populated static_assets. The returned
+ * cleanup callback removes only placeholder files created by this call.
  *
  * @param {string} repoRoot Repository root directory.
+ * @returns {() => void} Cleanup callback for created placeholder pages.
  */
-export function ensureDevStaticAssets(repoRoot) {
+export function prepareDevStaticAssets(repoRoot) {
   const targetDir = path.join(
     repoRoot,
     "application",
     "controller",
     "static_assets",
   );
+  const createdPages = [];
+
   fs.mkdirSync(targetDir, { recursive: true });
 
   for (const pageName of ["index.html", "error.html"]) {
@@ -38,5 +42,18 @@ export function ensureDevStaticAssets(repoRoot) {
       continue;
     }
     fs.writeFileSync(pagePath, shellPage);
+    createdPages.push(pagePath);
   }
+
+  return () => {
+    for (const pagePath of createdPages) {
+      if (!fs.existsSync(pagePath)) {
+        continue;
+      }
+      if (fs.readFileSync(pagePath, "utf8") !== shellPage) {
+        continue;
+      }
+      fs.unlinkSync(pagePath);
+    }
+  };
 }

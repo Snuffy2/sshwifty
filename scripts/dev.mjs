@@ -7,7 +7,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { createServer } from "vite";
-import { ensureDevStaticAssets } from "./dev-static-assets.mjs";
+import { prepareDevStaticAssets } from "./dev-static-assets.mjs";
 
 const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -18,6 +18,7 @@ const devConfig = path.join(repoRoot, "sshwifty.conf.example.json");
 let shuttingDown = false;
 let goProcess = null;
 let viteServer = null;
+let cleanupDevStaticAssets = () => {};
 
 /**
  * Prefix a child process's stdout and stderr before forwarding them.
@@ -229,6 +230,8 @@ async function shutdown(exitCode) {
   }
   shuttingDown = true;
   await Promise.allSettled([stopVite(), stopGo()]);
+  cleanupDevStaticAssets();
+  cleanupDevStaticAssets = () => {};
   process.exit(exitCode);
 }
 
@@ -253,7 +256,7 @@ process.on(
 );
 
 try {
-  ensureDevStaticAssets(repoRoot);
+  cleanupDevStaticAssets = prepareDevStaticAssets(repoRoot);
   startGo();
   await startVite();
 } catch (error) {
