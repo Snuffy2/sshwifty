@@ -22,6 +22,9 @@ type Configuration struct {
 	Dial network.Dial
 	// DialTimeout is the maximum duration permitted for a single dial attempt.
 	DialTimeout time.Duration
+	// Socks5Configured reports whether outbound traffic is routed through a
+	// SOCKS5 proxy, which some commands may reject due to protocol constraints.
+	Socks5Configured bool
 }
 
 // Commander manages the set of registered commands and produces Handler

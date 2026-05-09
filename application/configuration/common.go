@@ -28,6 +28,8 @@ type Common struct {
 	Dialer network.Dial
 	// DialTimeout is the maximum duration permitted for a single outbound dial.
 	DialTimeout time.Duration
+	// Socks5Configured reports whether Dialer routes traffic through SOCKS5.
+	Socks5Configured bool
 	// Presets is the list of pre-configured remote endpoints shown in the UI.
 	Presets []Preset
 	// Hooks contains the hook settings that govern lifecycle callbacks.

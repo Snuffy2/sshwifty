@@ -7,10 +7,12 @@ package commands
 import "github.com/Snuffy2/sshwifty/application/command"
 
 // New creates and returns the fully populated command.Commands array with
-// Telnet at index 0 and SSH at index 1, ready to be passed to a Commander.
+// Telnet at index 0, SSH at index 1, and Mosh at index 2, ready to be passed
+// to a Commander.
 func New() command.Commands {
 	return command.Commands{
 		command.Register("Telnet", newTelnet, parseTelnetConfig),
 		command.Register("SSH", newSSH, parseSSHConfig),
+		command.Register("Mosh", newMosh, parseMoshConfig),
 	}
 }
