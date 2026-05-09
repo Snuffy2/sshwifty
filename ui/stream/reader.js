@@ -620,6 +620,14 @@ export async function readUntil(indexOfReader, byteData) {
     };
   }
 
+  pos = await indexOfReader.indexOf(byteData);
+  if (pos >= 0) {
+    return {
+      data: await readN(indexOfReader, pos + 1),
+      found: true,
+    };
+  }
+
   return {
     data: await readN(indexOfReader, buffered),
     found: false,

@@ -42,7 +42,8 @@ export class Sender {
     this.maxBufferedRequests = maxBufferedRequests;
     this.buffer = new Uint8Array(maxSegSize);
     this.bufferUsed = 0;
-    this.bufferReq = 0;
+    this.bufferedRequests = 0;
+    this.closed = false;
   }
 
   /**
@@ -120,13 +121,19 @@ export class Sender {
       const fetched = await this.subscribe.subscribe();
 
       // Force flush?
-      if (fetched === true) {
+      if (fetched === true || fetched.flush === true) {
         if (this.bufferUsed <= 0) {
+          if (fetched.flush === true) {
+            fetched.resolve();
+          }
           continue;
         }
 
         await this.sendData(this.exportBuffer(), callbacks);
         callbacks = [];
+        if (fetched.flush === true) {
+          fetched.resolve();
+        }
 
         continue;
       }
@@ -158,14 +165,35 @@ export class Sender {
   }
 
   /**
+   * Flush buffered data.
+   *
+   * @returns {Promise<void>} Resolves after pending buffered bytes are sent.
+   */
+  flush() {
+    return new Promise((resolve) => {
+      this.subscribe.resolve({
+        flush: true,
+        resolve,
+      });
+    });
+  }
+
+  /**
    * Clear everything
    *
    */
-  close() {
+  async close() {
+    if (this.closed) {
+      return;
+    }
+    this.closed = true;
+
     if (this.sendDelay !== null) {
       clearTimeout(this.sendDelay);
       this.sendDelay = null;
     }
+
+    await this.flush();
 
     this.buffered = null;
     this.bufferUsed = 0;
@@ -189,6 +217,10 @@ export class Sender {
    *
    */
   send(data) {
+    if (this.closed) {
+      return Promise.reject(new Exception("Sender has been cleared", false));
+    }
+
     let delayCleared = false;
 
     if (this.sendDelay !== null) {
@@ -206,16 +238,16 @@ export class Sender {
         reject: reject,
       });
 
+      if (delayCleared) {
+        self.bufferedRequests++;
+      }
+
       if (self.bufferedRequests >= self.maxBufferedRequests) {
         self.bufferedRequests = 0;
 
         self.subscribe.resolve(true);
 
         return;
-      }
-
-      if (delayCleared) {
-        self.bufferedRequests++;
       }
 
       self.sendDelay = setTimeout(() => {
