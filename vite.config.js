@@ -26,18 +26,6 @@ const passthroughPublicAssets = new Map([
   ["/sshwifty/assets/sshwifty.svg", "sshwifty.svg"],
   ["/sshwifty/assets/robots.txt", "robots.txt"],
 ]);
-const rootCompatibilityAssets = new Map([
-  ["/favicon.ico", "favicon.ico"],
-  ["/manifest.json", "manifest.json"],
-  ["/browserconfig.xml", "browserconfig.xml"],
-]);
-const passthroughContentTypes = new Map([
-  ["site.webmanifest", "application/manifest+json"],
-  ["manifest.json", "application/json; charset=utf-8"],
-  ["browserconfig.xml", "application/xml; charset=utf-8"],
-  ["sshwifty.svg", "image/svg+xml"],
-  ["favicon.ico", "image/x-icon"],
-]);
 
 function passthroughAssetToken(publicPath) {
   return `__SSHWIFTY_PUBLIC_ASSET__${publicPath}__`;
@@ -156,9 +144,7 @@ function sshwiftyPublicAssetsPlugin(command) {
         const requestUrl = req.url ?? "";
         const [requestPath] = requestUrl.split("?", 1);
 
-        const assetFile =
-          passthroughPublicAssets.get(requestPath) ??
-          rootCompatibilityAssets.get(requestPath);
+        const assetFile = passthroughPublicAssets.get(requestPath);
 
         if (!assetFile) {
           next();
@@ -167,55 +153,15 @@ function sshwiftyPublicAssetsPlugin(command) {
 
         const filePath = path.join(publicDir, assetFile);
         const contentType =
-          passthroughContentTypes.get(assetFile) ?? "text/plain; charset=utf-8";
+          assetFile === "site.webmanifest"
+            ? "application/manifest+json"
+            : assetFile.endsWith(".svg")
+              ? "image/svg+xml"
+              : "text/plain; charset=utf-8";
 
         res.setHeader("Content-Type", contentType);
         fs.createReadStream(filePath).pipe(res);
       });
-    },
-  };
-}
-
-function browserNodePolyfillsPlugin() {
-  const virtualModuleId = "virtual:sshwifty-node-globals";
-  const resolvedVirtualModuleId = `\0${virtualModuleId}`;
-
-  return {
-    name: "sshwifty-browser-node-polyfills",
-    resolveId(id) {
-      if (id === virtualModuleId) {
-        return resolvedVirtualModuleId;
-      }
-
-      return null;
-    },
-    load(id) {
-      if (id !== resolvedVirtualModuleId) {
-        return null;
-      }
-
-      return `
-import { Buffer as __Buffer } from "buffer";
-import __process from "process";
-
-globalThis.Buffer ??= __Buffer;
-globalThis.process ??= __process;
-`;
-    },
-    transformIndexHtml: {
-      order: "pre",
-      handler() {
-        return [
-          {
-            tag: "script",
-            attrs: {
-              type: "module",
-            },
-            children: `import "virtual:sshwifty-node-globals";`,
-            injectTo: "head-prepend",
-          },
-        ];
-      },
     },
   };
 }
@@ -240,7 +186,6 @@ export default defineConfig(({ command, mode }) => ({
   base: "/sshwifty/assets/",
   plugins: [
     vue(),
-    browserNodePolyfillsPlugin(),
     copyRootFilesPlugin(),
     sshwiftyPublicAssetsPlugin(command),
     restoreDevHtmlAssetsPlugin(command),
@@ -256,26 +201,6 @@ export default defineConfig(({ command, mode }) => ({
       {
         find: "vue",
         replacement: "vue/dist/vue.esm-bundler.js",
-      },
-      {
-        find: /^stream$/,
-        replacement: "stream-browserify",
-      },
-      {
-        find: /^buffer$/,
-        replacement: "buffer",
-      },
-      {
-        find: /^events$/,
-        replacement: path.join(repoRoot, "node_modules", "events", "events.js"),
-      },
-      {
-        find: /^string_decoder$/,
-        replacement: "string_decoder",
-      },
-      {
-        find: /^process$/,
-        replacement: "process/browser",
       },
     ],
   },
