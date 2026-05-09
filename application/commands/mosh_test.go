@@ -16,6 +16,7 @@ import (
 
 	"github.com/Snuffy2/sshwifty/application/command"
 	"github.com/Snuffy2/sshwifty/application/configuration"
+	"github.com/Snuffy2/sshwifty/application/network"
 	"github.com/Snuffy2/sshwifty/application/rw"
 )
 
@@ -170,6 +171,35 @@ func TestMoshBuildRemoteSessionUsesReachedPeerIPv4WithoutResolver(t *testing.T) 
 	}
 }
 
+func TestMoshBuildRemoteSessionHonorsPresetRestriction(t *testing.T) {
+	client := &moshClient{
+		baseCtx: context.Background(),
+		cfg: command.Configuration{
+			OnlyAllowPresetRemotes: true,
+			Presets: []configuration.Preset{
+				{Host: "example.com:22"},
+			},
+		},
+		hostResolver: func(context.Context, string) ([]net.IP, error) {
+			t.Fatal("expected rejected target to fail before DNS resolution")
+			return nil, nil
+		},
+		sessionBuilder: func(string, int, string) (moshSession, error) {
+			t.Fatal("expected rejected target to fail before session dial")
+			return nil, nil
+		},
+	}
+
+	_, err := client.buildRemoteSession("other.example.com:22", nil, 60001, "secret")
+	if !errors.Is(err, network.ErrAccessControlDialTargetHostNotAllowed) {
+		t.Fatalf(
+			"expected preset restriction error %v, got %v",
+			network.ErrAccessControlDialTargetHostNotAllowed,
+			err,
+		)
+	}
+}
+
 func TestMoshAwaitRemoteSessionReadyReturnsInitialOutput(t *testing.T) {
 	client := &moshClient{
 		baseCtx: context.Background(),
@@ -268,6 +298,28 @@ func TestMoshBootupRejectsSocks5(t *testing.T) {
 
 	if err.Code() != MoshRequestErrorUnsupportedProxy {
 		t.Fatalf("expected unsupported proxy code, got %d", err.Code())
+	}
+}
+
+func TestMoshBootupReportsBadMetadata(t *testing.T) {
+	bufferPool := command.NewBufferPool(4096)
+	client := newMosh(
+		nil,
+		command.NewHooks(configuration.HookSettings{}),
+		command.StreamResponder{},
+		command.Configuration{},
+		&bufferPool,
+	)
+	payload := buildMoshBootPayload(t, "alice", "example.com", 22, SSHAuthMethodNone)
+	payload = append(payload, 5)
+
+	state, err := client.Bootup(newLimitedReader(payload), nil)
+	if state != nil {
+		t.Fatalf("expected bootup state to stay nil on metadata rejection, got %v", state)
+	}
+
+	if err.Code() != MoshRequestErrorBadMetadata {
+		t.Fatalf("expected bad metadata code, got %d", err.Code())
 	}
 }
 
@@ -542,4 +594,32 @@ func newLimitedReader(payload []byte) *rw.LimitedReader {
 	})
 	limited := rw.NewLimitedReader(&reader, len(payload))
 	return &limited
+}
+
+func buildMoshBootPayload(
+	t *testing.T,
+	user string,
+	host string,
+	port uint16,
+	authMethod byte,
+) []byte {
+	t.Helper()
+
+	payload := make([]byte, 0, 128)
+	buf := make([]byte, 128)
+
+	userLen, err := NewString([]byte(user)).Marshal(buf)
+	if err != nil {
+		t.Fatalf("expected username marshal to succeed, got %v", err)
+	}
+	payload = append(payload, buf[:userLen]...)
+
+	addrLen, err := NewAddress(HostNameAddr, []byte(host), port).Marshal(buf)
+	if err != nil {
+		t.Fatalf("expected address marshal to succeed, got %v", err)
+	}
+	payload = append(payload, buf[:addrLen]...)
+	payload = append(payload, authMethod)
+
+	return payload
 }

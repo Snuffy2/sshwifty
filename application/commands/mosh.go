@@ -40,6 +40,7 @@ const (
 	MoshRequestErrorBadRemoteAddress = command.StreamError(0x02)
 	MoshRequestErrorBadAuthMethod    = command.StreamError(0x03)
 	MoshRequestErrorUnsupportedProxy = command.StreamError(0x04)
+	MoshRequestErrorBadMetadata      = command.StreamError(0x05)
 )
 
 const (
@@ -174,7 +175,7 @@ func (d *moshClient) Bootup(
 
 	requestMeta, requestMetaErr := parseMoshRequestMeta(r, (*sBuf)[:])
 	if requestMetaErr != nil {
-		return nil, command.ToFSMError(requestMetaErr, MoshRequestErrorBadAuthMethod)
+		return nil, command.ToFSMError(requestMetaErr, MoshRequestErrorBadMetadata)
 	}
 	d.meta = requestMeta
 
@@ -458,6 +459,10 @@ func (d *moshClient) remote(user string, address string, authMethodBuilder sshAu
 }
 
 func (d *moshClient) buildRemoteSession(address string, peerAddr net.Addr, port int, key string) (moshSession, error) {
+	if err := d.validateMoshRemoteAllowed(address); err != nil {
+		return nil, err
+	}
+
 	host, err := d.resolveMoshSessionHost(address, peerAddr)
 	if err != nil {
 		return nil, err
@@ -475,12 +480,21 @@ func (d *moshClient) sendRemoteOutput(buf []byte, output []byte) error {
 		return nil
 	}
 
-	payloadLen := copy(buf[d.w.HeaderSize():], output)
-	if payloadLen == 0 {
+	return d.w.Send(MoshServerRemoteStdOut, output, buf)
+}
+
+func (d *moshClient) validateMoshRemoteAllowed(address string) error {
+	if !d.cfg.OnlyAllowPresetRemotes {
 		return nil
 	}
 
-	return d.w.SendManual(MoshServerRemoteStdOut, buf[:d.w.HeaderSize()+payloadLen])
+	for _, preset := range d.cfg.Presets {
+		if preset.Host == address {
+			return nil
+		}
+	}
+
+	return network.ErrAccessControlDialTargetHostNotAllowed
 }
 
 func (d *moshClient) resolveMoshSessionHost(address string, peerAddr net.Addr) (string, error) {

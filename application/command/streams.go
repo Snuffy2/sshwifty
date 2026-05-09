@@ -199,11 +199,11 @@ func newStreamResponder(w streamHandlerSender, h Header) StreamResponder {
 // it to the wire. It caps the segment at both the buffer size and
 // StreamHeaderMaxLength. It returns the number of bytes of b consumed.
 func (w StreamResponder) write(mk byte, b []byte, buf []byte) (int, error) {
-	bufLen := len(buf)
+	payloadCapacity := len(buf) - w.HeaderSize()
 	bLen := len(b)
 
-	if bLen > bufLen {
-		bLen = bufLen
+	if bLen > payloadCapacity {
+		bLen = payloadCapacity
 	}
 
 	if bLen > StreamHeaderMaxLength {
@@ -213,7 +213,7 @@ func (w StreamResponder) write(mk byte, b []byte, buf []byte) (int, error) {
 	sHeaderStream := StreamHeader{}
 	sHeaderStream.Set(mk, uint16(bLen))
 
-	toWrite := copy(buf[3:], b)
+	toWrite := copy(buf[w.HeaderSize():], b[:bLen])
 	buf[0] = byte(w.h)
 	buf[1] = sHeaderStream[0]
 	buf[2] = sHeaderStream[1]
@@ -224,7 +224,7 @@ func (w StreamResponder) write(mk byte, b []byte, buf []byte) (int, error) {
 		return 0, wErr
 	}
 
-	return len(b), wErr
+	return toWrite, wErr
 }
 
 // HeaderSize returns the size of header

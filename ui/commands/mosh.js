@@ -51,6 +51,7 @@ const SERVER_REQUEST_ERROR_BAD_USERNAME = 0x01;
 const SERVER_REQUEST_ERROR_BAD_ADDRESS = 0x02;
 const SERVER_REQUEST_ERROR_BAD_AUTHMETHOD = 0x03;
 const SERVER_REQUEST_ERROR_UNSUPPORTED_PROXY = 0x04;
+const SERVER_REQUEST_ERROR_BAD_METADATA = 0x05;
 
 const FingerprintPromptVerifyPassed = 0x00;
 const FingerprintPromptVerifyNoRecord = 0x01;
@@ -690,6 +691,12 @@ class Wizard {
                 "Request failed",
                 "Mosh does not support SOCKS5 proxying in this version because its session uses UDP",
               ),
+            );
+            return;
+
+          case SERVER_REQUEST_ERROR_BAD_METADATA:
+            self.step.resolve(
+              self.stepErrorDone("Request failed", "Invalid Mosh Server value"),
             );
             return;
         }

@@ -341,9 +341,11 @@ func (s socket) Get(
 	senderLock := sync.Mutex{}
 	cmdExec, cmdExecErr := s.commander.New(
 		command.Configuration{
-			Dial:             s.commonCfg.Dialer,
-			DialTimeout:      s.commonCfg.DecideDialTimeout(s.serverCfg.ReadTimeout),
-			Socks5Configured: s.commonCfg.Socks5Configured,
+			Dial:                   s.commonCfg.Dialer,
+			DialTimeout:            s.commonCfg.DecideDialTimeout(s.serverCfg.ReadTimeout),
+			Socks5Configured:       s.commonCfg.Socks5Configured,
+			Presets:                s.commonCfg.Presets,
+			OnlyAllowPresetRemotes: s.commonCfg.OnlyAllowPresetRemotes,
 		},
 		rw.NewFetchReader(func() ([]byte, error) {
 			defer s.increaseNonce(readNonce[:])
