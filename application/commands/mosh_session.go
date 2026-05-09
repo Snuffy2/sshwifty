@@ -5,6 +5,7 @@
 package commands
 
 import (
+	"fmt"
 	"time"
 
 	mosh "github.com/unixshells/mosh-go"
@@ -13,6 +14,7 @@ import (
 type moshSession interface {
 	Send([]byte) error
 	Recv(time.Duration) ([]byte, error)
+	AwaitReady(time.Duration) ([]byte, error)
 	Resize(cols uint16, rows uint16) error
 	Close() error
 }
@@ -44,6 +46,19 @@ func (m *moshGoSession) Send(payload []byte) error {
 
 func (m *moshGoSession) Recv(timeout time.Duration) ([]byte, error) {
 	return m.client.Recv(timeout), nil
+}
+
+func (m *moshGoSession) AwaitReady(timeout time.Duration) ([]byte, error) {
+	output, err := m.Recv(timeout)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(output) == 0 {
+		return nil, fmt.Errorf("timed out waiting for initial mosh server response within %s", timeout)
+	}
+
+	return output, nil
 }
 
 func (m *moshGoSession) Resize(cols uint16, rows uint16) error {

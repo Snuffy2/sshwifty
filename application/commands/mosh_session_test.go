@@ -35,6 +35,48 @@ func TestMoshSessionReceiveTimeoutIsNonFatal(t *testing.T) {
 	}
 }
 
+func TestMoshSessionAwaitReadyReturnsInitialOutput(t *testing.T) {
+	session := moshGoSession{
+		client: moshGoClientFunc{
+			recv: func(timeout time.Duration) []byte {
+				if timeout != 250*time.Millisecond {
+					t.Fatalf("expected readiness timeout 250ms, got %s", timeout)
+				}
+
+				return []byte("ready")
+			},
+		},
+	}
+
+	output, err := session.AwaitReady(250 * time.Millisecond)
+	if err != nil {
+		t.Fatalf("expected readiness to succeed, got %v", err)
+	}
+
+	if string(output) != "ready" {
+		t.Fatalf("expected readiness output %q, got %q", "ready", output)
+	}
+}
+
+func TestMoshSessionAwaitReadyTimesOutWithoutOutput(t *testing.T) {
+	session := moshGoSession{
+		client: moshGoClientFunc{
+			recv: func(time.Duration) []byte {
+				return nil
+			},
+		},
+	}
+
+	output, err := session.AwaitReady(250 * time.Millisecond)
+	if err == nil {
+		t.Fatal("expected readiness timeout to fail")
+	}
+
+	if output != nil {
+		t.Fatalf("expected nil output on readiness timeout, got %q", output)
+	}
+}
+
 type moshGoClientFunc struct {
 	send   func([]byte)
 	recv   func(time.Duration) []byte

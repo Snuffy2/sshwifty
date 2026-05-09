@@ -7,6 +7,7 @@ package commands
 import (
 	"bytes"
 	"context"
+	"errors"
 	"net"
 	"reflect"
 	"sync"
@@ -70,7 +71,7 @@ func TestMoshBuildRemoteSessionPassesIPv4LiteralUnchanged(t *testing.T) {
 		return &fakeMoshSession{}, nil
 	}
 
-	if _, err := client.buildRemoteSession("192.0.2.10:22", 60001, "secret"); err != nil {
+	if _, err := client.buildRemoteSession("192.0.2.10:22", nil, 60001, "secret"); err != nil {
 		t.Fatalf("expected remote session build to succeed, got %v", err)
 	}
 
@@ -110,7 +111,7 @@ func TestMoshBuildRemoteSessionResolvesHostnameToIPv4(t *testing.T) {
 		return &fakeMoshSession{}, nil
 	}
 
-	if _, err := client.buildRemoteSession("example.com:22", 60001, "secret"); err != nil {
+	if _, err := client.buildRemoteSession("example.com:22", nil, 60001, "secret"); err != nil {
 		t.Fatalf("expected hostname-backed session build to succeed, got %v", err)
 	}
 
@@ -131,9 +132,85 @@ func TestMoshBuildRemoteSessionRejectsIPv6OnlyTargets(t *testing.T) {
 		},
 	}
 
-	_, err := client.buildRemoteSession("example.com:22", 60001, "secret")
+	_, err := client.buildRemoteSession("example.com:22", nil, 60001, "secret")
 	if err == nil {
 		t.Fatal("expected IPv6-only target to be rejected")
+	}
+}
+
+func TestMoshBuildRemoteSessionUsesReachedPeerIPv4WithoutResolver(t *testing.T) {
+	client := &moshClient{
+		baseCtx: context.Background(),
+		hostResolver: func(context.Context, string) ([]net.IP, error) {
+			t.Fatal("expected reached peer IP to bypass DNS resolution")
+			return nil, nil
+		},
+	}
+
+	var resolvedHost string
+	client.sessionBuilder = func(host string, port int, key string) (moshSession, error) {
+		resolvedHost = host
+		if port != 60001 {
+			t.Fatalf("expected port 60001, got %d", port)
+		}
+		if key != "secret" {
+			t.Fatalf("expected key secret, got %q", key)
+		}
+
+		return &fakeMoshSession{}, nil
+	}
+
+	peer := &net.TCPAddr{IP: net.ParseIP("198.51.100.23"), Port: 22}
+	if _, err := client.buildRemoteSession("example.com:22", peer, 60001, "secret"); err != nil {
+		t.Fatalf("expected peer-backed session build to succeed, got %v", err)
+	}
+
+	if resolvedHost != "198.51.100.23" {
+		t.Fatalf("expected session builder to receive reached peer IPv4, got %q", resolvedHost)
+	}
+}
+
+func TestMoshAwaitRemoteSessionReadyReturnsInitialOutput(t *testing.T) {
+	client := &moshClient{
+		cfg: command.Configuration{DialTimeout: 250 * time.Millisecond},
+	}
+	session := &fakeMoshSession{
+		awaitReady: func(timeout time.Duration) ([]byte, error) {
+			if timeout != 250*time.Millisecond {
+				t.Fatalf("expected readiness timeout 250ms, got %s", timeout)
+			}
+
+			return []byte("ready"), nil
+		},
+	}
+
+	output, err := client.awaitRemoteSessionReady(session)
+	if err != nil {
+		t.Fatalf("expected readiness to succeed, got %v", err)
+	}
+
+	if string(output) != "ready" {
+		t.Fatalf("expected readiness output %q, got %q", "ready", output)
+	}
+}
+
+func TestMoshAwaitRemoteSessionReadyFailsWithoutServerResponse(t *testing.T) {
+	client := &moshClient{
+		cfg: command.Configuration{DialTimeout: 250 * time.Millisecond},
+	}
+	session := &fakeMoshSession{
+		awaitReady: func(time.Duration) ([]byte, error) {
+			return nil, errors.New("timeout waiting for mosh server response")
+		},
+	}
+
+	output, err := client.awaitRemoteSessionReady(session)
+	if err == nil {
+		t.Fatal("expected readiness failure to propagate")
+	}
+
+	if output != nil {
+		t.Fatalf("expected nil output on readiness failure, got %q", output)
 	}
 }
 
@@ -317,6 +394,7 @@ type fakeMoshSession struct {
 	resizes  []fakeMoshResize
 	closed   bool
 	closedCh chan struct{}
+	awaitReady func(time.Duration) ([]byte, error)
 }
 
 func (f *fakeMoshSession) Send(payload []byte) error {
@@ -328,6 +406,14 @@ func (f *fakeMoshSession) Send(payload []byte) error {
 
 func (f *fakeMoshSession) Recv(time.Duration) ([]byte, error) {
 	return nil, nil
+}
+
+func (f *fakeMoshSession) AwaitReady(timeout time.Duration) ([]byte, error) {
+	if f.awaitReady != nil {
+		return f.awaitReady(timeout)
+	}
+
+	return []byte("ready"), nil
 }
 
 func (f *fakeMoshSession) Resize(cols uint16, rows uint16) error {

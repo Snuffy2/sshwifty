@@ -305,14 +305,15 @@ func (d *moshClient) dialRemote(
 	networkName string,
 	addr string,
 	config *ssh.ClientConfig,
-) (*ssh.Client, func(), error) {
+) (*ssh.Client, net.Addr, func(), error) {
 	dialCtx, dialCtxCancel := context.WithTimeout(d.baseCtx, config.Timeout)
 	defer dialCtxCancel()
 
 	conn, err := d.cfg.Dial(dialCtx, networkName, addr)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
+	peerAddr := conn.RemoteAddr()
 
 	sshConn := &sshRemoteConnWrapper{
 		Conn:       conn,
@@ -339,10 +340,10 @@ func (d *moshClient) dialRemote(
 	c, chans, reqs, err := ssh.NewClientConn(sshConn, addr, config)
 	if err != nil {
 		sshConn.Close()
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
-	return ssh.NewClient(c, chans, reqs), func() {
+	return ssh.NewClient(c, chans, reqs), peerAddr, func() {
 		d.remoteReadTimeoutRetryLock.Lock()
 		defer d.remoteReadTimeoutRetryLock.Unlock()
 		d.remoteReadTimeoutRetry = false
@@ -382,7 +383,7 @@ func (d *moshClient) remote(user string, address string, authMethodBuilder sshAu
 		return
 	}
 
-	conn, clearConnInitialDeadline, err := d.dialRemote("tcp", address, &ssh.ClientConfig{
+	conn, peerAddr, clearConnInitialDeadline, err := d.dialRemote("tcp", address, &ssh.ClientConfig{
 		User: user,
 		Auth: authMethodBuilder((*u)[:]),
 		HostKeyCallback: func(h string, r net.Addr, k ssh.PublicKey) error {
@@ -412,16 +413,27 @@ func (d *moshClient) remote(user string, address string, authMethodBuilder sshAu
 		return
 	}
 
-	session, err = d.buildRemoteSession(address, connectInfo.Port, connectInfo.Key)
+	session, err = d.buildRemoteSession(address, peerAddr, connectInfo.Port, connectInfo.Key)
 	if err != nil {
 		d.sendConnectFailed((*u)[:], fmt.Errorf("failed to connect to remote mosh session: %w", err))
 		d.l.Debug("Unable to connect to remote mosh session: %s", err)
 		return
 	}
 
+	initialOutput, err := d.awaitRemoteSessionReady(session)
+	if err != nil {
+		d.sendConnectFailed((*u)[:], fmt.Errorf("failed to verify remote mosh session readiness: %w", err))
+		d.l.Debug("Unable to verify remote mosh session readiness: %s", err)
+		return
+	}
+
 	d.cacheSession(session)
 	d.sessionReceive <- session
 	if err = d.w.SendManual(MoshServerConnectSucceed, (*u)[:d.w.HeaderSize()]); err != nil {
+		return
+	}
+
+	if err = d.sendRemoteOutput((*u)[:], initialOutput); err != nil {
 		return
 	}
 
@@ -438,23 +450,14 @@ func (d *moshClient) remote(user string, address string, authMethodBuilder sshAu
 		default:
 		}
 
-		if len(output) == 0 {
-			continue
-		}
-
-		payloadLen := copy((*u)[d.w.HeaderSize():], output)
-		if payloadLen == 0 {
-			continue
-		}
-
-		if err = d.w.SendManual(MoshServerRemoteStdOut, (*u)[:d.w.HeaderSize()+payloadLen]); err != nil {
+		if err = d.sendRemoteOutput((*u)[:], output); err != nil {
 			return
 		}
 	}
 }
 
-func (d *moshClient) buildRemoteSession(address string, port int, key string) (moshSession, error) {
-	host, err := d.resolveMoshSessionHost(address)
+func (d *moshClient) buildRemoteSession(address string, peerAddr net.Addr, port int, key string) (moshSession, error) {
+	host, err := d.resolveMoshSessionHost(address, peerAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -462,7 +465,28 @@ func (d *moshClient) buildRemoteSession(address string, port int, key string) (m
 	return d.sessionBuilder(host, port, key)
 }
 
-func (d *moshClient) resolveMoshSessionHost(address string) (string, error) {
+func (d *moshClient) awaitRemoteSessionReady(session moshSession) ([]byte, error) {
+	return session.AwaitReady(d.recvTimeout())
+}
+
+func (d *moshClient) sendRemoteOutput(buf []byte, output []byte) error {
+	if len(output) == 0 {
+		return nil
+	}
+
+	payloadLen := copy(buf[d.w.HeaderSize():], output)
+	if payloadLen == 0 {
+		return nil
+	}
+
+	return d.w.SendManual(MoshServerRemoteStdOut, buf[:d.w.HeaderSize()+payloadLen])
+}
+
+func (d *moshClient) resolveMoshSessionHost(address string, peerAddr net.Addr) (string, error) {
+	if peerAddr != nil {
+		return normalizeMoshPeerHost(peerAddr)
+	}
+
 	host := moshRemoteHost(address)
 	if ip := net.ParseIP(host); ip != nil {
 		if ipv4 := ip.To4(); ipv4 != nil {
@@ -504,6 +528,38 @@ func (d *moshClient) resolveMoshSessionHost(address string) (string, error) {
 
 	return "", fmt.Errorf(
 		"Mosh v1 requires an IPv4 target because the current mosh-go UDP client is IPv4-only: %q did not resolve to IPv4",
+		host,
+	)
+}
+
+func normalizeMoshPeerHost(peerAddr net.Addr) (string, error) {
+	if tcpAddr, ok := peerAddr.(*net.TCPAddr); ok {
+		if ipv4 := tcpAddr.IP.To4(); ipv4 != nil {
+			return ipv4.String(), nil
+		}
+
+		return "", fmt.Errorf(
+			"Mosh v1 requires an IPv4 target because the current mosh-go UDP client is IPv4-only: %q is not IPv4",
+			tcpAddr.IP.String(),
+		)
+	}
+
+	host := peerAddr.String()
+	if splitHost, _, err := net.SplitHostPort(host); err == nil {
+		host = splitHost
+	}
+
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return "", fmt.Errorf("remote SSH peer address %q is not an IP literal", peerAddr.String())
+	}
+
+	if ipv4 := ip.To4(); ipv4 != nil {
+		return ipv4.String(), nil
+	}
+
+	return "", fmt.Errorf(
+		"Mosh v1 requires an IPv4 target because the current mosh-go UDP client is IPv4-only: %q is not IPv4",
 		host,
 	)
 }
