@@ -31,6 +31,29 @@ function passthroughAssetToken(publicPath) {
   return `__SSHWIFTY_PUBLIC_ASSET__${publicPath}__`;
 }
 
+function replacePublicAssetPaths(source, replacer) {
+  let updated = source;
+
+  for (const publicPath of passthroughPublicAssets.keys()) {
+    updated = updated.replaceAll(publicPath, replacer(publicPath));
+  }
+
+  return updated;
+}
+
+function restorePublicAssetTokens(source) {
+  let updated = source;
+
+  for (const publicPath of passthroughPublicAssets.keys()) {
+    updated = updated.replaceAll(
+      passthroughAssetToken(publicPath),
+      publicPath,
+    );
+  }
+
+  return updated;
+}
+
 function copyRootFilesPlugin() {
   return {
     name: "copy-root-files",
@@ -63,12 +86,7 @@ function normalizeHtmlOutputsPlugin() {
         }
 
         let html = fs.readFileSync(nestedPath, "utf8");
-        for (const publicPath of passthroughPublicAssets.keys()) {
-          html = html.replaceAll(
-            passthroughAssetToken(publicPath),
-            publicPath,
-          );
-        }
+        html = restorePublicAssetTokens(html);
 
         fs.writeFileSync(flatPath, html);
         fs.rmSync(nestedPath);
@@ -81,22 +99,13 @@ function normalizeHtmlOutputsPlugin() {
   };
 }
 
-function sshwiftyPublicAssetsPlugin() {
+function sshwiftyPublicAssetsPlugin(command) {
   return {
     name: "sshwifty-public-assets",
     transformIndexHtml: {
       order: "pre",
       handler(html) {
-        let transformed = html;
-
-        for (const publicPath of passthroughPublicAssets.keys()) {
-          transformed = transformed.replaceAll(
-            publicPath,
-            passthroughAssetToken(publicPath),
-          );
-        }
-
-        return transformed;
+        return replacePublicAssetPaths(html, passthroughAssetToken);
       },
     },
     generateBundle(_, bundle) {
@@ -105,17 +114,37 @@ function sshwiftyPublicAssetsPlugin() {
           continue;
         }
 
-        for (const publicPath of passthroughPublicAssets.keys()) {
-          chunk.source = chunk.source.replaceAll(
-            passthroughAssetToken(publicPath),
-            publicPath,
-          );
-        }
+        chunk.source = restorePublicAssetTokens(chunk.source);
       }
     },
     configureServer(server) {
+      const rewriteShellRequest = (req, _res, next) => {
+        const requestUrl = req.url ?? "";
+        const [requestPath, requestQuery = ""] = requestUrl.split("?", 2);
+
+        if (
+          requestPath === "/sshwifty/assets" ||
+          requestPath === "/sshwifty/assets/"
+        ) {
+          req.url =
+            "/sshwifty/assets/ui/index.html" +
+            (requestQuery.length > 0 ? `?${requestQuery}` : "");
+          next();
+          return;
+        }
+        next();
+      };
+
+      server.middlewares.stack.unshift({
+        route: "",
+        handle: rewriteShellRequest,
+      });
+
       server.middlewares.use((req, res, next) => {
-        const assetFile = passthroughPublicAssets.get(req.url ?? "");
+        const requestUrl = req.url ?? "";
+        const [requestPath] = requestUrl.split("?", 1);
+
+        const assetFile = passthroughPublicAssets.get(requestPath);
 
         if (!assetFile) {
           next();
@@ -137,12 +166,29 @@ function sshwiftyPublicAssetsPlugin() {
   };
 }
 
-export default defineConfig(({ mode }) => ({
+function restoreDevHtmlAssetsPlugin(command) {
+  return {
+    name: "restore-dev-html-assets",
+    transformIndexHtml: {
+      order: "post",
+      handler(html) {
+        if (command === "build") {
+          return html;
+        }
+
+        return restorePublicAssetTokens(html);
+      },
+    },
+  };
+}
+
+export default defineConfig(({ command, mode }) => ({
   base: "/sshwifty/assets/",
   plugins: [
     vue(),
     copyRootFilesPlugin(),
-    sshwiftyPublicAssetsPlugin(),
+    sshwiftyPublicAssetsPlugin(command),
+    restoreDevHtmlAssetsPlugin(command),
     normalizeHtmlOutputsPlugin(),
   ],
   publicDir,
