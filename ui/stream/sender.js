@@ -42,7 +42,8 @@ export class Sender {
     this.maxBufferedRequests = maxBufferedRequests;
     this.buffer = new Uint8Array(maxSegSize);
     this.bufferUsed = 0;
-    this.bufferReq = 0;
+    this.bufferedRequests = 0;
+    this.closed = false;
   }
 
   /**
@@ -59,7 +60,7 @@ export class Sender {
    * Sends data to the this.sender
    *
    * @param {Uint8Array} data to send
-   * @param {Array<function>} callbacks to call to return send result
+   * @param {Array<object>} callbacks to call to return send result
    *
    */
   async sendData(data, callbacks) {
@@ -67,6 +68,10 @@ export class Sender {
       await this.sender(data);
 
       for (let i in callbacks) {
+        if (callbacks[i].resolveOnSuccess === false) {
+          continue;
+        }
+
         callbacks[i].resolve();
       }
     } catch (e) {
@@ -120,21 +125,29 @@ export class Sender {
       const fetched = await this.subscribe.subscribe();
 
       // Force flush?
-      if (fetched === true) {
+      if (fetched === true || fetched.flush === true) {
         if (this.bufferUsed <= 0) {
+          if (fetched.flush === true) {
+            fetched.resolve();
+          }
           continue;
         }
 
         await this.sendData(this.exportBuffer(), callbacks);
         callbacks = [];
+        if (fetched.flush === true) {
+          fetched.resolve();
+        }
 
         continue;
       }
 
-      callbacks.push({
+      const callback = {
         resolve: fetched.resolve,
         reject: fetched.reject,
-      });
+        resolveOnSuccess: true,
+      };
+      callbacks.push(callback);
 
       // Add data to buffer and maybe flush when the buffer is full
       let currentSendDataLen = 0;
@@ -143,29 +156,55 @@ export class Sender {
         const sentLen = this.appendBuffer(
           fetched.data.slice(currentSendDataLen, fetched.data.length),
         );
+        currentSendDataLen += sentLen;
+        callback.resolveOnSuccess = currentSendDataLen >= fetched.data.length;
 
         // Buffer not full, wait for the force flush
         if (this.buffer.length > this.bufferUsed) {
           break;
         }
 
-        currentSendDataLen += sentLen;
-
         await this.sendData(this.exportBuffer(), callbacks);
-        callbacks = [];
+        callbacks = callback.resolveOnSuccess ? [] : [callback];
       }
     }
   }
 
   /**
-   * Clear everything
+   * Flush buffered data.
    *
+   * @returns {Promise<void>} Resolves after pending buffered bytes are sent.
    */
-  close() {
+  flush() {
+    return new Promise((resolve) => {
+      this.subscribe.resolve({
+        flush: true,
+        resolve,
+      });
+    });
+  }
+
+  /**
+   * Close the sender after flushing queued bytes.
+   *
+   * Pending sends are resolved or rejected by the flush result before the
+   * subscription channel is disabled. Calling close more than once is safe.
+   *
+   * @returns {Promise<void>} Resolves after queued bytes have been flushed and
+   *   the sender has been disabled.
+   */
+  async close() {
+    if (this.closed) {
+      return;
+    }
+    this.closed = true;
+
     if (this.sendDelay !== null) {
       clearTimeout(this.sendDelay);
       this.sendDelay = null;
     }
+
+    await this.flush();
 
     this.buffered = null;
     this.bufferUsed = 0;
@@ -189,12 +228,13 @@ export class Sender {
    *
    */
   send(data) {
-    let delayCleared = false;
+    if (this.closed) {
+      return Promise.reject(new Exception("Sender has been cleared", false));
+    }
 
     if (this.sendDelay !== null) {
       clearTimeout(this.sendDelay);
       this.sendDelay = null;
-      delayCleared = true;
     }
 
     const self = this;
@@ -206,16 +246,14 @@ export class Sender {
         reject: reject,
       });
 
+      self.bufferedRequests++;
+
       if (self.bufferedRequests >= self.maxBufferedRequests) {
         self.bufferedRequests = 0;
 
         self.subscribe.resolve(true);
 
         return;
-      }
-
-      if (delayCleared) {
-        self.bufferedRequests++;
       }
 
       self.sendDelay = setTimeout(() => {

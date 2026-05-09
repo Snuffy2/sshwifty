@@ -6,6 +6,26 @@ import assert from "assert";
 import * as reader from "./reader.js";
 
 describe("Reader", () => {
+  it("Buffer preserves unread bytes after partial export", async () => {
+    const depleted = [];
+    const buf = new reader.Buffer(Uint8Array.from([0, 1, 2, 3]), () => {
+      depleted.push(true);
+    });
+
+    let ex = buf.export(2);
+
+    assert.strictEqual(ex.length, 2);
+    assert.deepStrictEqual(ex, Uint8Array.from([0, 1]));
+    assert.strictEqual(buf.remains(), 2);
+
+    ex = buf.export(2);
+
+    assert.strictEqual(ex.length, 2);
+    assert.deepStrictEqual(ex, Uint8Array.from([2, 3]));
+    assert.strictEqual(buf.remains(), 0);
+    assert.strictEqual(depleted.length, 1);
+  });
+
   it("Buffer", async () => {
     let buf = new reader.Buffer(
       new Uint8Array([0, 1, 2, 3, 4, 5, 6, 7]),
@@ -23,6 +43,54 @@ describe("Reader", () => {
     assert.strictEqual(ex.length, 7);
     assert.deepStrictEqual(ex, new Uint8Array([1, 2, 3, 4, 5, 6, 7]));
     assert.strictEqual(buf.remains(), 0);
+  });
+
+  it("Multiple closeWithReason rejects pending and next reads with reason", async () => {
+    const reason = "multiple closed for test";
+    const multiple = new reader.Multiple(() => {});
+    const pending = multiple.export(1);
+
+    multiple.closeWithReason(reason);
+
+    await assert.rejects(pending, (error) => {
+      assert.strictEqual(error.message, reason);
+      assert.strictEqual(error.temporary, false);
+      return true;
+    });
+
+    await assert.rejects(multiple.export(1), (error) => {
+      assert.strictEqual(error.message, reason);
+      assert.strictEqual(error.temporary, false);
+      return true;
+    });
+  });
+
+  it("readUntil repeats delimiter search before exporting buffered data", async () => {
+    const buffered = Uint8Array.from([0xff, 0xfd, 0x1f]);
+    let indexChecks = 0;
+    const raceReader = {
+      async buffered() {
+        return buffered.length;
+      },
+      async export(n) {
+        return buffered.slice(0, n);
+      },
+      async indexOf(byteData) {
+        indexChecks++;
+
+        if (indexChecks === 1) {
+          return -1;
+        }
+
+        return buffered.indexOf(byteData);
+      },
+    };
+
+    assert.deepStrictEqual(await reader.readUntil(raceReader, 0xff), {
+      data: Uint8Array.from([0xff]),
+      found: true,
+    });
+    assert.strictEqual(indexChecks, 2);
   });
 
   it("Reader", async () => {

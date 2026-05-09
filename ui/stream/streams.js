@@ -111,7 +111,7 @@ export class Streams {
       }
     }
 
-    this.clear(ee);
+    await this.clear(ee);
 
     if (ee !== null) {
       throw new Exception("Streams is closed: " + ee, false);
@@ -119,12 +119,17 @@ export class Streams {
   }
 
   /**
-   * Clear current proccess
+   * Clear the active stream process and release transport resources.
    *
-   * @param {Exception} e An error caused this clear. Null when no error
+   * Running streams are closed, the sender is awaited so buffered outbound data
+   * can flush, the reader is closed, and the configured clear callback is
+   * invoked with the original error when one triggered shutdown.
    *
+   * @param {?Exception} e Error that caused the clear, or null for normal
+   *   shutdown.
+   * @returns {Promise<void>} Resolves after sender and reader cleanup finishes.
    */
-  clear(e) {
+  async clear(e) {
     if (this.stop) {
       return;
     }
@@ -155,7 +160,7 @@ export class Streams {
     }
 
     try {
-      this.sender.close();
+      await this.sender.close();
     } catch (e) {
       process.env.NODE_ENV === "development" && console.trace(e);
     }
