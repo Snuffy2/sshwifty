@@ -248,11 +248,14 @@ export function strToUint8Array(d) {
 }
 
 /**
- * Convert string into a binary {Uint8Array}
+ * Convert a binary string into a {Uint8Array}.
  *
- * @param {string} d Input
+ * Each character is truncated to the low byte so browser-native conversion
+ * matches the legacy Buffer binary encoding behavior.
  *
- * @returns {Uint8Array} Output
+ * @param {string} d Input binary string.
+ *
+ * @returns {Uint8Array} Byte array containing one byte per input character.
  *
  */
 export function strToBinary(d) {

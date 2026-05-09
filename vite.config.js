@@ -39,10 +39,23 @@ const passthroughContentTypes = new Map([
   ["favicon.ico", "image/x-icon"],
 ]);
 
+/**
+ * Build a placeholder token for a public asset path.
+ *
+ * @param {string} publicPath Browser-facing public asset path.
+ * @returns {string} Placeholder token that Vite will not rewrite.
+ */
 function passthroughAssetToken(publicPath) {
   return `__SSHWIFTY_PUBLIC_ASSET__${publicPath}__`;
 }
 
+/**
+ * Replace Sshwifty public asset paths in a source string.
+ *
+ * @param {string} source Source text to scan.
+ * @param {(publicPath: string) => string} replacer Replacement callback.
+ * @returns {string} Source text with public asset paths replaced.
+ */
 function replacePublicAssetPaths(source, replacer) {
   let updated = source;
 
@@ -53,6 +66,12 @@ function replacePublicAssetPaths(source, replacer) {
   return updated;
 }
 
+/**
+ * Restore public asset placeholders back to their browser-facing paths.
+ *
+ * @param {string} source Source text to scan.
+ * @returns {string} Source text with passthrough tokens restored.
+ */
 function restorePublicAssetTokens(source) {
   let updated = source;
 
@@ -63,6 +82,11 @@ function restorePublicAssetTokens(source) {
   return updated;
 }
 
+/**
+ * Create a Vite plugin that copies root documentation files into the bundle.
+ *
+ * @returns {import("vite").Plugin} Vite build plugin.
+ */
 function copyRootFilesPlugin() {
   return {
     name: "copy-root-files",
@@ -79,6 +103,11 @@ function copyRootFilesPlugin() {
   };
 }
 
+/**
+ * Create a Vite plugin that flattens generated HTML output paths.
+ *
+ * @returns {import("vite").Plugin} Vite build plugin.
+ */
 function normalizeHtmlOutputsPlugin() {
   return {
     name: "normalize-html-outputs",
@@ -111,6 +140,11 @@ function normalizeHtmlOutputsPlugin() {
   };
 }
 
+/**
+ * Create a Vite plugin for Sshwifty's fixed public asset routes.
+ *
+ * @returns {import("vite").Plugin} Vite plugin for build and dev asset paths.
+ */
 function sshwiftyPublicAssetsPlugin() {
   return {
     name: "sshwifty-public-assets",
@@ -183,6 +217,11 @@ function sshwiftyPublicAssetsPlugin() {
   };
 }
 
+/**
+ * Create a Vite plugin that exposes required Node globals in the browser.
+ *
+ * @returns {import("vite").Plugin} Vite plugin for browser polyfills.
+ */
 function browserNodePolyfillsPlugin() {
   const virtualModuleId = "virtual:sshwifty-node-globals";
   const resolvedVirtualModuleId = `\0${virtualModuleId}`;
@@ -227,6 +266,12 @@ globalThis.process ??= __process;
   };
 }
 
+/**
+ * Create a Vite plugin that restores passthrough asset paths in dev HTML.
+ *
+ * @param {string} command Current Vite command.
+ * @returns {import("vite").Plugin} Vite HTML transform plugin.
+ */
 function restoreDevHtmlAssetsPlugin(command) {
   return {
     name: "restore-dev-html-assets",

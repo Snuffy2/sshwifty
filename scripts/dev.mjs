@@ -18,10 +18,21 @@ let shuttingDown = false;
 let goProcess = null;
 let viteServer = null;
 
+/**
+ * Return the platform-specific npm executable name.
+ *
+ * @returns {string} npm command name for the current platform.
+ */
 function npmCommand() {
   return process.platform === "win32" ? "npm.cmd" : "npm";
 }
 
+/**
+ * Prefix a child process's stdout and stderr before forwarding them.
+ *
+ * @param {import("node:child_process").ChildProcess} child Child process.
+ * @param {string} label Output label to add before each chunk.
+ */
 function forwardOutput(child, label) {
   child.stdout.on("data", (data) => {
     process.stdout.write(`[${label}] ${data}`);
@@ -31,6 +42,11 @@ function forwardOutput(child, label) {
   });
 }
 
+/**
+ * Build the static assets required before the Go development server starts.
+ *
+ * @returns {Promise<void>} Resolves after generation succeeds.
+ */
 async function generateStaticPages() {
   await new Promise((resolve, reject) => {
     const child = spawn(npmCommand(), ["run", "generate"], {
@@ -55,6 +71,9 @@ async function generateStaticPages() {
   });
 }
 
+/**
+ * Start the Go backend with the example development configuration.
+ */
 function startGo() {
   const child = spawn("go", ["run", "sshwifty.go"], {
     cwd: repoRoot,
@@ -91,6 +110,11 @@ function startGo() {
   goProcess = child;
 }
 
+/**
+ * Start the Vite development server with the repository config.
+ *
+ * @returns {Promise<void>} Resolves after Vite is listening.
+ */
 async function startVite() {
   viteServer = await createServer({
     configFile: path.join(repoRoot, "vite.config.js"),
@@ -100,6 +124,11 @@ async function startVite() {
   viteServer.printUrls();
 }
 
+/**
+ * Stop the Go backend process group, escalating if it does not exit quickly.
+ *
+ * @returns {Promise<void>} Resolves after the backend has exited.
+ */
 async function stopGo() {
   if (!goProcess) {
     return;
@@ -141,6 +170,11 @@ async function stopGo() {
   });
 }
 
+/**
+ * Stop the Vite development server if it is running.
+ *
+ * @returns {Promise<void>} Resolves after the server closes.
+ */
 async function stopVite() {
   if (!viteServer) {
     return;
@@ -150,6 +184,12 @@ async function stopVite() {
   await server.close();
 }
 
+/**
+ * Stop all development processes and exit the supervisor.
+ *
+ * @param {number} exitCode Process exit code to use.
+ * @returns {Promise<void>} Resolves only if process exit is intercepted.
+ */
 async function shutdown(exitCode) {
   if (shuttingDown) {
     return;
