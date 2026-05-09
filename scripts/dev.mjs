@@ -230,9 +230,20 @@ async function shutdown(exitCode) {
   }
   shuttingDown = true;
   await Promise.allSettled([stopVite(), stopGo()]);
-  cleanupDevStaticAssets();
-  cleanupDevStaticAssets = () => {};
-  process.exit(exitCode);
+  try {
+    try {
+      cleanupDevStaticAssets();
+    } catch (error) {
+      process.stderr.write(
+        `[dev] failed to clean up static assets: ${
+          error instanceof Error ? error.message : String(error)
+        }\n`,
+      );
+    }
+  } finally {
+    cleanupDevStaticAssets = () => {};
+    process.exit(exitCode);
+  }
 }
 
 process.on(
