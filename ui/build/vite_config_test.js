@@ -95,6 +95,7 @@ describe("vite config cleanup guards", () => {
     const connectVue = readSource(connectVuePath);
 
     expect(connectVue).toContain(':href="sourceURL"');
+    expect(connectVue).toContain('rel="noopener noreferrer"');
     expect(connectVue).toContain("sourceURL: __SSHWIFTY_SOURCE_URL__");
     expect(connectVue).not.toContain(
       'href="https://github.com/Snuffy2/sshwifty"',
