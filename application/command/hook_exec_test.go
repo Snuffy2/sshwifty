@@ -36,6 +36,8 @@ func TestFilterExecHookEnviron(t *testing.T) {
 	}
 }
 
+// TestFilterExecHookEnvironDoesNotForwardSshwiftySecrets verifies that hook
+// subprocesses do not inherit sensitive Sshwifty environment variables.
 func TestFilterExecHookEnvironDoesNotForwardSshwiftySecrets(t *testing.T) {
 	envs := []string{
 		"SSHWIFTY_SHAREDKEY=secret",

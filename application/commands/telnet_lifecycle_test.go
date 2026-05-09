@@ -12,6 +12,8 @@ import (
 	"github.com/Snuffy2/sshwifty/application/log"
 )
 
+// TestTelnetCommandKeepsBufferPoolScopedToSession verifies that Telnet clients
+// retain the per-session buffer pool supplied by the command handler.
 func TestTelnetCommandKeepsBufferPoolScopedToSession(t *testing.T) {
 	bufferPool := command.NewBufferPool(4096)
 	poolPtr := &bufferPool

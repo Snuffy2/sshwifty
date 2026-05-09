@@ -12,6 +12,8 @@ import (
 	"github.com/Snuffy2/sshwifty/application/log"
 )
 
+// TestSSHCommandKeepsBufferPoolScopedToSession verifies that SSH clients retain
+// the per-session buffer pool supplied by the command handler.
 func TestSSHCommandKeepsBufferPoolScopedToSession(t *testing.T) {
 	bufferPool := command.NewBufferPool(4096)
 	poolPtr := &bufferPool

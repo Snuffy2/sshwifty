@@ -6,6 +6,8 @@ package command
 
 import "testing"
 
+// TestBufferPoolReturnsFixedSizeBuffers verifies that checked-out buffers match
+// the configured command buffer size.
 func TestBufferPoolReturnsFixedSizeBuffers(t *testing.T) {
 	pool := NewBufferPool(4096)
 
@@ -17,6 +19,8 @@ func TestBufferPoolReturnsFixedSizeBuffers(t *testing.T) {
 	}
 }
 
+// TestBufferPoolZeroesReturnedBuffers verifies that returned buffers are
+// cleared before reuse by another command session.
 func TestBufferPoolZeroesReturnedBuffers(t *testing.T) {
 	pool := NewBufferPool(4)
 

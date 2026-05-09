@@ -90,6 +90,8 @@ func TestStreamHeader(t *testing.T) {
 	}
 }
 
+// testStreamMachine is a configurable FSM implementation used to observe stream
+// close and release lifecycle calls.
 type testStreamMachine struct {
 	state        FSMState
 	bootupErr    FSMError
@@ -99,6 +101,7 @@ type testStreamMachine struct {
 	releaseCalls int
 }
 
+// Bootup returns the configured boot result for a test stream FSM.
 func (m *testStreamMachine) Bootup(
 	_ *rw.LimitedReader,
 	_ []byte,
@@ -110,18 +113,22 @@ func (m *testStreamMachine) Bootup(
 	return m.state, NoFSMError()
 }
 
+// Close records a close call and returns the configured close error.
 func (m *testStreamMachine) Close() error {
 	m.closeCalls++
 
 	return m.closeErr
 }
 
+// Release records a release call and returns the configured release error.
 func (m *testStreamMachine) Release() error {
 	m.releaseCalls++
 
 	return m.releaseErr
 }
 
+// newTestStreamFetcher builds a fetch reader that returns chunks in order and
+// fails if the test reads past the provided input.
 func newTestStreamFetcher(chunks ...[]byte) *rw.FetchReader {
 	current := 0
 
@@ -139,6 +146,8 @@ func newTestStreamFetcher(chunks ...[]byte) *rw.FetchReader {
 	return &reader
 }
 
+// newBootedTestStream returns a stream with the supplied machine booted and
+// installed as its active FSM.
 func newBootedTestStream(
 	t *testing.T,
 	machine *testStreamMachine,
@@ -159,6 +168,8 @@ func newBootedTestStream(
 	return st
 }
 
+// TestStreamCloseIsIdempotent verifies that duplicate close frames do not
+// re-close an already closing stream or emit duplicate completion frames.
 func TestStreamCloseIsIdempotent(t *testing.T) {
 	const streamID = 7
 
@@ -227,6 +238,8 @@ func TestStreamCloseIsIdempotent(t *testing.T) {
 	}
 }
 
+// TestStreamErrorCompletesStream verifies that shutdown still closes and
+// releases streams whose state handler returned an error.
 func TestStreamErrorCompletesStream(t *testing.T) {
 	const streamID = 9
 
