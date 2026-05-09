@@ -193,12 +193,8 @@ func TestStreamCloseIsIdempotent(t *testing.T) {
 	}
 
 	closeErr := handler.handleClose(header, streamID, log.NewDitch())
-	if !errors.Is(closeErr, ErrStreamsStreamClosingInactiveStream) {
-		t.Fatalf(
-			"expected duplicate close to return %v, got %v",
-			ErrStreamsStreamClosingInactiveStream,
-			closeErr,
-		)
+	if closeErr != nil {
+		t.Fatalf("expected duplicate close to be ignored, got %v", closeErr)
 	}
 
 	expected := []byte{byte(HeaderCompleted | streamID)}
@@ -212,6 +208,15 @@ func TestStreamCloseIsIdempotent(t *testing.T) {
 
 	if releaseErr := handler.streams[streamID].release(); releaseErr != nil {
 		t.Fatalf("expected release to succeed, got %v", releaseErr)
+	}
+
+	closeErr = handler.handleClose(header, streamID, log.NewDitch())
+	if !errors.Is(closeErr, ErrStreamsStreamClosingInactiveStream) {
+		t.Fatalf(
+			"expected released stream close to return %v, got %v",
+			ErrStreamsStreamClosingInactiveStream,
+			closeErr,
+		)
 	}
 
 	if machine.releaseCalls != 1 {

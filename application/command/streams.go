@@ -371,6 +371,12 @@ func (c *stream) running() bool {
 	return c.f.running()
 }
 
+// closing reports whether the stream has already entered the close handshake
+// but has not yet been released.
+func (c *stream) closing() bool {
+	return c.f.running() && c.closed
+}
+
 // reinit reads a streamInitialHeader from r to determine the command ID and
 // initial payload, instantiates the command's FSM, boots it, and sends the
 // result back to the client. On success the stream's FSM is set and the slot
