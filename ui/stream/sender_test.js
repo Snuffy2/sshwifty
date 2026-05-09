@@ -16,7 +16,14 @@ describe("Sender", () => {
     return d;
   }
 
-  async function waitForResult(result, expectedLength) {
+  /**
+   * Wait until the async sender has appended the expected number of bytes.
+   *
+   * @param {Array<number>} result Mutable result buffer populated by sends.
+   * @param {number} expectedLength Number of bytes required before resolving.
+   * @returns {Promise<void>} Resolves once the expected bytes are present.
+   */
+  function waitForResult(result, expectedLength) {
     return new Promise((resolve) => {
       let timer = setInterval(() => {
         if (result.length < expectedLength) {

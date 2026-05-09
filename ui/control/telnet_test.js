@@ -7,6 +7,13 @@ import * as reader from "../stream/reader.js";
 import * as telnet from "./telnet.js";
 
 describe("Telnet Control", () => {
+  /**
+   * Build a Telnet control with captured outbound control frames.
+   *
+   * @param {Array<Array<number>>} sent Captured byte arrays sent by control.
+   * @returns {{control: telnet.Telnet, events: object}} Built control and
+   *   registered event callbacks.
+   */
   function buildControl(sent) {
     const events = {};
     const control = new telnet.Telnet({

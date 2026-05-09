@@ -119,10 +119,15 @@ export class Streams {
   }
 
   /**
-   * Clear current proccess
+   * Clear the active stream process and release transport resources.
    *
-   * @param {Exception} e An error caused this clear. Null when no error
+   * Running streams are closed, the sender is awaited so buffered outbound data
+   * can flush, the reader is closed, and the configured clear callback is
+   * invoked with the original error when one triggered shutdown.
    *
+   * @param {?Exception} e Error that caused the clear, or null for normal
+   *   shutdown.
+   * @returns {Promise<void>} Resolves after sender and reader cleanup finishes.
    */
   async clear(e) {
     if (this.stop) {

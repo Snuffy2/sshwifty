@@ -185,8 +185,13 @@ export class Sender {
   }
 
   /**
-   * Clear everything
+   * Close the sender after flushing queued bytes.
    *
+   * Pending sends are resolved or rejected by the flush result before the
+   * subscription channel is disabled. Calling close more than once is safe.
+   *
+   * @returns {Promise<void>} Resolves after queued bytes have been flushed and
+   *   the sender has been disabled.
    */
   async close() {
     if (this.closed) {
