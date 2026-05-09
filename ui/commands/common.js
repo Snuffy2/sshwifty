@@ -8,7 +8,6 @@
  * SSH and Telnet command modules.
  */
 
-import * as buffer from "buffer";
 import Exception from "./exception.js";
 import * as iconv from "../iconv/common.js";
 
@@ -257,7 +256,13 @@ export function strToUint8Array(d) {
  *
  */
 export function strToBinary(d) {
-  return new Uint8Array(buffer.Buffer.from(d, "binary").buffer);
+  let result = new Uint8Array(d.length);
+
+  for (let i = 0, j = d.length; i < j; i++) {
+    result[i] = d.charCodeAt(i) & 0xff;
+  }
+
+  return result;
 }
 
 const hostnameVerifier = new RegExp("^([0-9A-Za-z_.-]+)$");
