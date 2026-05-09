@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Snuffy2/sshwifty/application/configuration"
 	"github.com/Snuffy2/sshwifty/application/log"
 	"github.com/Snuffy2/sshwifty/application/network"
 	"github.com/Snuffy2/sshwifty/application/rw"
@@ -22,6 +23,13 @@ type Configuration struct {
 	Dial network.Dial
 	// DialTimeout is the maximum duration permitted for a single dial attempt.
 	DialTimeout time.Duration
+	// Socks5Configured reports whether outbound traffic is routed through a
+	// SOCKS5 proxy, which some commands may reject due to protocol constraints.
+	Socks5Configured bool
+	// Presets is the list of pre-configured remote endpoints.
+	Presets []configuration.Preset
+	// OnlyAllowPresetRemotes restricts command connections to preset hosts.
+	OnlyAllowPresetRemotes bool
 }
 
 // Commander manages the set of registered commands and produces Handler

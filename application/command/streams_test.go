@@ -90,6 +90,51 @@ func TestStreamHeader(t *testing.T) {
 	}
 }
 
+func TestStreamResponderSendSegmentsLargePayload(t *testing.T) {
+	output := bytes.NewBuffer(nil)
+	lock := sync.Mutex{}
+	sender := streamHandlerSender{
+		handlerSender: &handlerSender{
+			writer:   output,
+			lock:     &lock,
+			needWait: false,
+			sign:     sync.NewCond(&lock),
+		},
+	}
+	header := HeaderStream
+	header.Set(7)
+	responder := newStreamResponder(sender, header)
+	payload := bytes.Repeat([]byte("a"), 9000)
+
+	if err := responder.Send(2, payload, make([]byte, 128)); err != nil {
+		t.Fatalf("expected segmented send to succeed, got %v", err)
+	}
+
+	var decoded []byte
+	for remaining := output.Bytes(); len(remaining) > 0; {
+		if remaining[0] != byte(header) {
+			t.Fatalf("expected stream header %d, got %d", header, remaining[0])
+		}
+
+		streamHeader := StreamHeader{remaining[1], remaining[2]}
+		if streamHeader.Marker() != 2 {
+			t.Fatalf("expected marker 2, got %d", streamHeader.Marker())
+		}
+
+		frameLen := int(streamHeader.Length())
+		if frameLen > 125 {
+			t.Fatalf("expected frame payload length <= 125, got %d", frameLen)
+		}
+
+		decoded = append(decoded, remaining[3:3+frameLen]...)
+		remaining = remaining[3+frameLen:]
+	}
+
+	if !bytes.Equal(decoded, payload) {
+		t.Fatalf("expected decoded payload length %d, got %d", len(payload), len(decoded))
+	}
+}
+
 // testStreamMachine is a configurable FSM implementation used to observe stream
 // close and release lifecycle calls.
 type testStreamMachine struct {

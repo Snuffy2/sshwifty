@@ -86,21 +86,13 @@ as a starting point for your own configuration.
       [
         "/bin/sh",
         "-c",
-        "for n in $(seq 1 5); do sleep 1 && echo Stdout $SSHWIFTY_HOOK_REMOTE_TYPE $n && echo Stderr $SSHWIFTY_HOOK_REMOTE_TYPE $n 1>&2; done"
+        "for n in $(seq 1 5); do sleep 1 && echo Stdout $SSHWIFTY_HOOK_REMOTE_TYPE $n && echo Stderr $SSHWIFTY_HOOK_REMOTE_TYPE $n 1>&2; done",
       ],
       // You can add multiple hooks, they're executed in sequence even when the
       // previous one fails
-      [
-        "/bin/sh",
-        "-c",
-        "/etc/sshwifty/before_connecting.sh"
-      ],
-      [
-        "/bin/another-command",
-        "...",
-        "..."
-      ]
-    ]
+      ["/bin/sh", "-c", "/etc/sshwifty/before_connecting.sh"],
+      ["/bin/another-command", "...", "..."],
+    ],
   },
 
   // The maximum execution time of each hook, in seconds. If this timeout is
@@ -153,13 +145,13 @@ as a starting point for your own configuration.
 
       // Display a short text message on the Home page. Link is supported
       // through `[Title text](https://link.example.com)` format
-      "ServerMessage": ""
+      "ServerMessage": "",
     },
     {
       "ListenInterface": "0.0.0.0",
       "ListenPort": 8183,
-      "InitialTimeout": 3
-    }
+      "InitialTimeout": 3,
+    },
   ],
 
   // Remote Presets, the operator can define presets for users so the user
@@ -178,7 +170,7 @@ as a starting point for your own configuration.
       // Title of the preset
       "Title": "SDF.org Unix Shell",
 
-      // Preset Types, i.e. Telnet, and SSH
+      // Preset Types, i.e. Telnet, SSH, and Mosh
       "Type": "SSH",
 
       // Target address and port
@@ -223,7 +215,7 @@ as a starting point for your own configuration.
         "User": "pre-defined-username",
 
         // Data for predefined Encoding field. Valid data is those displayed on
-        // the page
+        // the page.
         "Encoding": "pre-defined-encoding",
 
         // Data for predefined Password field
@@ -241,8 +233,8 @@ as a starting point for your own configuration.
         // the fingerprint by manually connect to a new SSH host with Sshwifty,
         // the fingerprint will be displayed on the Fingerprint confirmation
         // page.
-        "Fingerprint": "SHA256:bgO...."
-      }
+        "Fingerprint": "SHA256:bgO....",
+      },
     },
     {
       "Title": "Endpoint Telnet",
@@ -251,9 +243,23 @@ as a starting point for your own configuration.
       "Meta": {
         // Data for predefined Encoding field. Valid data is those displayed on
         // the page
-        "Encoding": "utf-8"
-      }
-    }
+        "Encoding": "utf-8",
+      },
+    },
+    {
+      "Title": "Example Mosh",
+      "Type": "Mosh",
+      "Host": "ssh.example.com:22",
+      "Meta": {
+        "User": "guest",
+        "Authentication": "Password",
+        // Data for predefined Encoding field. Mosh currently supports utf-8 only.
+        "Encoding": "utf-8",
+        // Data for predefined Mosh Server field. Defaults to "mosh-server".
+        // Provide an executable path only, without command arguments.
+        "Mosh Server": "mosh-server",
+      },
+    },
   ],
 
   // Allow the Preset Remotes only, and refuse to connect to any other remote
@@ -262,7 +268,7 @@ as a starting point for your own configuration.
   // NOTICE: You can only configure OnlyAllowPresetRemotes through a config
   //         file. This option is not supported when you are configuring with
   //         environment variables
-  "OnlyAllowPresetRemotes": false
+  "OnlyAllowPresetRemotes": false,
 }
 ```
 

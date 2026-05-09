@@ -87,6 +87,7 @@ func (c Configuration) Common() Common {
 		SharedKey:              c.SharedKey,
 		Dialer:                 c.Dialer(),
 		DialTimeout:            c.DialTimeout,
+		Socks5Configured:       len(c.Socks5) > 0,
 		Presets:                c.Presets,
 		Hooks:                  c.hookSettings(),
 		OnlyAllowPresetRemotes: c.OnlyAllowPresetRemotes,

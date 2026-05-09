@@ -1,0 +1,667 @@
+// Copyright (C) 2019-2026 Ni Rui <ranqus@gmail.com>
+// Copyright (C) 2026 Snuffy2
+// SPDX-License-Identifier: AGPL-3.0-only
+
+package commands
+
+import (
+	"bytes"
+	"context"
+	"errors"
+	"net"
+	"reflect"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/Snuffy2/sshwifty/application/command"
+	"github.com/Snuffy2/sshwifty/application/configuration"
+	"github.com/Snuffy2/sshwifty/application/log"
+	"github.com/Snuffy2/sshwifty/application/network"
+	"github.com/Snuffy2/sshwifty/application/rw"
+)
+
+func TestCommandsIncludesMosh(t *testing.T) {
+	commands := New()
+	expectedNames := map[byte]string{
+		0x00: "Telnet",
+		0x01: "SSH",
+		0x02: "Mosh",
+	}
+
+	for id, expectedName := range expectedNames {
+		name := reflect.ValueOf(commands[id]).FieldByName("name").String()
+		if name != expectedName {
+			t.Fatalf("expected command %d to be %q, got %q", id, expectedName, name)
+		}
+	}
+}
+
+func TestParseMoshConfigNormalizesHost(t *testing.T) {
+	cfg, err := parseMoshConfig(configuration.Preset{Host: "example.com"})
+	if err != nil {
+		t.Fatalf("expected config parsing to succeed, got %v", err)
+	}
+
+	if cfg.Host != "example.com:22" {
+		t.Fatalf("expected normalized host to be %q, got %q", "example.com:22", cfg.Host)
+	}
+}
+
+func TestMoshBuildRemoteSessionPassesIPv4LiteralUnchanged(t *testing.T) {
+	client := &moshClient{
+		baseCtx: context.Background(),
+		hostResolver: func(context.Context, string) ([]net.IP, error) {
+			t.Fatal("expected IPv4 literal to bypass DNS resolution")
+			return nil, nil
+		},
+	}
+
+	var called bool
+	client.sessionBuilder = func(host string, port int, key string) (moshSession, error) {
+		called = true
+		if host != "192.0.2.10" {
+			t.Fatalf("expected session builder host to remain IPv4 literal, got %q", host)
+		}
+		if port != 60001 {
+			t.Fatalf("expected port 60001, got %d", port)
+		}
+		if key != "secret" {
+			t.Fatalf("expected key secret, got %q", key)
+		}
+
+		return &fakeMoshSession{}, nil
+	}
+
+	if _, err := client.buildRemoteSession("192.0.2.10:22", nil, 60001, "secret"); err != nil {
+		t.Fatalf("expected remote session build to succeed, got %v", err)
+	}
+
+	if !called {
+		t.Fatal("expected session builder to be called")
+	}
+}
+
+func TestMoshBuildRemoteSessionResolvesHostnameToIPv4(t *testing.T) {
+	client := &moshClient{
+		baseCtx: context.Background(),
+		cfg: command.Configuration{
+			DialTimeout: 2 * time.Second,
+		},
+		hostResolver: func(ctx context.Context, host string) ([]net.IP, error) {
+			deadline, hasDeadline := ctx.Deadline()
+			if !hasDeadline {
+				t.Fatal("expected hostname resolution context to carry a deadline")
+			}
+			if time.Until(deadline) <= 0 {
+				t.Fatal("expected hostname resolution deadline to be in the future")
+			}
+			if host != "example.com" {
+				t.Fatalf("expected resolver host example.com, got %q", host)
+			}
+
+			return []net.IP{
+				net.ParseIP("2001:db8::1"),
+				net.ParseIP("198.51.100.23"),
+			}, nil
+		},
+	}
+
+	var resolvedHost string
+	client.sessionBuilder = func(host string, port int, key string) (moshSession, error) {
+		resolvedHost = host
+		return &fakeMoshSession{}, nil
+	}
+
+	if _, err := client.buildRemoteSession("example.com:22", nil, 60001, "secret"); err != nil {
+		t.Fatalf("expected hostname-backed session build to succeed, got %v", err)
+	}
+
+	if resolvedHost != "198.51.100.23" {
+		t.Fatalf("expected session builder to receive resolved IPv4 literal, got %q", resolvedHost)
+	}
+}
+
+func TestMoshBuildRemoteSessionRejectsIPv6OnlyTargets(t *testing.T) {
+	client := &moshClient{
+		baseCtx: context.Background(),
+		hostResolver: func(context.Context, string) ([]net.IP, error) {
+			return []net.IP{net.ParseIP("2001:db8::1")}, nil
+		},
+		sessionBuilder: func(string, int, string) (moshSession, error) {
+			t.Fatal("expected IPv6-only target to fail before session dial")
+			return nil, nil
+		},
+	}
+
+	_, err := client.buildRemoteSession("example.com:22", nil, 60001, "secret")
+	if err == nil {
+		t.Fatal("expected IPv6-only target to be rejected")
+	}
+}
+
+func TestMoshBuildRemoteSessionUsesReachedPeerIPv4WithoutResolver(t *testing.T) {
+	client := &moshClient{
+		baseCtx: context.Background(),
+		hostResolver: func(context.Context, string) ([]net.IP, error) {
+			t.Fatal("expected reached peer IP to bypass DNS resolution")
+			return nil, nil
+		},
+	}
+
+	var resolvedHost string
+	client.sessionBuilder = func(host string, port int, key string) (moshSession, error) {
+		resolvedHost = host
+		if port != 60001 {
+			t.Fatalf("expected port 60001, got %d", port)
+		}
+		if key != "secret" {
+			t.Fatalf("expected key secret, got %q", key)
+		}
+
+		return &fakeMoshSession{}, nil
+	}
+
+	peer := &net.TCPAddr{IP: net.ParseIP("198.51.100.23"), Port: 22}
+	if _, err := client.buildRemoteSession("example.com:22", peer, 60001, "secret"); err != nil {
+		t.Fatalf("expected peer-backed session build to succeed, got %v", err)
+	}
+
+	if resolvedHost != "198.51.100.23" {
+		t.Fatalf("expected session builder to receive reached peer IPv4, got %q", resolvedHost)
+	}
+}
+
+func TestMoshBuildRemoteSessionHonorsPresetRestriction(t *testing.T) {
+	client := &moshClient{
+		baseCtx: context.Background(),
+		cfg: command.Configuration{
+			OnlyAllowPresetRemotes: true,
+			Presets: []configuration.Preset{
+				{Host: "example.com:22"},
+			},
+		},
+		hostResolver: func(context.Context, string) ([]net.IP, error) {
+			t.Fatal("expected rejected target to fail before DNS resolution")
+			return nil, nil
+		},
+		sessionBuilder: func(string, int, string) (moshSession, error) {
+			t.Fatal("expected rejected target to fail before session dial")
+			return nil, nil
+		},
+	}
+
+	_, err := client.buildRemoteSession("other.example.com:22", nil, 60001, "secret")
+	if !errors.Is(err, network.ErrAccessControlDialTargetHostNotAllowed) {
+		t.Fatalf(
+			"expected preset restriction error %v, got %v",
+			network.ErrAccessControlDialTargetHostNotAllowed,
+			err,
+		)
+	}
+}
+
+func TestMoshAwaitRemoteSessionReadyReturnsInitialOutput(t *testing.T) {
+	client := &moshClient{
+		baseCtx: context.Background(),
+		cfg:     command.Configuration{DialTimeout: 250 * time.Millisecond},
+	}
+	session := &fakeMoshSession{
+		awaitReady: func(ctx context.Context, timeout time.Duration) ([]byte, error) {
+			if timeout != 250*time.Millisecond {
+				t.Fatalf("expected readiness timeout 250ms, got %s", timeout)
+			}
+			if ctx == nil {
+				t.Fatal("expected readiness context to be provided")
+			}
+
+			return []byte("ready"), nil
+		},
+	}
+
+	output, err := client.awaitRemoteSessionReady(session)
+	if err != nil {
+		t.Fatalf("expected readiness to succeed, got %v", err)
+	}
+
+	if string(output) != "ready" {
+		t.Fatalf("expected readiness output %q, got %q", "ready", output)
+	}
+}
+
+func TestMoshAwaitRemoteSessionReadyFailsWithoutServerResponse(t *testing.T) {
+	client := &moshClient{
+		baseCtx: context.Background(),
+		cfg:     command.Configuration{DialTimeout: 250 * time.Millisecond},
+	}
+	session := &fakeMoshSession{
+		awaitReady: func(context.Context, time.Duration) ([]byte, error) {
+			return nil, errors.New("timeout waiting for mosh server response")
+		},
+	}
+
+	output, err := client.awaitRemoteSessionReady(session)
+	if err == nil {
+		t.Fatal("expected readiness failure to propagate")
+	}
+
+	if output != nil {
+		t.Fatalf("expected nil output on readiness failure, got %q", output)
+	}
+}
+
+func TestMoshAwaitRemoteSessionReadyAllowsQuietSession(t *testing.T) {
+	client := &moshClient{
+		baseCtx: context.Background(),
+		cfg:     command.Configuration{DialTimeout: 250 * time.Millisecond},
+	}
+	session := &fakeMoshSession{
+		awaitReady: func(ctx context.Context, timeout time.Duration) ([]byte, error) {
+			if timeout != 250*time.Millisecond {
+				t.Fatalf("expected readiness timeout 250ms, got %s", timeout)
+			}
+			if ctx == nil {
+				t.Fatal("expected readiness context to be provided")
+			}
+
+			return nil, nil
+		},
+	}
+
+	output, err := client.awaitRemoteSessionReady(session)
+	if err != nil {
+		t.Fatalf("expected quiet readiness to succeed, got %v", err)
+	}
+
+	if output != nil {
+		t.Fatalf("expected nil initial output for quiet readiness, got %q", output)
+	}
+}
+
+func TestMoshBootupRejectsSocks5(t *testing.T) {
+	bufferPool := command.NewBufferPool(4096)
+	client := newMosh(
+		nil,
+		command.NewHooks(configuration.HookSettings{}),
+		command.StreamResponder{},
+		command.Configuration{Socks5Configured: true},
+		&bufferPool,
+	)
+
+	state, err := client.Bootup(nil, nil)
+	if state != nil {
+		t.Fatalf("expected bootup state to stay nil on SOCKS5 rejection, got %v", state)
+	}
+
+	if err.Error() != ErrMoshSocks5Unsupported.Error() {
+		t.Fatalf("expected SOCKS5 bootup error, got %v", err)
+	}
+
+	if err.Code() != MoshRequestErrorUnsupportedProxy {
+		t.Fatalf("expected unsupported proxy code, got %d", err.Code())
+	}
+}
+
+func TestMoshBootupReportsBadMetadata(t *testing.T) {
+	bufferPool := command.NewBufferPool(4096)
+	client := newMosh(
+		nil,
+		command.NewHooks(configuration.HookSettings{}),
+		command.StreamResponder{},
+		command.Configuration{},
+		&bufferPool,
+	)
+	payload := buildMoshBootPayload(t, "alice", "example.com", 22, SSHAuthMethodNone)
+	payload = append(payload, 5)
+
+	state, err := client.Bootup(newLimitedReader(payload), nil)
+	if state != nil {
+		t.Fatalf("expected bootup state to stay nil on metadata rejection, got %v", state)
+	}
+
+	if err.Code() != MoshRequestErrorBadMetadata {
+		t.Fatalf("expected bad metadata code, got %d", err.Code())
+	}
+}
+
+func TestMoshBootupRejectsMoshServerArguments(t *testing.T) {
+	bufferPool := command.NewBufferPool(4096)
+	client := newMosh(
+		nil,
+		command.NewHooks(configuration.HookSettings{}),
+		command.StreamResponder{},
+		command.Configuration{},
+		&bufferPool,
+	)
+	payload := buildMoshBootPayload(t, "alice", "example.com", 22, SSHAuthMethodNone)
+	payload = appendMoshString(t, payload, "/usr/local/bin/mosh-server --flag")
+
+	state, err := client.Bootup(newLimitedReader(payload), nil)
+	if state != nil {
+		t.Fatalf("expected bootup state to stay nil on metadata rejection, got %v", state)
+	}
+
+	if err.Code() != MoshRequestErrorBadMetadata {
+		t.Fatalf("expected bad metadata code, got %d", err.Code())
+	}
+}
+
+func TestParseMoshRequestMetaAcceptsMoshServerPath(t *testing.T) {
+	payload := appendMoshString(t, nil, "/usr/local/bin/mosh-server")
+
+	meta, err := parseMoshRequestMeta(newLimitedReader(payload), make([]byte, 128))
+	if err != nil {
+		t.Fatalf("expected mosh server path metadata to parse, got %v", err)
+	}
+
+	if meta["Mosh Server"] != "/usr/local/bin/mosh-server" {
+		t.Fatalf("expected custom mosh server path, got %q", meta["Mosh Server"])
+	}
+}
+
+func TestMoshLocalStdInWritesBufferedBytes(t *testing.T) {
+	session := &fakeMoshSession{}
+	client := &moshClient{session: session}
+
+	if err := client.local(
+		nil,
+		newLimitedReader([]byte("typed input")),
+		command.StreamHeader{MoshClientStdIn << 5, 0},
+		make([]byte, 4),
+	); err != nil {
+		t.Fatalf("expected stdin handler to succeed, got %v", err)
+	}
+
+	if len(session.sent) != 1 {
+		t.Fatalf("expected one send call, got %d", len(session.sent))
+	}
+
+	if !bytes.Equal(session.sent[0], []byte("typed input")) {
+		t.Fatalf("expected sent payload %q, got %q", "typed input", session.sent[0])
+	}
+}
+
+func TestMoshLocalStdInBeforeSessionDoesNotBlock(t *testing.T) {
+	client := &moshClient{sessionReceive: make(chan moshSession, 1)}
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- client.local(
+			nil,
+			newLimitedReader([]byte("typed input")),
+			command.StreamHeader{MoshClientStdIn << 5, 0},
+			make([]byte, 4),
+		)
+	}()
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("expected pre-session stdin to be discarded without error, got %v", err)
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("expected pre-session stdin handler not to block")
+	}
+}
+
+func TestMoshLocalResizeBeforeSessionDoesNotBlock(t *testing.T) {
+	client := &moshClient{sessionReceive: make(chan moshSession, 1)}
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- client.local(
+			nil,
+			newLimitedReader([]byte{0x00, 0x18, 0x00, 0x50}),
+			command.StreamHeader{MoshClientResize << 5, 0x04},
+			make([]byte, 4),
+		)
+	}()
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("expected pre-session resize to be discarded without error, got %v", err)
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("expected pre-session resize handler not to block")
+	}
+}
+
+func TestMoshCloseClosesBufferedSessionWithoutWaitingForReceiveTimeout(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	session := newBlockingFakeMoshSession()
+	client := &moshClient{
+		baseCtx:                        ctx,
+		baseCtxCancel:                  cancel,
+		credentialReceive:              make(chan []byte, 1),
+		fingerprintVerifyResultReceive: make(chan bool, 1),
+		sessionReceive:                 make(chan moshSession, 1),
+		remoteCloseWait:                sync.WaitGroup{},
+		remoteReadTimeoutRetryLock:     sync.Mutex{},
+	}
+	client.sessionReceive <- session
+	client.cacheSession(session)
+
+	client.remoteCloseWait.Add(1)
+	go func() {
+		defer client.remoteCloseWait.Done()
+		<-session.closedCh
+	}()
+
+	done := make(chan error, 1)
+	go func() {
+		done <- client.Close()
+	}()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("expected close to succeed, got %v", err)
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("expected close to return promptly after closing buffered session")
+	}
+
+	if !session.closed {
+		t.Fatal("expected buffered session to be closed")
+	}
+}
+
+func TestMoshCloseCancelsBlockedReadinessAndClosesCachedSession(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	session := newBlockingFakeMoshSession()
+	client := &moshClient{
+		baseCtx:                        ctx,
+		baseCtxCancel:                  cancel,
+		cfg:                            command.Configuration{DialTimeout: 5 * time.Second},
+		credentialReceive:              make(chan []byte, 1),
+		fingerprintVerifyResultReceive: make(chan bool, 1),
+		sessionReceive:                 make(chan moshSession, 1),
+		remoteCloseWait:                sync.WaitGroup{},
+		remoteReadTimeoutRetryLock:     sync.Mutex{},
+	}
+	entered := make(chan struct{})
+	session.awaitReady = func(ctx context.Context, timeout time.Duration) ([]byte, error) {
+		if timeout != 5*time.Second {
+			t.Fatalf("expected readiness timeout 5s, got %s", timeout)
+		}
+		close(entered)
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
+
+	client.cacheSession(session)
+
+	readinessDone := make(chan error, 1)
+	go func() {
+		_, err := client.awaitRemoteSessionReady(session)
+		readinessDone <- err
+	}()
+
+	select {
+	case <-entered:
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("expected readiness wait to start")
+	}
+
+	closeDone := make(chan error, 1)
+	go func() {
+		closeDone <- client.Close()
+	}()
+
+	select {
+	case err := <-readinessDone:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("expected readiness cancellation, got %v", err)
+		}
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("expected readiness wait to cancel promptly")
+	}
+
+	select {
+	case err := <-closeDone:
+		if err != nil {
+			t.Fatalf("expected close to succeed, got %v", err)
+		}
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("expected close to return promptly while readiness was blocked")
+	}
+
+	if !session.closed {
+		t.Fatal("expected cached session to be closed")
+	}
+}
+
+func TestMoshLocalStdInStopsAfterSendError(t *testing.T) {
+	session := &fakeMoshSession{sendErr: errors.New("send failed")}
+	client := &moshClient{
+		l:       log.Ditch{},
+		session: session,
+	}
+
+	err := client.local(
+		nil,
+		newLimitedReader([]byte("typed input")),
+		command.StreamHeader{MoshClientStdIn << 5, 0},
+		make([]byte, 4),
+	)
+	if !errors.Is(err, session.sendErr) {
+		t.Fatalf("expected send error to be returned, got %v", err)
+	}
+
+	if len(session.sent) != 1 {
+		t.Fatalf("expected one send attempt, got %d", len(session.sent))
+	}
+
+	if !session.closed {
+		t.Fatal("expected failed session to be closed")
+	}
+}
+
+type fakeMoshResize struct {
+	cols uint16
+	rows uint16
+}
+
+type fakeMoshSession struct {
+	mu         sync.Mutex
+	sent       [][]byte
+	resizes    []fakeMoshResize
+	closed     bool
+	closedCh   chan struct{}
+	sendErr    error
+	awaitReady func(context.Context, time.Duration) ([]byte, error)
+}
+
+func (f *fakeMoshSession) Send(payload []byte) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.sent = append(f.sent, append([]byte(nil), payload...))
+	return f.sendErr
+}
+
+func (f *fakeMoshSession) Recv(time.Duration) ([]byte, error) {
+	return nil, nil
+}
+
+func (f *fakeMoshSession) AwaitReady(ctx context.Context, timeout time.Duration) ([]byte, error) {
+	if f.awaitReady != nil {
+		return f.awaitReady(ctx, timeout)
+	}
+
+	return []byte("ready"), nil
+}
+
+func (f *fakeMoshSession) Resize(cols uint16, rows uint16) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.resizes = append(f.resizes, fakeMoshResize{cols: cols, rows: rows})
+	return nil
+}
+
+func (f *fakeMoshSession) Close() error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.closed {
+		return nil
+	}
+	f.closed = true
+	if f.closedCh != nil {
+		close(f.closedCh)
+	}
+	return nil
+}
+
+func newBlockingFakeMoshSession() *fakeMoshSession {
+	return &fakeMoshSession{
+		closedCh: make(chan struct{}),
+	}
+}
+
+func newLimitedReader(payload []byte) *rw.LimitedReader {
+	reader := rw.NewFetchReader(func() ([]byte, error) {
+		return payload, nil
+	})
+	limited := rw.NewLimitedReader(&reader, len(payload))
+	return &limited
+}
+
+func buildMoshBootPayload(
+	t *testing.T,
+	user string,
+	host string,
+	port uint16,
+	authMethod byte,
+) []byte {
+	t.Helper()
+
+	payload := make([]byte, 0, 128)
+	buf := make([]byte, 128)
+
+	userLen, err := NewString([]byte(user)).Marshal(buf)
+	if err != nil {
+		t.Fatalf("expected username marshal to succeed, got %v", err)
+	}
+	payload = append(payload, buf[:userLen]...)
+
+	addrLen, err := NewAddress(HostNameAddr, []byte(host), port).Marshal(buf)
+	if err != nil {
+		t.Fatalf("expected address marshal to succeed, got %v", err)
+	}
+	payload = append(payload, buf[:addrLen]...)
+	payload = append(payload, authMethod)
+
+	return payload
+}
+
+func appendMoshString(t *testing.T, payload []byte, value string) []byte {
+	t.Helper()
+
+	buf := make([]byte, MaxInteger+MaxIntegerBytes)
+	valueLen, err := NewString([]byte(value)).Marshal(buf)
+	if err != nil {
+		t.Fatalf("expected string marshal to succeed, got %v", err)
+	}
+
+	return append(payload, buf[:valueLen]...)
+}

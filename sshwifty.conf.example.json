@@ -54,6 +54,17 @@
       "Meta": {
         "Encoding": "ibm866"
       }
+    },
+    {
+      "Title": "Example Mosh",
+      "Type": "Mosh",
+      "Host": "ssh.example.com:22",
+      "Meta": {
+        "User": "guest",
+        "Authentication": "Password",
+        "Encoding": "utf-8",
+        "Mosh Server": "mosh-server"
+      }
     }
   ],
   "OnlyAllowPresetRemotes": false
