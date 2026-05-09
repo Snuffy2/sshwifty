@@ -9,9 +9,10 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)));
+const uiRoot = path.join(repoRoot, "ui");
 const distDir = path.join(repoRoot, ".tmp", "dist");
 const backendTarget = "http://127.0.0.1:8182";
-const publicDir = path.join(repoRoot, "ui", "public");
+const publicDir = path.join(uiRoot, "public");
 
 const copiedRootFiles = [
   "README.md",
@@ -19,23 +20,27 @@ const copiedRootFiles = [
   "DEPENDENCIES.md",
   "LICENSE.md",
 ];
-const generatedHtmlFiles = ["index.html", "error.html"];
-
-const passthroughPublicAssets = new Map([
+const fixedPublicAssets = new Map([
   ["/sshwifty/assets/site.webmanifest", "site.webmanifest"],
   ["/sshwifty/assets/sshwifty.svg", "sshwifty.svg"],
   ["/sshwifty/assets/robots.txt", "robots.txt"],
 ]);
+const fixedRootAssets = new Map(
+  copiedRootFiles.map((fileName) => [`/sshwifty/assets/${fileName}`, fileName]),
+);
 const rootCompatibilityAssets = new Map([
   ["/favicon.ico", "favicon.ico"],
   ["/manifest.json", "site.webmanifest"],
   ["/browserconfig.xml", "browserconfig.xml"],
 ]);
-const passthroughContentTypes = new Map([
+const publicAssetContentTypes = new Map([
   ["site.webmanifest", "application/manifest+json"],
   ["browserconfig.xml", "application/xml; charset=utf-8"],
   ["sshwifty.svg", "image/svg+xml"],
   ["favicon.ico", "image/x-icon"],
+]);
+const rootAssetContentTypes = new Map([
+  [".md", "text/markdown; charset=utf-8"],
 ]);
 const browserEncodingPackages = [
   "/node_modules/buffer/",
@@ -72,49 +77,6 @@ function vendorChunkName(id) {
 }
 
 /**
- * Build a placeholder token for a public asset path.
- *
- * @param {string} publicPath Browser-facing public asset path.
- * @returns {string} Placeholder token that Vite will not rewrite.
- */
-function passthroughAssetToken(publicPath) {
-  return `__SSHWIFTY_PUBLIC_ASSET__${publicPath}__`;
-}
-
-/**
- * Replace Sshwifty public asset paths in a source string.
- *
- * @param {string} source Source text to scan.
- * @param {(publicPath: string) => string} replacer Replacement callback.
- * @returns {string} Source text with public asset paths replaced.
- */
-function replacePublicAssetPaths(source, replacer) {
-  let updated = source;
-
-  for (const publicPath of passthroughPublicAssets.keys()) {
-    updated = updated.replaceAll(publicPath, replacer(publicPath));
-  }
-
-  return updated;
-}
-
-/**
- * Restore public asset placeholders back to their browser-facing paths.
- *
- * @param {string} source Source text to scan.
- * @returns {string} Source text with passthrough tokens restored.
- */
-function restorePublicAssetTokens(source) {
-  let updated = source;
-
-  for (const publicPath of passthroughPublicAssets.keys()) {
-    updated = updated.replaceAll(passthroughAssetToken(publicPath), publicPath);
-  }
-
-  return updated;
-}
-
-/**
  * Create a Vite plugin that copies root documentation files into the bundle.
  *
  * @returns {import("vite").Plugin} Vite build plugin.
@@ -139,44 +101,35 @@ function copyRootFilesPlugin() {
 }
 
 /**
- * Create a Vite plugin that flattens generated HTML output paths.
+ * Resolve a development server fixed asset route to a source file.
  *
- * @returns {import("vite").Plugin} Vite build plugin.
+ * @param {string} requestPath Browser request path without query string.
+ * @returns {{ filePath: string, contentType: string } | null} Route target.
  */
-function normalizeHtmlOutputsPlugin() {
-  return {
-    name: "normalize-html-outputs",
-    apply: "build",
-    /**
-     * Move generated HTML from Vite's nested input paths to Sshwifty's flat
-     * static asset layout.
-     */
-    closeBundle() {
-      const nestedHtmlDir = path.join(distDir, "ui");
+export function resolveDevAssetRoute(requestPath) {
+  const rootFile = fixedRootAssets.get(requestPath);
+  if (rootFile) {
+    const filePath = path.join(repoRoot, rootFile);
+    const contentType =
+      rootAssetContentTypes.get(path.extname(rootFile)) ??
+      "text/plain; charset=utf-8";
 
-      for (const fileName of generatedHtmlFiles) {
-        const nestedPath = path.join(nestedHtmlDir, fileName);
-        const flatPath = path.join(distDir, fileName);
+    return { filePath, contentType };
+  }
 
-        if (!fs.existsSync(nestedPath)) {
-          continue;
-        }
+  const publicFile =
+    fixedPublicAssets.get(requestPath) ??
+    rootCompatibilityAssets.get(requestPath);
 
-        let html = fs.readFileSync(nestedPath, "utf8");
-        html = restorePublicAssetTokens(html);
+  if (!publicFile) {
+    return null;
+  }
 
-        fs.writeFileSync(flatPath, html);
-        fs.rmSync(nestedPath);
-      }
+  const filePath = path.join(publicDir, publicFile);
+  const contentType =
+    publicAssetContentTypes.get(publicFile) ?? "text/plain; charset=utf-8";
 
-      if (
-        fs.existsSync(nestedHtmlDir) &&
-        fs.readdirSync(nestedHtmlDir).length === 0
-      ) {
-        fs.rmdirSync(nestedHtmlDir);
-      }
-    },
-  };
+  return { filePath, contentType };
 }
 
 /**
@@ -188,33 +141,6 @@ function sshwiftyPublicAssetsPlugin() {
   return {
     name: "sshwifty-public-assets",
     enforce: "pre",
-    transformIndexHtml: {
-      order: "pre",
-      /**
-       * Protect fixed public asset routes from Vite asset rewriting.
-       *
-       * @param {string} html Source HTML.
-       * @returns {string} HTML with temporary passthrough tokens.
-       */
-      handler(html) {
-        return replacePublicAssetPaths(html, passthroughAssetToken);
-      },
-    },
-    /**
-     * Restore passthrough public asset routes in emitted string assets.
-     *
-     * @param {unknown} _ Rollup output options.
-     * @param {import("rollup").OutputBundle} bundle Generated bundle.
-     */
-    generateBundle(_, bundle) {
-      for (const chunk of Object.values(bundle)) {
-        if (chunk.type !== "asset" || typeof chunk.source !== "string") {
-          continue;
-        }
-
-        chunk.source = restorePublicAssetTokens(chunk.source);
-      }
-    },
     /**
      * Add development middleware for Sshwifty shell and fixed public assets.
      *
@@ -228,7 +154,7 @@ function sshwiftyPublicAssetsPlugin() {
        * @param {import("node:http").ServerResponse} _res HTTP response.
        * @param {() => void} next Next middleware callback.
        */
-      const rewriteShellRequest = (req, _res, next) => {
+      const rewriteShellRequest = async (req, res, next) => {
         const requestUrl = req.url ?? "";
         const [requestPath, requestQuery = ""] = requestUrl.split("?", 2);
 
@@ -237,10 +163,22 @@ function sshwiftyPublicAssetsPlugin() {
           requestPath === "/sshwifty/assets" ||
           requestPath === "/sshwifty/assets/"
         ) {
-          req.url =
-            "/sshwifty/assets/ui/index.html" +
-            (requestQuery.length > 0 ? `?${requestQuery}` : "");
-          next();
+          try {
+            const html = fs.readFileSync(
+              path.join(uiRoot, "index.html"),
+              "utf8",
+            );
+            const transformedHtml = await server.transformIndexHtml(
+              "/sshwifty/assets/index.html" +
+                (requestQuery.length > 0 ? `?${requestQuery}` : ""),
+              html,
+            );
+
+            res.setHeader("Content-Type", "text/html; charset=utf-8");
+            res.end(transformedHtml);
+          } catch (error) {
+            next(error);
+          }
           return;
         }
         next();
@@ -259,22 +197,14 @@ function sshwiftyPublicAssetsPlugin() {
           const requestUrl = req.url ?? "";
           const [requestPath] = requestUrl.split("?", 1);
 
-          const assetFile =
-            passthroughPublicAssets.get(requestPath) ??
-            rootCompatibilityAssets.get(requestPath);
-
-          if (!assetFile) {
+          const asset = resolveDevAssetRoute(requestPath);
+          if (!asset) {
             next();
             return;
           }
 
-          const filePath = path.join(publicDir, assetFile);
-          const contentType =
-            passthroughContentTypes.get(assetFile) ??
-            "text/plain; charset=utf-8";
-
-          res.setHeader("Content-Type", contentType);
-          const stream = fs.createReadStream(filePath);
+          res.setHeader("Content-Type", asset.contentType);
+          const stream = fs.createReadStream(asset.filePath);
           stream.on(
             "error",
             /**
@@ -284,7 +214,7 @@ function sshwiftyPublicAssetsPlugin() {
              */
             (error) => {
               console.error(
-                `Failed to stream public asset ${assetFile} from ${filePath}:`,
+                `Failed to stream dev asset ${requestPath} from ${asset.filePath}:`,
                 error,
               );
               if (!res.headersSent) {
@@ -300,34 +230,6 @@ function sshwiftyPublicAssetsPlugin() {
   };
 }
 
-/**
- * Create a Vite plugin that restores passthrough asset paths in dev HTML.
- *
- * @param {string} command Current Vite command.
- * @returns {import("vite").Plugin} Vite HTML transform plugin.
- */
-function restoreDevHtmlAssetsPlugin(command) {
-  return {
-    name: "restore-dev-html-assets",
-    transformIndexHtml: {
-      order: "post",
-      /**
-       * Restore passthrough asset routes when Vite serves development HTML.
-       *
-       * @param {string} html Source HTML.
-       * @returns {string} Unchanged build HTML or restored development HTML.
-       */
-      handler(html) {
-        if (command === "build") {
-          return html;
-        }
-
-        return restorePublicAssetTokens(html);
-      },
-    },
-  };
-}
-
 export default defineConfig(
   /**
    * Build the Vite configuration for the current command and mode.
@@ -337,13 +239,8 @@ export default defineConfig(
    */
   ({ command, mode }) => ({
     base: "/sshwifty/assets/",
-    plugins: [
-      vue(),
-      copyRootFilesPlugin(),
-      sshwiftyPublicAssetsPlugin(),
-      restoreDevHtmlAssetsPlugin(command),
-      normalizeHtmlOutputsPlugin(),
-    ],
+    root: uiRoot,
+    plugins: [vue(), copyRootFilesPlugin(), sshwiftyPublicAssetsPlugin()],
     publicDir,
     resolve: {
       alias: [
@@ -386,8 +283,8 @@ export default defineConfig(
       sourcemap: command === "serve",
       rollupOptions: {
         input: {
-          index: path.join(repoRoot, "ui", "index.html"),
-          error: path.join(repoRoot, "ui", "error.html"),
+          index: path.join(uiRoot, "index.html"),
+          error: path.join(uiRoot, "error.html"),
         },
         output: {
           manualChunks: vendorChunkName,
@@ -409,6 +306,7 @@ export default defineConfig(
       },
     },
     test: {
+      root: repoRoot,
       include: ["ui/**/*_test.js"],
       globals: true,
       environment: "node",
