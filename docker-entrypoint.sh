@@ -22,7 +22,7 @@ if [ -n "$SSHWIFTY_DOCKER_TLSCERT" ] && [ -n "$SSHWIFTY_DOCKER_TLSCERTKEY" ]; th
     chmod 600 /tmp/cert
     printf "%s" "$SSHWIFTY_DOCKER_TLSCERTKEY" > /tmp/certkey
     chmod 600 /tmp/certkey
-    exec env SSHWIFTY_TLSCERTIFICATEFILE=/tmp/cert SSHWIFTY_TLSCERTIFICATEKEYFILE=/tmp/certkey /sshwifty
+    exec env SSHWIFTY_TLSCERTIFICATEFILE=/tmp/cert SSHWIFTY_TLSCERTIFICATEKEYFILE=/tmp/certkey /sshwifty "$@"
 fi
 
-exec /sshwifty
+exec /sshwifty "$@"

@@ -14,7 +14,18 @@ import (
 	"github.com/Snuffy2/sshwifty/application/log"
 )
 
+func shouldPrintVersion(args []string) bool {
+	return len(args) == 2 && (args[1] == "-V" || args[1] == "--version")
+}
+
 func main() {
+	if shouldPrintVersion(os.Args) {
+		if _, err := os.Stdout.WriteString(application.Banner()); err != nil {
+			os.Exit(1)
+		}
+		return
+	}
+
 	configLoaders := make([]configuration.Loader, 0, 2)
 	if cfgFile := configuration.GetEnv("SSHWIFTY_CONFIG"); len(cfgFile) > 0 {
 		configLoaders = append(configLoaders, configuration.CustomFile(cfgFile))

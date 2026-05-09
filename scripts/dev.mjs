@@ -7,6 +7,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { createServer } from "vite";
+import { prepareDevStaticAssets } from "./dev-static-assets.mjs";
 
 const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -17,15 +18,7 @@ const devConfig = path.join(repoRoot, "sshwifty.conf.example.json");
 let shuttingDown = false;
 let goProcess = null;
 let viteServer = null;
-
-/**
- * Return the platform-specific npm executable name.
- *
- * @returns {string} npm command name for the current platform.
- */
-function npmCommand() {
-  return process.platform === "win32" ? "npm.cmd" : "npm";
-}
+let cleanupDevStaticAssets = () => {};
 
 /**
  * Prefix a child process's stdout and stderr before forwarding them.
@@ -54,52 +47,6 @@ function forwardOutput(child, label) {
      */
     (data) => {
       process.stderr.write(`[${label}] ${data}`);
-    },
-  );
-}
-
-/**
- * Build the static assets required before the Go development server starts.
- *
- * @returns {Promise<void>} Resolves after generation succeeds.
- */
-async function generateStaticPages() {
-  await new Promise(
-    /**
-     * Run the generation command and settle with its process result.
-     *
-     * @param {() => void} resolve Promise resolver.
-     * @param {(reason?: unknown) => void} reject Promise rejecter.
-     */
-    (resolve, reject) => {
-      const child = spawn(npmCommand(), ["run", "generate"], {
-        cwd: repoRoot,
-        stdio: ["ignore", "pipe", "pipe"],
-      });
-
-      forwardOutput(child, "generate");
-
-      child.on("error", reject);
-      child.on(
-        "exit",
-        /**
-         * Convert the generator process exit state into a promise outcome.
-         *
-         * @param {number | null} code Process exit code.
-         * @param {NodeJS.Signals | null} signal Signal that ended the process.
-         */
-        (code, signal) => {
-          if (code === 0) {
-            resolve();
-            return;
-          }
-          reject(
-            new Error(
-              `static asset generation failed with code ${code} signal ${signal}`,
-            ),
-          );
-        },
-      );
     },
   );
 }
@@ -283,7 +230,20 @@ async function shutdown(exitCode) {
   }
   shuttingDown = true;
   await Promise.allSettled([stopVite(), stopGo()]);
-  process.exit(exitCode);
+  try {
+    try {
+      cleanupDevStaticAssets();
+    } catch (error) {
+      process.stderr.write(
+        `[dev] failed to clean up static assets: ${
+          error instanceof Error ? error.message : String(error)
+        }\n`,
+      );
+    }
+  } finally {
+    cleanupDevStaticAssets = () => {};
+    process.exit(exitCode);
+  }
 }
 
 process.on(
@@ -307,7 +267,7 @@ process.on(
 );
 
 try {
-  await generateStaticPages();
+  cleanupDevStaticAssets = prepareDevStaticAssets(repoRoot);
   startGo();
   await startVite();
 } catch (error) {

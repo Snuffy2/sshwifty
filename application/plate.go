@@ -4,6 +4,8 @@
 
 package application
 
+import "fmt"
+
 // Plate information contains static identity strings for the application.
 const (
 	// Name is the short application name.
@@ -27,3 +29,8 @@ const (
 var (
 	version = "dev"
 )
+
+// Banner returns the startup/version banner shown by the application.
+func Banner() string {
+	return fmt.Sprintf(banner, FullName, version, Author, URL)
+}

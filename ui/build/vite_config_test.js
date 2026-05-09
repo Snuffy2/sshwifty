@@ -6,7 +6,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
-import { resolveDevAssetRoute } from "../../vite.config.js";
+import {
+  resolveDevAssetRoute,
+  renderDevShellHtml,
+  rewriteDevShellScriptPaths,
+} from "../../vite.config.js";
 
 const testDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(testDir, "../..");
@@ -103,5 +107,42 @@ describe("vite config cleanup guards", () => {
       contentType: "image/x-icon",
     });
     expect(resolveDevAssetRoute("/sshwifty/assets/missing.md")).toBeNull();
+  });
+
+  test("development shell script paths resolve from Vite module root", () => {
+    const html = [
+      '<script type="module" src="/sshwifty/assets/@vite/client"></script>',
+      '<script type="module" src="node-globals.js"></script>',
+      '<script type="module" src="app.js"></script>',
+    ].join("");
+
+    expect(rewriteDevShellScriptPaths(html)).toBe(
+      [
+        '<script type="module" src="/sshwifty/assets/@vite/client"></script>',
+        '<script type="module" src="/node-globals.js"></script>',
+        '<script type="module" src="/app.js"></script>',
+      ].join(""),
+    );
+  });
+
+  test("development shell emits fixed public asset URLs after Vite transforms it", async () => {
+    const sourceHtml = [
+      '<link rel="icon" type="image/svg+xml" href="%BASE_URL%sshwifty.svg" />',
+      '<link rel="manifest" href="%BASE_URL%site.webmanifest" />',
+      '<script type="module" src="node-globals.js"></script>',
+      '<script type="module" src="app.js"></script>',
+    ].join("");
+    const server = {
+      transformIndexHtml: async (_url, html) =>
+        html.replaceAll("%BASE_URL%", "/sshwifty/assets/sshwifty/assets/"),
+    };
+
+    const html = await renderDevShellHtml(server, "", sourceHtml);
+
+    expect(html).toContain('href="/sshwifty/assets/sshwifty.svg"');
+    expect(html).toContain('href="/sshwifty/assets/site.webmanifest"');
+    expect(html).toContain('src="/node-globals.js"');
+    expect(html).toContain('src="/app.js"');
+    expect(html).not.toContain("/sshwifty/assets/sshwifty/assets/");
   });
 });

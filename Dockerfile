@@ -3,13 +3,12 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 
 # Sshwifty is built as a static Go binary, but the production build also needs
-# Node because `npm run build` first runs Vite and then `go generate ./...` to
-# embed the generated frontend assets into Go source.
+# Node because `npm run build` runs the frontend toolchain before building the
+# Go binary with the generated assets embedded.
 #
-# The builder stage therefore starts from the official Go image and installs
-# Node 24 for the frontend toolchain. It installs npm and Go dependencies before
-# copying the full source tree so Docker can reuse those dependency layers when
-# only application code changes.
+# The Docker build uses a separate Node dependency stage and then a Go builder
+# stage. Node is copied from the dependency stage so frontend dependencies stay
+# cacheable without installing Node through apt inside the Go image.
 #
 # The runtime stage is Alpine and contains only the compiled `/sshwifty` binary,
 # a small entrypoint wrapper for optional Docker TLS environment variables, and a
@@ -17,22 +16,25 @@
 # The source bundle is intentionally explicit instead of `COPY .` so local
 # operator files such as real config JSON are not accidentally baked into images.
 
+# Build the frontend dependencies
+FROM node:24-trixie AS frontend-deps
+WORKDIR /src
+COPY package.json package-lock.json ./
+RUN npm ci
+
 # Build the application binary
 FROM golang:1.26-trixie AS builder
 WORKDIR /src
 ARG SSHWIFTY_VERSION=dev
-RUN set -eux; \
-    export DEBIAN_FRONTEND=noninteractive; \
-    apt-get update; \
-    apt-get install -y --no-install-recommends npm; \
-    npm install -g n; \
-    n 24; \
-    apt-get clean; \
-    rm -rf /var/lib/apt/lists/*
-COPY go.mod go.sum package.json package-lock.json ./
+COPY go.mod go.sum ./
+RUN go mod download
+COPY --from=frontend-deps /usr/local/bin/node /usr/local/bin/node
+COPY --from=frontend-deps /usr/local/lib/node_modules /usr/local/lib/node_modules
 RUN set -ex && \
-    npm ci && \
-    go mod download
+    ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && \
+    ln -s /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
+COPY --from=frontend-deps /src/node_modules ./node_modules
+COPY package.json package-lock.json ./
 COPY . .
 RUN set -ex && \
     SSHWIFTY_VERSION="$SSHWIFTY_VERSION" npm run build && \
