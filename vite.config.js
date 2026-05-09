@@ -284,7 +284,11 @@ export default defineConfig(
   ({ command, mode }) => ({
     base: "/sshwifty/assets/",
     root: uiRoot,
-    plugins: [vue(), copyRootFilesPlugin(), sshwiftyPublicAssetsPlugin()],
+    plugins: [
+      vue(),
+      copyRootFilesPlugin(),
+      sshwiftyPublicAssetsPlugin(),
+    ],
     publicDir,
     resolve: {
       alias: [
