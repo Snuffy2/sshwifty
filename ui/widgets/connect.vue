@@ -55,7 +55,7 @@ SPDX-License-Identifier: AGPL-3.0-only
             Sshwifty is a free software, you can deploy it on your own trusted
             infrastructure.
             <a href="https://github.com/Snuffy2/sshwifty" target="_blank"
-              >Learn more</a
+              >View source code</a
             >
           </p>
         </div>

@@ -10,11 +10,10 @@
 # stage. Node is copied from the dependency stage so frontend dependencies stay
 # cacheable without installing Node through apt inside the Go image.
 #
-# The runtime stage is Alpine and contains only the compiled `/sshwifty` binary,
-# a small entrypoint wrapper for optional Docker TLS environment variables, and a
-# curated source bundle under `/sshwifty-src` for license/source availability.
-# The source bundle is intentionally explicit instead of `COPY .` so local
-# operator files such as real config JSON are not accidentally baked into images.
+# The runtime stage is Alpine and contains only the compiled `/sshwifty` binary
+# and a small entrypoint wrapper for optional Docker TLS environment variables.
+# Source availability is provided by the app's GitHub source link and the OCI
+# source metadata label rather than by copying source files into the image.
 
 # Build the frontend dependencies
 FROM node:24-trixie AS frontend-deps
@@ -42,6 +41,8 @@ RUN set -ex && \
 
 # Build the final image for running
 FROM alpine:3.23
+LABEL org.opencontainers.image.source="https://github.com/Snuffy2/sshwifty" \
+    org.opencontainers.image.licenses="AGPL-3.0-only"
 ENV SSHWIFTY_DIALTIMEOUT=10 \
     SSHWIFTY_HOOKTIMEOUT=30 \
     SSHWIFTY_LISTENINTERFACE=0.0.0.0 \
@@ -53,13 +54,6 @@ ENV SSHWIFTY_DIALTIMEOUT=10 \
     SSHWIFTY_READDELAY=0 \
     SSHWIFTY_WRITEDELAY=0
 COPY --from=builder /sshwifty /
-COPY application /sshwifty-src/application
-COPY ui /sshwifty-src/ui
-COPY LICENSE.md README.md CONFIGURATION.md DEPENDENCIES.md /sshwifty-src/
-COPY go.mod go.sum package.json package-lock.json /sshwifty-src/
-COPY Dockerfile docker-entrypoint.sh sshwifty.go vite.config.js eslint.config.mjs /sshwifty-src/
-COPY scripts /sshwifty-src/scripts
-COPY preset.example.json sshwifty.conf.example.json /sshwifty-src/
 COPY docker-entrypoint.sh /sshwifty.sh
 RUN set -ex && \
     adduser -D sshwifty && \

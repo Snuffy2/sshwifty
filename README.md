@@ -34,6 +34,11 @@ services:
 
 Then open `http://localhost:8182`.
 
+The container image does not bundle the repository source tree. The running app
+links to the source repository at
+[`github.com/Snuffy2/sshwifty`](https://github.com/Snuffy2/sshwifty), and the
+image includes an OCI source label with the same URL.
+
 For reverse proxy deployments, publish the service only on localhost:
 
 ```yaml
