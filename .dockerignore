@@ -6,6 +6,8 @@
 
 !application/*
 !ui/*
+!scripts/
+!scripts/**
 !*.md
 !*.go
 !*.sum
@@ -14,5 +16,4 @@
 !docker-entrypoint.sh
 !*.json
 !*.js
-!*.cjs
 !*.mjs
