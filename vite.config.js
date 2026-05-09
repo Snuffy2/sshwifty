@@ -339,6 +339,7 @@ export default defineConfig(({ command, mode }) => ({
     "process.env.NODE_ENV": JSON.stringify(mode),
   },
   build: {
+    target: ["es2020"],
     outDir: distDir,
     emptyOutDir: true,
     sourcemap: command === "serve",

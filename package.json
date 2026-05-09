@@ -8,6 +8,12 @@
   "engines": {
     "node": ">=24"
   },
+  "browserslist": [
+    "Chrome >= 80",
+    "Edge >= 80",
+    "Firefox >= 78",
+    "Safari >= 14"
+  ],
   "devDependencies": {
     "@azurity/pure-nerd-font": "^3.0.5",
     "@eslint/eslintrc": "^3.3.5",

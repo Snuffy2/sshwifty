@@ -10,6 +10,10 @@ work made this fork possible.
 
 ![Screenshot](Screenshot.png)
 
+## Supported browsers
+
+ES2020-era browsers and newer, including Chrome 80+, Edge 80+, Firefox 78+, and Safari 14+.
+
 ## Docker
 
 Run Sshwifty with Docker Compose:
