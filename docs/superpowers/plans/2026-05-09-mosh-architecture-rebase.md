@@ -207,7 +207,7 @@ user@host|AuthMethod|charset|encodedMoshServer
 - [ ] **Step 3: Add frontend control**
 
 Create `ui/control/mosh.js` using the SSH control shape: decode stdout through
-the selected charset, send encoded stdin, send binary input unchanged, forward
+UTF-8, send encoded stdin, send binary input unchanged, forward
 resize events, and reject the receive subscription when the stream completes.
 
 - [ ] **Step 4: Register Mosh in app startup**

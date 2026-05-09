@@ -204,8 +204,26 @@ func parseMoshRequestMeta(r *rw.LimitedReader, b []byte) (map[string]string, err
 		return nil, err
 	}
 
-	meta["Mosh Server"] = strings.TrimSpace(string(serverPath.Data()))
+	moshServer := strings.TrimSpace(string(serverPath.Data()))
+	if err := validateMoshServerPath(moshServer); err != nil {
+		return nil, err
+	}
+
+	meta["Mosh Server"] = moshServer
 	return meta, nil
+}
+
+func validateMoshServerPath(serverPath string) error {
+	serverPath = strings.TrimSpace(serverPath)
+	if serverPath == "" {
+		return ErrStringParseBufferTooSmall
+	}
+
+	if strings.ContainsAny(serverPath, " \t\r\n") {
+		return errors.New("Mosh Server must be an executable path without arguments")
+	}
+
+	return nil
 }
 
 func (d *moshClient) buildAuthMethod(methodType byte) (sshAuthMethodBuilder, error) {
@@ -641,6 +659,27 @@ func (d *moshClient) getSession() (moshSession, error) {
 	return d.cacheSession(session), nil
 }
 
+func (d *moshClient) getSessionIfReady() (moshSession, bool) {
+	d.sessionLock.Lock()
+	if d.session != nil {
+		session := d.session
+		d.sessionLock.Unlock()
+		return session, true
+	}
+	d.sessionLock.Unlock()
+
+	select {
+	case session, ok := <-d.sessionReceive:
+		if !ok {
+			return nil, false
+		}
+
+		return d.cacheSession(session), true
+	default:
+		return nil, false
+	}
+}
+
 func (d *moshClient) closeSession() error {
 	d.sessionLock.Lock()
 	defer d.sessionLock.Unlock()
@@ -661,15 +700,16 @@ func (d *moshClient) local(
 ) error {
 	switch h.Marker() {
 	case MoshClientStdIn:
-		session, sessionErr := d.getSession()
-		if sessionErr != nil {
-			return sessionErr
-		}
+		session, sessionReady := d.getSessionIfReady()
 
 		for !r.Completed() {
 			rData, rErr := r.Buffered()
 			if rErr != nil {
 				return rErr
+			}
+
+			if !sessionReady {
+				continue
 			}
 
 			if wErr := session.Send(rData); wErr != nil {
@@ -681,13 +721,13 @@ func (d *moshClient) local(
 		return nil
 
 	case MoshClientResize:
-		session, sessionErr := d.getSession()
-		if sessionErr != nil {
-			return sessionErr
-		}
-
 		if _, rErr := io.ReadFull(r, b[:4]); rErr != nil {
 			return rErr
+		}
+
+		session, sessionReady := d.getSessionIfReady()
+		if !sessionReady {
+			return nil
 		}
 
 		rows := uint16(b[0])<<8 | uint16(b[1])

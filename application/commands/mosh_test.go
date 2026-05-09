@@ -323,6 +323,41 @@ func TestMoshBootupReportsBadMetadata(t *testing.T) {
 	}
 }
 
+func TestMoshBootupRejectsMoshServerArguments(t *testing.T) {
+	bufferPool := command.NewBufferPool(4096)
+	client := newMosh(
+		nil,
+		command.NewHooks(configuration.HookSettings{}),
+		command.StreamResponder{},
+		command.Configuration{},
+		&bufferPool,
+	)
+	payload := buildMoshBootPayload(t, "alice", "example.com", 22, SSHAuthMethodNone)
+	payload = appendMoshString(t, payload, "/usr/local/bin/mosh-server --flag")
+
+	state, err := client.Bootup(newLimitedReader(payload), nil)
+	if state != nil {
+		t.Fatalf("expected bootup state to stay nil on metadata rejection, got %v", state)
+	}
+
+	if err.Code() != MoshRequestErrorBadMetadata {
+		t.Fatalf("expected bad metadata code, got %d", err.Code())
+	}
+}
+
+func TestParseMoshRequestMetaAcceptsMoshServerPath(t *testing.T) {
+	payload := appendMoshString(t, nil, "/usr/local/bin/mosh-server")
+
+	meta, err := parseMoshRequestMeta(newLimitedReader(payload), make([]byte, 128))
+	if err != nil {
+		t.Fatalf("expected mosh server path metadata to parse, got %v", err)
+	}
+
+	if meta["Mosh Server"] != "/usr/local/bin/mosh-server" {
+		t.Fatalf("expected custom mosh server path, got %q", meta["Mosh Server"])
+	}
+}
+
 func TestMoshLocalStdInWritesBufferedBytes(t *testing.T) {
 	session := &fakeMoshSession{}
 	client := &moshClient{session: session}
@@ -345,8 +380,7 @@ func TestMoshLocalStdInWritesBufferedBytes(t *testing.T) {
 	}
 }
 
-func TestMoshLocalStdInWaitsForSessionThenSends(t *testing.T) {
-	session := newBlockingFakeMoshSession()
+func TestMoshLocalStdInBeforeSessionDoesNotBlock(t *testing.T) {
 	client := &moshClient{sessionReceive: make(chan moshSession, 1)}
 
 	errCh := make(chan error, 1)
@@ -361,32 +395,15 @@ func TestMoshLocalStdInWaitsForSessionThenSends(t *testing.T) {
 
 	select {
 	case err := <-errCh:
-		t.Fatalf("expected local stdin to block until session arrives, got %v", err)
-	case <-time.After(25 * time.Millisecond):
-	}
-
-	client.sessionReceive <- session
-
-	select {
-	case err := <-errCh:
 		if err != nil {
-			t.Fatalf("expected stdin handler to succeed after session delivery, got %v", err)
+			t.Fatalf("expected pre-session stdin to be discarded without error, got %v", err)
 		}
 	case <-time.After(200 * time.Millisecond):
-		t.Fatal("expected stdin handler to resume after session delivery")
-	}
-
-	if len(session.sent) != 1 {
-		t.Fatalf("expected one send call, got %d", len(session.sent))
-	}
-
-	if !bytes.Equal(session.sent[0], []byte("typed input")) {
-		t.Fatalf("expected sent payload %q, got %q", "typed input", session.sent[0])
+		t.Fatal("expected pre-session stdin handler not to block")
 	}
 }
 
-func TestMoshLocalResizeWaitsForSessionThenResizes(t *testing.T) {
-	session := newBlockingFakeMoshSession()
+func TestMoshLocalResizeBeforeSessionDoesNotBlock(t *testing.T) {
 	client := &moshClient{sessionReceive: make(chan moshSession, 1)}
 
 	errCh := make(chan error, 1)
@@ -401,28 +418,11 @@ func TestMoshLocalResizeWaitsForSessionThenResizes(t *testing.T) {
 
 	select {
 	case err := <-errCh:
-		t.Fatalf("expected local resize to block until session arrives, got %v", err)
-	case <-time.After(25 * time.Millisecond):
-	}
-
-	client.sessionReceive <- session
-
-	select {
-	case err := <-errCh:
 		if err != nil {
-			t.Fatalf("expected resize handler to succeed after session delivery, got %v", err)
+			t.Fatalf("expected pre-session resize to be discarded without error, got %v", err)
 		}
 	case <-time.After(200 * time.Millisecond):
-		t.Fatal("expected resize handler to resume after session delivery")
-	}
-
-	if len(session.resizes) != 1 {
-		t.Fatalf("expected one resize call, got %d", len(session.resizes))
-	}
-
-	if session.resizes[0] != (fakeMoshResize{cols: 80, rows: 24}) {
-		t.Fatalf("expected resize to be cols=%d rows=%d, got cols=%d rows=%d",
-			80, 24, session.resizes[0].cols, session.resizes[0].rows)
+		t.Fatal("expected pre-session resize handler not to block")
 	}
 }
 
@@ -622,4 +622,16 @@ func buildMoshBootPayload(
 	payload = append(payload, authMethod)
 
 	return payload
+}
+
+func appendMoshString(t *testing.T, payload []byte, value string) []byte {
+	t.Helper()
+
+	buf := make([]byte, MaxInteger+MaxIntegerBytes)
+	valueLen, err := NewString([]byte(value)).Marshal(buf)
+	if err != nil {
+		t.Fatalf("expected string marshal to succeed, got %v", err)
+	}
+
+	return append(payload, buf[:valueLen]...)
 }

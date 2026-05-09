@@ -84,7 +84,7 @@ describe("Mosh Command", () => {
         commandHandler = callback({ close() {} });
       },
     };
-    const customMoshServer = "/opt/mosh/bin/mosh-server --flag='a|b'";
+    const customMoshServer = "/opt/mosh/bin/mosh-server";
     const cmd = new mosh.Command();
 
     cmd
@@ -110,7 +110,7 @@ describe("Mosh Command", () => {
         null,
       )
       .stepInitialPrompt();
-    assert.strictEqual(commandHandler.config.charset, "iso-8859-1");
+    assert.strictEqual(commandHandler.config.charset, "utf-8");
     assert.strictEqual(commandHandler.config.moshServer, "mosh-server");
 
     cmd
@@ -157,6 +157,10 @@ describe("Mosh Command", () => {
     assert.ok(field);
     assert.strictEqual(field.value, "mosh-server");
     assert.throws(() => field.verify(""), /Mosh Server must be specified/);
+    assert.throws(
+      () => field.verify("/usr/local/bin/mosh-server --flag"),
+      /without arguments/,
+    );
     assert.strictEqual(
       field.verify("/usr/local/bin/mosh-server"),
       "Will start /usr/local/bin/mosh-server",

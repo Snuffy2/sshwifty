@@ -311,21 +311,17 @@ const initialFieldDef = {
     description: "The character encoding of the server",
     type: "select",
     value: "utf-8",
-    example: common.charsetPresets.join(","),
-    readonly: false,
+    example: "utf-8",
+    readonly: true,
     suggestions() {
       return [];
     },
     verify(d) {
-      for (let i in common.charsetPresets) {
-        if (common.charsetPresets[i] !== d) {
-          continue;
-        }
-
+      if (d === "utf-8") {
         return "";
       }
 
-      throw new Error('The character encoding "' + d + '" is not supported');
+      throw new Error("Mosh currently supports only utf-8 encoding");
     },
   },
   "Mosh Server": {
@@ -341,6 +337,12 @@ const initialFieldDef = {
     verify(d) {
       if (d.length <= 0) {
         throw new Error("Mosh Server must be specified");
+      }
+
+      if (/\s/.test(d)) {
+        throw new Error(
+          "Mosh Server must be an executable path without arguments",
+        );
       }
 
       return "Will start " + d;
@@ -1162,7 +1164,7 @@ export class Command {
     let user = userHostName[1],
       host = userHostName[2],
       auth = d[1],
-      charset = d.length >= 3 && d[2] ? d[2] : "utf-8", // RM after depreciation
+      charset = "utf-8",
       moshServer =
         d.length >= 4 ? decodeLauncherMoshServer(d[3]) : DEFAULT_MOSH_SERVER;
 

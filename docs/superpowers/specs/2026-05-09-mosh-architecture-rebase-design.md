@@ -40,17 +40,18 @@ the current `mosh-go` dependency dials IPv4.
 
 Add `ui/commands/mosh.js` and `ui/control/mosh.js` in the current Vite-era UI
 style, then register them in `ui/app.js` beside Telnet and SSH. The command
-wizard collects Host, User, Authentication, Encoding, and optional `Mosh Server`
-fields. It reuses the SSH-style fingerprint and credential prompts while
-surfacing Mosh-specific backend rejection for SOCKS5.
+wizard collects Host, User, Authentication, fixed UTF-8 Encoding, and optional
+path-only `Mosh Server` fields. It reuses the SSH-style fingerprint and
+credential prompts while surfacing Mosh-specific backend rejection for SOCKS5.
 
 The Mosh control uses the same console widget shape as SSH. It decodes stdout
-through the configured charset, sends stdin bytes to the backend, forwards
-terminal resize messages, and closes through the shared stream sender.
+as UTF-8, sends stdin bytes to the backend, forwards terminal resize messages,
+and closes through the shared stream sender.
 
 Launcher compatibility is preserved with the old branch format:
-`user@host|AuthMethod|charset|encodedMoshServer`. The `moshServer` launcher
-field remains optional and defaults to `mosh-server`.
+`user@host|AuthMethod|charset|encodedMoshServer`; the legacy charset slot is
+accepted but Mosh uses UTF-8. The `moshServer` launcher field remains optional
+and defaults to `mosh-server`.
 
 ## Documentation And Configuration
 

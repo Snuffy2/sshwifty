@@ -64,7 +64,7 @@ Mosh support is available in v1 with SSH used for bootstrap only. The browser
 connection to Sshwifty still uses WebSocket, while Mosh data flows over UDP
 between the backend container and the remote host. Remote hosts need
 `mosh-server` installed, SOCKS5 is not supported for Mosh, the backend-to-host
-Mosh leg is IPv4-only, and the remote locale should be UTF-8.
+Mosh leg is IPv4-only, and terminal encoding is fixed to UTF-8.
 
 ## Running From Source
 
