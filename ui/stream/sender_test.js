@@ -159,6 +159,80 @@ describe("Sender", () => {
     await assert.rejects(pending, expectedError);
   });
 
+  it("waits for every segment before resolving oversized sends", async () => {
+    const sent = [];
+    let secondSegmentResolved = false;
+    let releaseSecondSegment;
+    const secondSegment = new Promise((resolve) => {
+      releaseSecondSegment = () => {
+        secondSegmentResolved = true;
+        resolve();
+      };
+    });
+    const sd = new sender.Sender(
+      async (rawData) => {
+        sent.push(Array.from(rawData));
+
+        if (sent.length === 2) {
+          await secondSegment;
+        }
+      },
+      4,
+      1000,
+      10,
+    );
+    let resolved = false;
+    const pending = sd.send(Uint8Array.from([1, 2, 3, 4, 5, 6]));
+
+    pending.then(() => {
+      resolved = true;
+    });
+
+    while (sent.length < 2) {
+      await new Promise((resolve) => {
+        setTimeout(resolve, 0);
+      });
+    }
+
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+
+    assert.strictEqual(resolved, false);
+    assert.strictEqual(secondSegmentResolved, false);
+
+    releaseSecondSegment();
+    await pending;
+
+    assert.strictEqual(resolved, true);
+    assert.deepStrictEqual(sent, [
+      [1, 2, 3, 4],
+      [5, 6],
+    ]);
+  });
+
+  it("rejects oversized sends when a later segment fails", async () => {
+    const expectedError = new Error("second segment failed");
+    let sendCount = 0;
+    const sd = new sender.Sender(
+      async () => {
+        sendCount++;
+
+        if (sendCount === 2) {
+          throw expectedError;
+        }
+      },
+      4,
+      1000,
+      10,
+    );
+
+    await assert.rejects(
+      sd.send(Uint8Array.from([1, 2, 3, 4, 5, 6])),
+      expectedError,
+    );
+  });
+
   it("Send (Multiple calls)", async () => {
     const maxSegSize = 64;
     let result = [];

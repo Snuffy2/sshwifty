@@ -60,7 +60,7 @@ export class Sender {
    * Sends data to the this.sender
    *
    * @param {Uint8Array} data to send
-   * @param {Array<function>} callbacks to call to return send result
+   * @param {Array<object>} callbacks to call to return send result
    *
    */
   async sendData(data, callbacks) {
@@ -68,6 +68,10 @@ export class Sender {
       await this.sender(data);
 
       for (let i in callbacks) {
+        if (callbacks[i].resolveOnSuccess === false) {
+          continue;
+        }
+
         callbacks[i].resolve();
       }
     } catch (e) {
@@ -138,10 +142,12 @@ export class Sender {
         continue;
       }
 
-      callbacks.push({
+      const callback = {
         resolve: fetched.resolve,
         reject: fetched.reject,
-      });
+        resolveOnSuccess: true,
+      };
+      callbacks.push(callback);
 
       // Add data to buffer and maybe flush when the buffer is full
       let currentSendDataLen = 0;
@@ -150,16 +156,16 @@ export class Sender {
         const sentLen = this.appendBuffer(
           fetched.data.slice(currentSendDataLen, fetched.data.length),
         );
+        currentSendDataLen += sentLen;
+        callback.resolveOnSuccess = currentSendDataLen >= fetched.data.length;
 
         // Buffer not full, wait for the force flush
         if (this.buffer.length > this.bufferUsed) {
           break;
         }
 
-        currentSendDataLen += sentLen;
-
         await this.sendData(this.exportBuffer(), callbacks);
-        callbacks = [];
+        callbacks = callback.resolveOnSuccess ? [] : [callback];
       }
     }
   }
