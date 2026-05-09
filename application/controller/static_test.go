@@ -45,6 +45,9 @@ func TestLoadStaticPagesIncludesNestedAssets(t *testing.T) {
 		"static_assets/index.html": {
 			Data: []byte("<!doctype html>"),
 		},
+		"static_assets/error.html": {
+			Data: []byte("<!doctype html>"),
+		},
 		"static_assets/assets/app.js": {
 			Data: []byte("console.log('ok');"),
 		},
@@ -56,6 +59,22 @@ func TestLoadStaticPagesIncludesNestedAssets(t *testing.T) {
 	if _, ok := pages["index.html"]; !ok {
 		t.Fatal("expected direct asset key index.html")
 	}
+}
+
+// TestLoadStaticPagesRequiresShellPages verifies incomplete generated assets
+// fail during startup instead of producing a binary with a missing UI.
+func TestLoadStaticPagesRequiresShellPages(t *testing.T) {
+	defer func() {
+		if recovered := recover(); recovered == nil {
+			t.Fatal("expected panic for missing error.html")
+		}
+	}()
+
+	loadStaticPagesFromFS(fstest.MapFS{
+		"static_assets/index.html": {
+			Data: []byte("<!doctype html>"),
+		},
+	}, "static_assets")
 }
 
 // TestStaticContentType verifies project-specific MIME type overrides for

@@ -20,11 +20,11 @@ import (
 	"github.com/Snuffy2/sshwifty/application/log"
 )
 
-// static_assets keeps a committed placeholder so go:embed has a stable
-// directory target. npm run generate writes the ignored built frontend assets
-// here before production builds and full tests.
+// static_assets is populated by npm run generate before production builds and
+// full tests. index.html and error.html are named explicitly so direct Go
+// builds fail when the generated frontend assets are absent.
 //
-//go:embed static_assets/*
+//go:embed static_assets/index.html static_assets/error.html static_assets/*
 var embeddedStaticAssets embed.FS
 
 // staticData holds an embedded static file together with its optional
@@ -154,8 +154,18 @@ func loadStaticPagesFromFS(fileSystem fs.FS, root string) map[string]staticData 
 	if walkErr != nil {
 		panic(walkErr)
 	}
+	requireStaticPage(pages, "index.html")
+	requireStaticPage(pages, "error.html")
 
 	return pages
+}
+
+// requireStaticPage panics when a generated shell page is missing from the
+// embedded asset set.
+func requireStaticPage(pages map[string]staticData, name string) {
+	if _, found := pages[name]; !found {
+		panic("generated static asset " + name + " is missing; run npm run generate before building")
+	}
 }
 
 var staticPages = loadStaticPages()
