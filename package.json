@@ -52,7 +52,7 @@
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "clean": "node -e \"require('node:fs').rmSync('.tmp', { recursive: true, force: true })\"",
-    "generate": "npm run clean && cross-env CGO_ENABLED=0 NODE_ENV=production vite build && cross-env CGO_ENABLED=0 NODE_ENV=production go generate ./...",
+    "generate": "npm run clean && cross-env CGO_ENABLED=0 NODE_ENV=production vite build && node scripts/sync-static-assets.mjs && cross-env CGO_ENABLED=0 NODE_ENV=production go generate ./...",
     "build": "npm run generate && cross-env CGO_ENABLED=0 node scripts/build.mjs",
     "lint": "eslint \"ui/**/*.{js,vue}\"",
     "lint:fix": "eslint --fix \"ui/**/*.{js,vue}\"",
