@@ -6,7 +6,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
-import { resolveDevAssetRoute } from "../../vite.config.js";
+import {
+  resolveDevAssetRoute,
+  rewriteDevShellScriptPaths,
+} from "../../vite.config.js";
 
 const testDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(testDir, "../..");
@@ -103,5 +106,21 @@ describe("vite config cleanup guards", () => {
       contentType: "image/x-icon",
     });
     expect(resolveDevAssetRoute("/sshwifty/assets/missing.md")).toBeNull();
+  });
+
+  test("development shell script paths resolve from Vite module root", () => {
+    const html = [
+      '<script type="module" src="/sshwifty/assets/@vite/client"></script>',
+      '<script type="module" src="node-globals.js"></script>',
+      '<script type="module" src="app.js"></script>',
+    ].join("");
+
+    expect(rewriteDevShellScriptPaths(html)).toBe(
+      [
+        '<script type="module" src="/sshwifty/assets/@vite/client"></script>',
+        '<script type="module" src="/ui/node-globals.js"></script>',
+        '<script type="module" src="/ui/app.js"></script>',
+      ].join(""),
+    );
   });
 });

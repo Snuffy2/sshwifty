@@ -133,6 +133,23 @@ export function resolveDevAssetRoute(requestPath) {
 }
 
 /**
+ * Rewrite shell module script paths for the development URL namespace.
+ *
+ * The source HTML keeps local script paths so Vite can resolve entrypoints
+ * during production builds. In development, the shell is served from
+ * `/sshwifty/assets/`, so those relative paths must point to Vite's source
+ * module URLs instead of resolving beside the served shell URL.
+ *
+ * @param {string} html Transformed development shell HTML.
+ * @returns {string} HTML with development script paths rewritten.
+ */
+export function rewriteDevShellScriptPaths(html) {
+  return html
+    .replaceAll('src="node-globals.js"', 'src="/ui/node-globals.js"')
+    .replaceAll('src="app.js"', 'src="/ui/app.js"');
+}
+
+/**
  * Create a Vite plugin for Sshwifty's fixed public asset routes.
  *
  * @returns {import("vite").Plugin} Vite plugin for build and dev asset paths.
@@ -169,9 +186,8 @@ function sshwiftyPublicAssetsPlugin() {
               "utf8",
             );
             const transformedHtml = await server.transformIndexHtml(
-              "/sshwifty/assets/index.html" +
-                (requestQuery.length > 0 ? `?${requestQuery}` : ""),
-              html,
+              "/index.html" + (requestQuery.length > 0 ? `?${requestQuery}` : ""),
+              rewriteDevShellScriptPaths(html),
             );
 
             res.setHeader("Content-Type", "text/html; charset=utf-8");

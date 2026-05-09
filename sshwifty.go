@@ -15,6 +15,13 @@ import (
 )
 
 func main() {
+	if len(os.Args) == 2 && os.Args[1] == "-V" {
+		if _, err := os.Stdout.WriteString(application.Banner()); err != nil {
+			os.Exit(1)
+		}
+		return
+	}
+
 	configLoaders := make([]configuration.Loader, 0, 2)
 	if cfgFile := configuration.GetEnv("SSHWIFTY_CONFIG"); len(cfgFile) > 0 {
 		configLoaders = append(configLoaders, configuration.CustomFile(cfgFile))

@@ -19,15 +19,6 @@ let goProcess = null;
 let viteServer = null;
 
 /**
- * Return the platform-specific npm executable name.
- *
- * @returns {string} npm command name for the current platform.
- */
-function npmCommand() {
-  return process.platform === "win32" ? "npm.cmd" : "npm";
-}
-
-/**
  * Prefix a child process's stdout and stderr before forwarding them.
  *
  * @param {import("node:child_process").ChildProcess} child Child process.
@@ -54,52 +45,6 @@ function forwardOutput(child, label) {
      */
     (data) => {
       process.stderr.write(`[${label}] ${data}`);
-    },
-  );
-}
-
-/**
- * Build the static assets required before the Go development server starts.
- *
- * @returns {Promise<void>} Resolves after generation succeeds.
- */
-async function generateStaticPages() {
-  await new Promise(
-    /**
-     * Run the generation command and settle with its process result.
-     *
-     * @param {() => void} resolve Promise resolver.
-     * @param {(reason?: unknown) => void} reject Promise rejecter.
-     */
-    (resolve, reject) => {
-      const child = spawn(npmCommand(), ["run", "generate"], {
-        cwd: repoRoot,
-        stdio: ["ignore", "pipe", "pipe"],
-      });
-
-      forwardOutput(child, "generate");
-
-      child.on("error", reject);
-      child.on(
-        "exit",
-        /**
-         * Convert the generator process exit state into a promise outcome.
-         *
-         * @param {number | null} code Process exit code.
-         * @param {NodeJS.Signals | null} signal Signal that ended the process.
-         */
-        (code, signal) => {
-          if (code === 0) {
-            resolve();
-            return;
-          }
-          reject(
-            new Error(
-              `static asset generation failed with code ${code} signal ${signal}`,
-            ),
-          );
-        },
-      );
     },
   );
 }
@@ -307,7 +252,6 @@ process.on(
 );
 
 try {
-  await generateStaticPages();
   startGo();
   await startVite();
 } catch (error) {
