@@ -150,6 +150,38 @@ export function rewriteDevShellScriptPaths(html) {
 }
 
 /**
+ * Normalize development shell URLs after Vite transforms HTML placeholders.
+ *
+ * @param {string} html Transformed development shell HTML.
+ * @returns {string} HTML with fixed public asset URLs restored.
+ */
+function normalizeDevShellAssetPaths(html) {
+  return html.replaceAll(
+    "/sshwifty/assets/sshwifty/assets/",
+    "/sshwifty/assets/",
+  );
+}
+
+/**
+ * Render the development shell through Vite's HTML transform pipeline.
+ *
+ * @param {import("vite").ViteDevServer} server Vite dev server.
+ * @param {string} requestQuery Request query string without leading question mark.
+ * @param {string | undefined} sourceHtml Optional source HTML for tests.
+ * @returns {Promise<string>} Transformed development shell HTML.
+ */
+export async function renderDevShellHtml(server, requestQuery, sourceHtml) {
+  const html =
+    sourceHtml ?? fs.readFileSync(path.join(uiRoot, "index.html"), "utf8");
+  const transformedHtml = await server.transformIndexHtml(
+    "/index.html" + (requestQuery.length > 0 ? `?${requestQuery}` : ""),
+    rewriteDevShellScriptPaths(html),
+  );
+
+  return normalizeDevShellAssetPaths(transformedHtml);
+}
+
+/**
  * Create a Vite plugin for Sshwifty's fixed public asset routes.
  *
  * @returns {import("vite").Plugin} Vite plugin for build and dev asset paths.
@@ -181,13 +213,9 @@ function sshwiftyPublicAssetsPlugin() {
           requestPath === "/sshwifty/assets/"
         ) {
           try {
-            const html = fs.readFileSync(
-              path.join(uiRoot, "index.html"),
-              "utf8",
-            );
-            const transformedHtml = await server.transformIndexHtml(
-              "/index.html" + (requestQuery.length > 0 ? `?${requestQuery}` : ""),
-              rewriteDevShellScriptPaths(html),
+            const transformedHtml = await renderDevShellHtml(
+              server,
+              requestQuery,
             );
 
             res.setHeader("Content-Type", "text/html; charset=utf-8");

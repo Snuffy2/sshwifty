@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 import {
   resolveDevAssetRoute,
+  renderDevShellHtml,
   rewriteDevShellScriptPaths,
 } from "../../vite.config.js";
 
@@ -122,5 +123,26 @@ describe("vite config cleanup guards", () => {
         '<script type="module" src="/ui/app.js"></script>',
       ].join(""),
     );
+  });
+
+  test("development shell emits fixed public asset URLs after Vite transforms it", async () => {
+    const sourceHtml = [
+      '<link rel="icon" type="image/svg+xml" href="%BASE_URL%sshwifty.svg" />',
+      '<link rel="manifest" href="%BASE_URL%site.webmanifest" />',
+      '<script type="module" src="node-globals.js"></script>',
+      '<script type="module" src="app.js"></script>',
+    ].join("");
+    const server = {
+      transformIndexHtml: async (_url, html) =>
+        html.replaceAll("%BASE_URL%", "/sshwifty/assets/sshwifty/assets/"),
+    };
+
+    const html = await renderDevShellHtml(server, "", sourceHtml);
+
+    expect(html).toContain('href="/sshwifty/assets/sshwifty.svg"');
+    expect(html).toContain('href="/sshwifty/assets/site.webmanifest"');
+    expect(html).toContain('src="/ui/node-globals.js"');
+    expect(html).toContain('src="/ui/app.js"');
+    expect(html).not.toContain("/sshwifty/assets/sshwifty/assets/");
   });
 });
