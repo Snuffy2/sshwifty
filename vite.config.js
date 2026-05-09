@@ -28,12 +28,11 @@ const passthroughPublicAssets = new Map([
 ]);
 const rootCompatibilityAssets = new Map([
   ["/favicon.ico", "favicon.ico"],
-  ["/manifest.json", "manifest.json"],
+  ["/manifest.json", "site.webmanifest"],
   ["/browserconfig.xml", "browserconfig.xml"],
 ]);
 const passthroughContentTypes = new Map([
   ["site.webmanifest", "application/manifest+json"],
-  ["manifest.json", "application/json; charset=utf-8"],
   ["browserconfig.xml", "application/xml; charset=utf-8"],
   ["sshwifty.svg", "image/svg+xml"],
   ["favicon.ico", "image/x-icon"],
@@ -148,6 +147,7 @@ function normalizeHtmlOutputsPlugin() {
 function sshwiftyPublicAssetsPlugin() {
   return {
     name: "sshwifty-public-assets",
+    enforce: "pre",
     transformIndexHtml: {
       order: "pre",
       handler(html) {
@@ -169,6 +169,7 @@ function sshwiftyPublicAssetsPlugin() {
         const [requestPath, requestQuery = ""] = requestUrl.split("?", 2);
 
         if (
+          requestPath === "/" ||
           requestPath === "/sshwifty/assets" ||
           requestPath === "/sshwifty/assets/"
         ) {
@@ -340,7 +341,7 @@ export default defineConfig(({ command, mode }) => ({
   build: {
     outDir: distDir,
     emptyOutDir: true,
-    sourcemap: true,
+    sourcemap: command === "serve",
     rollupOptions: {
       input: {
         index: path.join(repoRoot, "ui", "index.html"),
