@@ -42,7 +42,6 @@ const browserEncodingPackages = [
   "/node_modules/events/",
   "/node_modules/iconv-lite/",
   "/node_modules/process/",
-  "/node_modules/stream-browserify/",
   "/node_modules/string_decoder/",
 ];
 
@@ -302,72 +301,6 @@ function sshwiftyPublicAssetsPlugin() {
 }
 
 /**
- * Create a Vite plugin that exposes required Node globals in the browser.
- *
- * @returns {import("vite").Plugin} Vite plugin for browser polyfills.
- */
-function browserNodePolyfillsPlugin() {
-  const virtualModuleId = "virtual:sshwifty-node-globals";
-  const resolvedVirtualModuleId = `\0${virtualModuleId}`;
-
-  return {
-    name: "sshwifty-browser-node-polyfills",
-    /**
-     * Resolve the virtual module used to install browser globals.
-     *
-     * @param {string} id Import identifier.
-     * @returns {string | null} Resolved virtual id, or null for other ids.
-     */
-    resolveId(id) {
-      if (id === virtualModuleId) {
-        return resolvedVirtualModuleId;
-      }
-
-      return null;
-    },
-    /**
-     * Load the virtual module that installs Buffer and process globals.
-     *
-     * @param {string} id Resolved import identifier.
-     * @returns {string | null} Virtual module source, or null for other ids.
-     */
-    load(id) {
-      if (id !== resolvedVirtualModuleId) {
-        return null;
-      }
-
-      return `
-import { Buffer as __Buffer } from "buffer";
-import __process from "process";
-
-globalThis.Buffer ??= __Buffer;
-globalThis.process ??= __process;
-`;
-    },
-    transformIndexHtml: {
-      order: "pre",
-      /**
-       * Inject the virtual globals module before browser application scripts.
-       *
-       * @returns {import("vite").HtmlTagDescriptor[]} Script descriptor.
-       */
-      handler() {
-        return [
-          {
-            tag: "script",
-            attrs: {
-              type: "module",
-            },
-            children: `import "virtual:sshwifty-node-globals";`,
-            injectTo: "head-prepend",
-          },
-        ];
-      },
-    },
-  };
-}
-
-/**
  * Create a Vite plugin that restores passthrough asset paths in dev HTML.
  *
  * @param {string} command Current Vite command.
@@ -406,7 +339,6 @@ export default defineConfig(
     base: "/sshwifty/assets/",
     plugins: [
       vue(),
-      browserNodePolyfillsPlugin(),
       copyRootFilesPlugin(),
       sshwiftyPublicAssetsPlugin(),
       restoreDevHtmlAssetsPlugin(command),
@@ -422,10 +354,6 @@ export default defineConfig(
         {
           find: "vue",
           replacement: "vue/dist/vue.esm-bundler.js",
-        },
-        {
-          find: /^stream$/,
-          replacement: "stream-browserify",
         },
         {
           find: /^buffer$/,

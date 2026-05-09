@@ -4,23 +4,12 @@
 
 /**
  * @file iconv/common.js
- * @description Shared iconv-lite initialisation and charset utilities. Enables
- * the streaming API once (guarded by a flag), exports the supported charset
- * list with UTF-8 as the default first entry, and re-exports the iconv-lite
- * instance as `Iconv` for use by the encoder and decoder modules.
+ * @description Shared iconv-lite charset utilities. Exports the supported
+ * charset list with UTF-8 as the default first entry, and re-exports the
+ * iconv-lite instance as `Iconv` for use by the encoder and decoder modules.
  */
 
-import stream from "stream";
 import * as iconv from "iconv-lite";
-
-let iconvInitialized = false;
-(() => {
-  if (iconvInitialized) {
-    return;
-  }
-  iconv.enableStreamingAPI(stream);
-  iconvInitialized = true;
-})();
 
 /**
  * Tells if given charset is actually supported by the system

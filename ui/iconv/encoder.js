@@ -6,7 +6,7 @@ import * as common from "./common.js";
 
 /**
  * @file iconv/encoder.js
- * @description Charset-aware stream encoder backed by iconv-lite. Accepts
+ * @description Charset-aware incremental encoder backed by iconv-lite. Accepts
  * JavaScript strings and emits encoded byte buffers to a caller-supplied
  * output callback for transmission over the socket.
  */
@@ -14,14 +14,14 @@ import * as common from "./common.js";
 /**
  * Streaming charset encoder.
  *
- * Wraps an iconv-lite encode stream for the given `charset`. Encoded byte
- * chunks are delivered to `output` via the stream `"data"` event. Errors from
- * both encoding and the output callback are silently swallowed to keep the
- * session alive in the presence of unencodable characters.
+ * Wraps iconv-lite's low-level encoder for the given `charset`. Encoded byte
+ * chunks are delivered to `output`. Errors from both encoding and the output
+ * callback are silently swallowed to keep the session alive in the presence of
+ * unencodable characters.
  */
 export class IconvEncoder {
   /**
-   * Creates a new `IconvEncoder` and opens the underlying iconv encode stream.
+   * Creates a new `IconvEncoder`.
    *
    * @param {function(Buffer): void} output - Callback invoked with each encoded
    *   byte chunk produced by the encoder.
@@ -30,30 +30,29 @@ export class IconvEncoder {
    */
   constructor(output, charset) {
     this.out = output;
-    this.encoder = common.Iconv.encodeStream(charset);
-    this.encoder.on("data", (o) => {
-      try {
-        return output(o);
-      } catch (e) {
-        // Ignore output error
-      }
-    });
+    this.encoder = common.Iconv.getEncoder(charset);
+    this.closed = false;
     return this;
   }
 
   /**
    * Writes a string into the encoder stream for charset conversion.
    *
-   * The encoded output is delivered asynchronously to the `output` callback via
-   * the underlying iconv-lite stream `"data"` event. Encoding errors are
-   * silently ignored.
+   * Encoding errors are silently ignored.
    *
    * @param {string} b - The string to encode.
    * @returns {void}
    */
   write(b) {
+    if (this.closed) {
+      return;
+    }
+
     try {
-      return this.encoder.write(b);
+      const output = this.encoder.write(b);
+      if (output && output.length > 0) {
+        this.out(output);
+      }
     } catch (e) {
       // Ignore encoding error
     }
@@ -68,8 +67,16 @@ export class IconvEncoder {
    * @returns {void}
    */
   close() {
+    if (this.closed) {
+      return;
+    }
+    this.closed = true;
+
     try {
-      return this.encoder.end();
+      const output = this.encoder.end();
+      if (output && output.length > 0) {
+        this.out(output);
+      }
     } catch (e) {
       // Ignore encoding error
     }
