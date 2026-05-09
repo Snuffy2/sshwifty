@@ -13,8 +13,36 @@ const uiRoot = path.join(repoRoot, "ui");
 const distDir = path.join(repoRoot, ".tmp", "dist");
 const backendTarget = "http://127.0.0.1:8182";
 const publicDir = path.join(uiRoot, "public");
-const sourceURL =
-  process.env.SSHWIFTY_SOURCE_URL ?? "https://github.com/Snuffy2/sshwifty";
+const defaultSourceURL = "https://github.com/Snuffy2/sshwifty";
+
+/**
+ * Resolve and validate the source URL embedded into the frontend.
+ *
+ * @param {NodeJS.ProcessEnv} env Environment variables.
+ * @returns {string} HTTPS source URL to expose in the UI.
+ */
+export function resolveSourceURL(env = process.env) {
+  const sourceURL = env.SSHWIFTY_SOURCE_URL ?? defaultSourceURL;
+
+  if (sourceURL.trim() !== sourceURL || sourceURL.length === 0) {
+    throw new Error("SSHWIFTY_SOURCE_URL must be a non-empty URL");
+  }
+
+  let parsedURL;
+  try {
+    parsedURL = new URL(sourceURL);
+  } catch {
+    throw new Error("SSHWIFTY_SOURCE_URL must be a valid URL");
+  }
+
+  if (parsedURL.protocol !== "https:") {
+    throw new Error("SSHWIFTY_SOURCE_URL must use https:");
+  }
+
+  return sourceURL;
+}
+
+const sourceURL = resolveSourceURL();
 
 const copiedRootFiles = [
   "README.md",

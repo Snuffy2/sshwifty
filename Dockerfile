@@ -12,9 +12,10 @@
 #
 # The runtime stage is Alpine and contains only the compiled `/sshwifty` binary
 # and a small entrypoint wrapper for optional Docker TLS environment variables.
-# Source availability is provided by the app's source link and the OCI source
-# metadata label rather than by copying source files into the image. Release
-# builds pass an immutable commit archive URL as SSHWIFTY_SOURCE_URL.
+# Source availability is provided by an in-image source notice, the app's source
+# link, and the OCI source metadata label rather than by copying source files
+# into the image. Release builds pass an immutable commit archive URL as
+# SSHWIFTY_SOURCE_URL.
 
 # Build the frontend dependencies
 FROM node:24-trixie AS frontend-deps
@@ -59,6 +60,12 @@ ENV SSHWIFTY_DIALTIMEOUT=10 \
 COPY --from=builder /sshwifty /
 COPY docker-entrypoint.sh /sshwifty.sh
 RUN set -ex && \
+    printf '%s\n' \
+        'Sshwifty source code' \
+        '' \
+        "The corresponding source for this image is available at:" \
+        "$SSHWIFTY_SOURCE_URL" \
+        > /SOURCE.md && \
     adduser -D sshwifty && \
     chmod +x /sshwifty && \
     chmod +x /sshwifty.sh
