@@ -16,6 +16,7 @@ import (
 
 	"github.com/Snuffy2/sshwifty/application/command"
 	"github.com/Snuffy2/sshwifty/application/configuration"
+	"github.com/Snuffy2/sshwifty/application/log"
 	"github.com/Snuffy2/sshwifty/application/network"
 	"github.com/Snuffy2/sshwifty/application/rw"
 )
@@ -430,15 +431,13 @@ func TestMoshCloseClosesBufferedSessionWithoutWaitingForReceiveTimeout(t *testin
 	ctx, cancel := context.WithCancel(context.Background())
 	session := newBlockingFakeMoshSession()
 	client := &moshClient{
-		baseCtx:                              ctx,
-		baseCtxCancel:                        cancel,
-		credentialReceive:                    make(chan []byte, 1),
-		fingerprintVerifyResultReceive:       make(chan bool, 1),
-		sessionReceive:                       make(chan moshSession, 1),
-		remoteCloseWait:                      sync.WaitGroup{},
-		remoteReadTimeoutRetryLock:           sync.Mutex{},
-		credentialReceiveClosed:              false,
-		fingerprintVerifyResultReceiveClosed: false,
+		baseCtx:                        ctx,
+		baseCtxCancel:                  cancel,
+		credentialReceive:              make(chan []byte, 1),
+		fingerprintVerifyResultReceive: make(chan bool, 1),
+		sessionReceive:                 make(chan moshSession, 1),
+		remoteCloseWait:                sync.WaitGroup{},
+		remoteReadTimeoutRetryLock:     sync.Mutex{},
 	}
 	client.sessionReceive <- session
 	client.cacheSession(session)
@@ -472,21 +471,21 @@ func TestMoshCloseCancelsBlockedReadinessAndClosesCachedSession(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	session := newBlockingFakeMoshSession()
 	client := &moshClient{
-		baseCtx:                              ctx,
-		baseCtxCancel:                        cancel,
-		cfg:                                  command.Configuration{DialTimeout: 5 * time.Second},
-		credentialReceive:                    make(chan []byte, 1),
-		fingerprintVerifyResultReceive:       make(chan bool, 1),
-		sessionReceive:                       make(chan moshSession, 1),
-		remoteCloseWait:                      sync.WaitGroup{},
-		remoteReadTimeoutRetryLock:           sync.Mutex{},
-		credentialReceiveClosed:              false,
-		fingerprintVerifyResultReceiveClosed: false,
+		baseCtx:                        ctx,
+		baseCtxCancel:                  cancel,
+		cfg:                            command.Configuration{DialTimeout: 5 * time.Second},
+		credentialReceive:              make(chan []byte, 1),
+		fingerprintVerifyResultReceive: make(chan bool, 1),
+		sessionReceive:                 make(chan moshSession, 1),
+		remoteCloseWait:                sync.WaitGroup{},
+		remoteReadTimeoutRetryLock:     sync.Mutex{},
 	}
+	entered := make(chan struct{})
 	session.awaitReady = func(ctx context.Context, timeout time.Duration) ([]byte, error) {
 		if timeout != 5*time.Second {
 			t.Fatalf("expected readiness timeout 5s, got %s", timeout)
 		}
+		close(entered)
 		<-ctx.Done()
 		return nil, ctx.Err()
 	}
@@ -499,7 +498,11 @@ func TestMoshCloseCancelsBlockedReadinessAndClosesCachedSession(t *testing.T) {
 		readinessDone <- err
 	}()
 
-	time.Sleep(25 * time.Millisecond)
+	select {
+	case <-entered:
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("expected readiness wait to start")
+	}
 
 	closeDone := make(chan error, 1)
 	go func() {
@@ -529,6 +532,32 @@ func TestMoshCloseCancelsBlockedReadinessAndClosesCachedSession(t *testing.T) {
 	}
 }
 
+func TestMoshLocalStdInStopsAfterSendError(t *testing.T) {
+	session := &fakeMoshSession{sendErr: errors.New("send failed")}
+	client := &moshClient{
+		l:       log.Ditch{},
+		session: session,
+	}
+
+	err := client.local(
+		nil,
+		newLimitedReader([]byte("typed input")),
+		command.StreamHeader{MoshClientStdIn << 5, 0},
+		make([]byte, 4),
+	)
+	if !errors.Is(err, session.sendErr) {
+		t.Fatalf("expected send error to be returned, got %v", err)
+	}
+
+	if len(session.sent) != 1 {
+		t.Fatalf("expected one send attempt, got %d", len(session.sent))
+	}
+
+	if !session.closed {
+		t.Fatal("expected failed session to be closed")
+	}
+}
+
 type fakeMoshResize struct {
 	cols uint16
 	rows uint16
@@ -540,6 +569,7 @@ type fakeMoshSession struct {
 	resizes    []fakeMoshResize
 	closed     bool
 	closedCh   chan struct{}
+	sendErr    error
 	awaitReady func(context.Context, time.Duration) ([]byte, error)
 }
 
@@ -547,7 +577,7 @@ func (f *fakeMoshSession) Send(payload []byte) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.sent = append(f.sent, append([]byte(nil), payload...))
-	return nil
+	return f.sendErr
 }
 
 func (f *fakeMoshSession) Recv(time.Duration) ([]byte, error) {

@@ -75,12 +75,13 @@ type moshClient struct {
 	remoteReadForceRetryNextTimeout bool
 	remoteReadTimeoutRetryLock      sync.Mutex
 
-	credentialReceive                    chan []byte
-	credentialProcessed                  bool
-	credentialReceiveClosed              bool
-	fingerprintVerifyResultReceive       chan bool
-	fingerprintProcessed                 bool
-	fingerprintVerifyResultReceiveClosed bool
+	credentialReceive                       chan []byte
+	credentialProcessed                     bool
+	credentialReceiveCloseOnce              sync.Once
+	fingerprintVerifyResultReceive          chan bool
+	fingerprintProcessed                    bool
+	fingerprintVerifyResultReceiveCloseOnce sync.Once
+	processedLock                           sync.Mutex
 
 	sessionReceive chan moshSession
 	session        moshSession
@@ -100,23 +101,21 @@ func newMosh(
 ) command.FSMMachine {
 	ctx, ctxCancel := context.WithCancel(context.Background())
 	return &moshClient{
-		w:                                    w,
-		l:                                    l,
-		hooks:                                hooks,
-		cfg:                                  cfg,
-		bufferPool:                           bufferPool,
-		baseCtx:                              ctx,
-		baseCtxCancel:                        sync.OnceFunc(ctxCancel),
-		credentialReceive:                    make(chan []byte, 1),
-		fingerprintVerifyResultReceive:       make(chan bool, 1),
-		sessionReceive:                       make(chan moshSession, 1),
-		sessionBuilder:                       newMoshGoSession,
-		hostResolver:                         defaultMoshHostResolver,
-		sessionClosed:                        false,
-		remoteReadTimeoutRetryLock:           sync.Mutex{},
-		remoteCloseWait:                      sync.WaitGroup{},
-		credentialReceiveClosed:              false,
-		fingerprintVerifyResultReceiveClosed: false,
+		w:                              w,
+		l:                              l,
+		hooks:                          hooks,
+		cfg:                            cfg,
+		bufferPool:                     bufferPool,
+		baseCtx:                        ctx,
+		baseCtxCancel:                  sync.OnceFunc(ctxCancel),
+		credentialReceive:              make(chan []byte, 1),
+		fingerprintVerifyResultReceive: make(chan bool, 1),
+		sessionReceive:                 make(chan moshSession, 1),
+		sessionBuilder:                 newMoshGoSession,
+		hostResolver:                   defaultMoshHostResolver,
+		sessionClosed:                  false,
+		remoteReadTimeoutRetryLock:     sync.Mutex{},
+		remoteCloseWait:                sync.WaitGroup{},
 	}
 }
 
@@ -607,14 +606,31 @@ func (d *moshClient) bootstrapRemoteMoshServer(conn *ssh.Client) (string, error)
 	output, err := session.CombinedOutput(renderMoshServerCommand(d.meta))
 	outputText := strings.TrimSpace(string(output))
 	if err != nil {
-		if outputText != "" {
-			return outputText, fmt.Errorf("%w: %s", err, outputText)
+		sanitizedOutputText := sanitizeMoshBootstrapOutput(outputText)
+		if sanitizedOutputText != "" {
+			return sanitizedOutputText, fmt.Errorf("%w: %s", err, sanitizedOutputText)
 		}
 
-		return outputText, err
+		return sanitizedOutputText, err
 	}
 
 	return outputText, nil
+}
+
+func sanitizeMoshBootstrapOutput(output string) string {
+	lines := strings.Split(output, "\n")
+	for i, line := range lines {
+		fields := strings.Fields(strings.TrimSpace(line))
+		if len(fields) >= 2 && fields[0] == "MOSH" && fields[1] == "CONNECT" {
+			if len(fields) >= 3 {
+				lines[i] = fmt.Sprintf("MOSH CONNECT %s <REDACTED>", fields[2])
+				continue
+			}
+			lines[i] = "MOSH CONNECT <REDACTED>"
+		}
+	}
+
+	return strings.Join(lines, "\n")
 }
 
 func (d *moshClient) recvTimeout() time.Duration {
@@ -713,8 +729,11 @@ func (d *moshClient) local(
 			}
 
 			if wErr := session.Send(rData); wErr != nil {
-				session.Close()
+				if closeErr := d.closeSession(); closeErr != nil {
+					return closeErr
+				}
 				d.l.Debug("Failed to write data to remote mosh session: %s", wErr)
+				return wErr
 			}
 		}
 
@@ -738,21 +757,27 @@ func (d *moshClient) local(
 		return nil
 
 	case SSHClientRespondFingerprint:
+		d.processedLock.Lock()
 		if d.fingerprintProcessed {
+			d.processedLock.Unlock()
 			return ErrSSHUnexpectedFingerprintVerificationRespond
 		}
 		d.fingerprintProcessed = true
 
 		rData, rErr := rw.FetchOneByte(r.Fetch)
 		if rErr != nil {
+			d.processedLock.Unlock()
 			return rErr
 		}
 
 		d.fingerprintVerifyResultReceive <- (rData[0] == 0)
+		d.processedLock.Unlock()
 		return nil
 
 	case SSHClientRespondCredential:
+		d.processedLock.Lock()
 		if d.credentialProcessed {
+			d.processedLock.Unlock()
 			return ErrSSHUnexpectedCredentialDataRespond
 		}
 		d.credentialProcessed = true
@@ -764,11 +789,13 @@ func (d *moshClient) local(
 		for !r.Completed() {
 			rData, rErr := r.Buffered()
 			if rErr != nil {
+				d.processedLock.Unlock()
 				return rErr
 			}
 
 			totalCredentialRead += len(rData)
 			if totalCredentialRead > credentialDataBufSize {
+				d.processedLock.Unlock()
 				return ErrSSHCredentialDataTooLarge
 			}
 
@@ -776,6 +803,7 @@ func (d *moshClient) local(
 		}
 
 		d.credentialReceive <- credentialDataBuf
+		d.processedLock.Unlock()
 		return nil
 	default:
 		return ErrMoshUnknownClientSignal
@@ -783,17 +811,16 @@ func (d *moshClient) local(
 }
 
 func (d *moshClient) Close() error {
+	d.processedLock.Lock()
 	d.credentialProcessed = true
 	d.fingerprintProcessed = true
-
-	if !d.credentialReceiveClosed {
+	d.credentialReceiveCloseOnce.Do(func() {
 		close(d.credentialReceive)
-		d.credentialReceiveClosed = true
-	}
-	if !d.fingerprintVerifyResultReceiveClosed {
+	})
+	d.fingerprintVerifyResultReceiveCloseOnce.Do(func() {
 		close(d.fingerprintVerifyResultReceive)
-		d.fingerprintVerifyResultReceiveClosed = true
-	}
+	})
+	d.processedLock.Unlock()
 
 	d.baseCtxCancel()
 	if closeErr := d.closeSession(); closeErr != nil {

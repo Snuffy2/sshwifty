@@ -4,7 +4,10 @@
 
 package commands
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestParseMoshConnectLine(t *testing.T) {
 	t.Run("parses valid mosh connect output", func(t *testing.T) {
@@ -59,4 +62,22 @@ func TestRenderMoshServerCommand(t *testing.T) {
 			t.Fatalf("expected %q, got %q", want, got)
 		}
 	})
+}
+
+func TestSanitizeMoshBootstrapOutputRedactsConnectKey(t *testing.T) {
+	output := sanitizeMoshBootstrapOutput(
+		"warning line\nMOSH CONNECT 60001 super-secret-key\nerror line",
+	)
+
+	if strings.Contains(output, "super-secret-key") {
+		t.Fatalf("expected bootstrap output to redact secret key, got %q", output)
+	}
+
+	if !strings.Contains(output, "warning line") || !strings.Contains(output, "error line") {
+		t.Fatalf("expected non-secret output to be preserved, got %q", output)
+	}
+
+	if !strings.Contains(output, "MOSH CONNECT 60001 <REDACTED>") {
+		t.Fatalf("expected connect line to keep port and redact key, got %q", output)
+	}
 }

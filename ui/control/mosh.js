@@ -44,7 +44,10 @@ class Control {
       try {
         charsetDecoder.write(await reader.readCompletely(rd));
       } catch (e) {
-        // Do nothing
+        console.error("Mosh stdout stream/decode error", {
+          error: e,
+          reader: rd,
+        });
       }
     });
     data.events.place("completed", () => {

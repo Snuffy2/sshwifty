@@ -214,12 +214,9 @@ as a starting point for your own configuration.
         // Data for predefined User field
         "User": "pre-defined-username",
 
-        // Data for predefined Encoding field. Mosh currently supports utf-8 only.
+        // Data for predefined Encoding field. Valid data is those displayed on
+        // the page.
         "Encoding": "pre-defined-encoding",
-
-        // Data for predefined Mosh Server field. Defaults to "mosh-server".
-        // Provide an executable path only, without command arguments.
-        "Mosh Server": "mosh-server",
 
         // Data for predefined Password field
         "Password": "pre-defined-password",
@@ -256,7 +253,10 @@ as a starting point for your own configuration.
       "Meta": {
         "User": "guest",
         "Authentication": "Password",
+        // Data for predefined Encoding field. Mosh currently supports utf-8 only.
         "Encoding": "utf-8",
+        // Data for predefined Mosh Server field. Defaults to "mosh-server".
+        // Provide an executable path only, without command arguments.
         "Mosh Server": "mosh-server",
       },
     },
