@@ -83,6 +83,8 @@ type moshClient struct {
 
 	sessionReceive chan moshSession
 	session        moshSession
+	sessionClosed  bool
+	sessionLock    sync.Mutex
 
 	sessionBuilder moshSessionBuilder
 	hostResolver   moshHostResolver
@@ -109,6 +111,7 @@ func newMosh(
 		sessionReceive:                       make(chan moshSession, 1),
 		sessionBuilder:                       newMoshGoSession,
 		hostResolver:                         defaultMoshHostResolver,
+		sessionClosed:                        false,
 		remoteReadTimeoutRetryLock:           sync.Mutex{},
 		remoteCloseWait:                      sync.WaitGroup{},
 		credentialReceiveClosed:              false,
@@ -416,6 +419,7 @@ func (d *moshClient) remote(user string, address string, authMethodBuilder sshAu
 		return
 	}
 
+	d.cacheSession(session)
 	d.sessionReceive <- session
 	if err = d.w.SendManual(MoshServerConnectSucceed, (*u)[:d.w.HeaderSize()]); err != nil {
 		return
@@ -537,22 +541,45 @@ func (d *moshClient) sendConnectFailed(buf []byte, err error) {
 	d.w.SendManual(MoshServerConnectFailed, buf[:errLen])
 }
 
-func (d *moshClient) getSession() (moshSession, error) {
-	if d.session != nil {
-		return d.session, nil
+func (d *moshClient) cacheSession(session moshSession) moshSession {
+	d.sessionLock.Lock()
+	defer d.sessionLock.Unlock()
+
+	if d.session == nil {
+		d.session = session
+		d.sessionClosed = false
 	}
 
-	select {
-	case session, ok := <-d.sessionReceive:
-		if !ok {
-			return nil, ErrMoshRemoteSessionUnavailable
-		}
+	return d.session
+}
 
-		d.session = session
-		return d.session, nil
-	default:
+func (d *moshClient) getSession() (moshSession, error) {
+	d.sessionLock.Lock()
+	if d.session != nil {
+		session := d.session
+		d.sessionLock.Unlock()
+		return session, nil
+	}
+	d.sessionLock.Unlock()
+
+	session, ok := <-d.sessionReceive
+	if !ok {
 		return nil, ErrMoshRemoteSessionUnavailable
 	}
+
+	return d.cacheSession(session), nil
+}
+
+func (d *moshClient) closeSession() error {
+	d.sessionLock.Lock()
+	defer d.sessionLock.Unlock()
+
+	if d.session == nil || d.sessionClosed {
+		return nil
+	}
+
+	d.sessionClosed = true
+	return d.session.Close()
 }
 
 func (d *moshClient) local(
@@ -656,11 +683,12 @@ func (d *moshClient) Close() error {
 		close(d.fingerprintVerifyResultReceive)
 		d.fingerprintVerifyResultReceiveClosed = true
 	}
-	if d.session != nil {
-		d.session.Close()
-	}
 
 	d.baseCtxCancel()
+	if closeErr := d.closeSession(); closeErr != nil {
+		d.remoteCloseWait.Wait()
+		return closeErr
+	}
 	d.remoteCloseWait.Wait()
 	return nil
 }

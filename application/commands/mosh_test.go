@@ -9,6 +9,7 @@ import (
 	"context"
 	"net"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -182,18 +183,145 @@ func TestMoshLocalStdInWritesBufferedBytes(t *testing.T) {
 	}
 }
 
+func TestMoshLocalStdInWaitsForSessionThenSends(t *testing.T) {
+	session := newBlockingFakeMoshSession()
+	client := &moshClient{sessionReceive: make(chan moshSession, 1)}
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- client.local(
+			nil,
+			newLimitedReader([]byte("typed input")),
+			command.StreamHeader{MoshClientStdIn << 5, 0},
+			make([]byte, 4),
+		)
+	}()
+
+	select {
+	case err := <-errCh:
+		t.Fatalf("expected local stdin to block until session arrives, got %v", err)
+	case <-time.After(25 * time.Millisecond):
+	}
+
+	client.sessionReceive <- session
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("expected stdin handler to succeed after session delivery, got %v", err)
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("expected stdin handler to resume after session delivery")
+	}
+
+	if len(session.sent) != 1 {
+		t.Fatalf("expected one send call, got %d", len(session.sent))
+	}
+
+	if !bytes.Equal(session.sent[0], []byte("typed input")) {
+		t.Fatalf("expected sent payload %q, got %q", "typed input", session.sent[0])
+	}
+}
+
+func TestMoshLocalResizeWaitsForSessionThenResizes(t *testing.T) {
+	session := newBlockingFakeMoshSession()
+	client := &moshClient{sessionReceive: make(chan moshSession, 1)}
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- client.local(
+			nil,
+			newLimitedReader([]byte{0x00, 0x18, 0x00, 0x50}),
+			command.StreamHeader{MoshClientResize << 5, 0x04},
+			make([]byte, 4),
+		)
+	}()
+
+	select {
+	case err := <-errCh:
+		t.Fatalf("expected local resize to block until session arrives, got %v", err)
+	case <-time.After(25 * time.Millisecond):
+	}
+
+	client.sessionReceive <- session
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("expected resize handler to succeed after session delivery, got %v", err)
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("expected resize handler to resume after session delivery")
+	}
+
+	if len(session.resizes) != 1 {
+		t.Fatalf("expected one resize call, got %d", len(session.resizes))
+	}
+
+	if session.resizes[0] != (fakeMoshResize{cols: 80, rows: 24}) {
+		t.Fatalf("expected resize to be cols=%d rows=%d, got cols=%d rows=%d",
+			80, 24, session.resizes[0].cols, session.resizes[0].rows)
+	}
+}
+
+func TestMoshCloseClosesBufferedSessionWithoutWaitingForReceiveTimeout(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	session := newBlockingFakeMoshSession()
+	client := &moshClient{
+		baseCtx:                              ctx,
+		baseCtxCancel:                        cancel,
+		credentialReceive:                    make(chan []byte, 1),
+		fingerprintVerifyResultReceive:       make(chan bool, 1),
+		sessionReceive:                       make(chan moshSession, 1),
+		remoteCloseWait:                      sync.WaitGroup{},
+		remoteReadTimeoutRetryLock:           sync.Mutex{},
+		credentialReceiveClosed:              false,
+		fingerprintVerifyResultReceiveClosed: false,
+	}
+	client.sessionReceive <- session
+	client.cacheSession(session)
+
+	client.remoteCloseWait.Add(1)
+	go func() {
+		defer client.remoteCloseWait.Done()
+		<-session.closedCh
+	}()
+
+	done := make(chan error, 1)
+	go func() {
+		done <- client.Close()
+	}()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("expected close to succeed, got %v", err)
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("expected close to return promptly after closing buffered session")
+	}
+
+	if !session.closed {
+		t.Fatal("expected buffered session to be closed")
+	}
+}
+
 type fakeMoshResize struct {
 	cols uint16
 	rows uint16
 }
 
 type fakeMoshSession struct {
-	sent    [][]byte
-	resizes []fakeMoshResize
-	closed  bool
+	mu       sync.Mutex
+	sent     [][]byte
+	resizes  []fakeMoshResize
+	closed   bool
+	closedCh chan struct{}
 }
 
 func (f *fakeMoshSession) Send(payload []byte) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.sent = append(f.sent, append([]byte(nil), payload...))
 	return nil
 }
@@ -203,13 +331,29 @@ func (f *fakeMoshSession) Recv(time.Duration) ([]byte, error) {
 }
 
 func (f *fakeMoshSession) Resize(cols uint16, rows uint16) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.resizes = append(f.resizes, fakeMoshResize{cols: cols, rows: rows})
 	return nil
 }
 
 func (f *fakeMoshSession) Close() error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.closed {
+		return nil
+	}
 	f.closed = true
+	if f.closedCh != nil {
+		close(f.closedCh)
+	}
 	return nil
+}
+
+func newBlockingFakeMoshSession() *fakeMoshSession {
+	return &fakeMoshSession{
+		closedCh: make(chan struct{}),
+	}
 }
 
 func newLimitedReader(payload []byte) *rw.LimitedReader {
