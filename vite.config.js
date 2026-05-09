@@ -37,6 +37,40 @@ const passthroughContentTypes = new Map([
   ["sshwifty.svg", "image/svg+xml"],
   ["favicon.ico", "image/x-icon"],
 ]);
+const browserEncodingPackages = [
+  "/node_modules/buffer/",
+  "/node_modules/events/",
+  "/node_modules/iconv-lite/",
+  "/node_modules/process/",
+  "/node_modules/stream-browserify/",
+  "/node_modules/string_decoder/",
+];
+
+/**
+ * Assign selected dependencies to stable vendor chunks.
+ *
+ * @param {string} id Rollup module identifier.
+ * @returns {string | undefined} Manual chunk name, when applicable.
+ */
+function vendorChunkName(id) {
+  if (!id.includes("/node_modules/")) {
+    return undefined;
+  }
+
+  if (id.includes("/node_modules/@xterm/")) {
+    return "vendor-xterm";
+  }
+
+  if (id.includes("/node_modules/vue/")) {
+    return "vendor-vue";
+  }
+
+  if (browserEncodingPackages.some((packagePath) => id.includes(packagePath))) {
+    return "vendor-encoding";
+  }
+
+  return "vendor";
+}
 
 /**
  * Build a placeholder token for a public asset path.
@@ -349,6 +383,7 @@ export default defineConfig(({ command, mode }) => ({
         error: path.join(repoRoot, "ui", "error.html"),
       },
       output: {
+        manualChunks: vendorChunkName,
         entryFileNames: "[name]-[hash].js",
         chunkFileNames: "chunk-[hash].js",
         assetFileNames: "asset-[hash][extname]",
