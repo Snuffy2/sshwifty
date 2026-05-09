@@ -1,7 +1,7 @@
-# Sshwifty Web SSH & Telnet Client
+# Sshwifty Web SSH, Telnet & Mosh Client
 
-Sshwifty is a web-based SSH and Telnet client that lets you connect to remote
-systems from a browser.
+Sshwifty is a web-based SSH, Telnet, and Mosh client that lets you connect to
+remote systems from a browser.
 
 This repository is a fork of
 [nirui/sshwifty](https://github.com/nirui/sshwifty). The original project and
@@ -59,6 +59,12 @@ The Docker Compose example above mounts `./sshwifty.conf.json` and points
 `SSHWIFTY_CONFIG` at the mounted file. Start from
 [sshwifty.conf.example.json](sshwifty.conf.example.json) when creating your own
 configuration.
+
+Mosh support is available in v1 with SSH used for bootstrap only. The browser
+connection to Sshwifty still uses WebSocket, while Mosh data flows over UDP
+between the backend container and the remote host. Remote hosts need
+`mosh-server` installed, SOCKS5 is not supported for Mosh, the backend-to-host
+Mosh leg is IPv4-only, and the remote locale should be UTF-8.
 
 ## Running From Source
 
