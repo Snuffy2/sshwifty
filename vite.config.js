@@ -39,6 +39,10 @@ export function resolveSourceURL(env = process.env) {
     throw new Error("SSHWIFTY_SOURCE_URL must use https:");
   }
 
+  if (parsedURL.username !== "" || parsedURL.password !== "") {
+    throw new Error("SSHWIFTY_SOURCE_URL must not include credentials");
+  }
+
   return sourceURL;
 }
 

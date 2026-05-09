@@ -45,8 +45,7 @@ RUN set -ex && \
 # Build the final image for running
 FROM alpine:3.23
 ARG SSHWIFTY_SOURCE_URL=https://github.com/Snuffy2/sshwifty
-LABEL org.opencontainers.image.source="$SSHWIFTY_SOURCE_URL" \
-    org.opencontainers.image.licenses="AGPL-3.0-only"
+LABEL org.opencontainers.image.licenses="AGPL-3.0-only"
 ENV SSHWIFTY_DIALTIMEOUT=10 \
     SSHWIFTY_HOOKTIMEOUT=30 \
     SSHWIFTY_LISTENINTERFACE=0.0.0.0 \

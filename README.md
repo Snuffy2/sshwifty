@@ -39,7 +39,8 @@ images include `/SOURCE.md`, the running app source link, and an OCI source labe
 with an immutable GitHub commit archive URL for the source used to produce that
 image. Local builds default to
 [`github.com/Snuffy2/sshwifty`](https://github.com/Snuffy2/sshwifty) unless
-`SSHWIFTY_SOURCE_URL` is provided as a Docker build argument.
+`SSHWIFTY_SOURCE_URL` is provided as a Docker build argument for `/SOURCE.md` and
+the in-app source link.
 
 For reverse proxy deployments, publish the service only on localhost:
 

@@ -76,6 +76,11 @@ describe("vite config cleanup guards", () => {
     expect(() =>
       resolveSourceURL({ SSHWIFTY_SOURCE_URL: "git://example.test/repo" }),
     ).toThrow("https:");
+    expect(() =>
+      resolveSourceURL({
+        SSHWIFTY_SOURCE_URL: "https://token@example.test/repo.tar.gz",
+      }),
+    ).toThrow("credentials");
   });
 
   test("vite config exposes the validated source URL to the frontend", () => {
