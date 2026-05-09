@@ -172,12 +172,16 @@ func TestMoshBuildRemoteSessionUsesReachedPeerIPv4WithoutResolver(t *testing.T) 
 
 func TestMoshAwaitRemoteSessionReadyReturnsInitialOutput(t *testing.T) {
 	client := &moshClient{
-		cfg: command.Configuration{DialTimeout: 250 * time.Millisecond},
+		baseCtx: context.Background(),
+		cfg:     command.Configuration{DialTimeout: 250 * time.Millisecond},
 	}
 	session := &fakeMoshSession{
-		awaitReady: func(timeout time.Duration) ([]byte, error) {
+		awaitReady: func(ctx context.Context, timeout time.Duration) ([]byte, error) {
 			if timeout != 250*time.Millisecond {
 				t.Fatalf("expected readiness timeout 250ms, got %s", timeout)
+			}
+			if ctx == nil {
+				t.Fatal("expected readiness context to be provided")
 			}
 
 			return []byte("ready"), nil
@@ -196,10 +200,11 @@ func TestMoshAwaitRemoteSessionReadyReturnsInitialOutput(t *testing.T) {
 
 func TestMoshAwaitRemoteSessionReadyFailsWithoutServerResponse(t *testing.T) {
 	client := &moshClient{
-		cfg: command.Configuration{DialTimeout: 250 * time.Millisecond},
+		baseCtx: context.Background(),
+		cfg:     command.Configuration{DialTimeout: 250 * time.Millisecond},
 	}
 	session := &fakeMoshSession{
-		awaitReady: func(time.Duration) ([]byte, error) {
+		awaitReady: func(context.Context, time.Duration) ([]byte, error) {
 			return nil, errors.New("timeout waiting for mosh server response")
 		},
 	}
@@ -211,6 +216,34 @@ func TestMoshAwaitRemoteSessionReadyFailsWithoutServerResponse(t *testing.T) {
 
 	if output != nil {
 		t.Fatalf("expected nil output on readiness failure, got %q", output)
+	}
+}
+
+func TestMoshAwaitRemoteSessionReadyAllowsQuietSession(t *testing.T) {
+	client := &moshClient{
+		baseCtx: context.Background(),
+		cfg:     command.Configuration{DialTimeout: 250 * time.Millisecond},
+	}
+	session := &fakeMoshSession{
+		awaitReady: func(ctx context.Context, timeout time.Duration) ([]byte, error) {
+			if timeout != 250*time.Millisecond {
+				t.Fatalf("expected readiness timeout 250ms, got %s", timeout)
+			}
+			if ctx == nil {
+				t.Fatal("expected readiness context to be provided")
+			}
+
+			return nil, nil
+		},
+	}
+
+	output, err := client.awaitRemoteSessionReady(session)
+	if err != nil {
+		t.Fatalf("expected quiet readiness to succeed, got %v", err)
+	}
+
+	if output != nil {
+		t.Fatalf("expected nil initial output for quiet readiness, got %q", output)
 	}
 }
 
@@ -383,18 +416,79 @@ func TestMoshCloseClosesBufferedSessionWithoutWaitingForReceiveTimeout(t *testin
 	}
 }
 
+func TestMoshCloseCancelsBlockedReadinessAndClosesCachedSession(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	session := newBlockingFakeMoshSession()
+	client := &moshClient{
+		baseCtx:                              ctx,
+		baseCtxCancel:                        cancel,
+		cfg:                                  command.Configuration{DialTimeout: 5 * time.Second},
+		credentialReceive:                    make(chan []byte, 1),
+		fingerprintVerifyResultReceive:       make(chan bool, 1),
+		sessionReceive:                       make(chan moshSession, 1),
+		remoteCloseWait:                      sync.WaitGroup{},
+		remoteReadTimeoutRetryLock:           sync.Mutex{},
+		credentialReceiveClosed:              false,
+		fingerprintVerifyResultReceiveClosed: false,
+	}
+	session.awaitReady = func(ctx context.Context, timeout time.Duration) ([]byte, error) {
+		if timeout != 5*time.Second {
+			t.Fatalf("expected readiness timeout 5s, got %s", timeout)
+		}
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
+
+	client.cacheSession(session)
+
+	readinessDone := make(chan error, 1)
+	go func() {
+		_, err := client.awaitRemoteSessionReady(session)
+		readinessDone <- err
+	}()
+
+	time.Sleep(25 * time.Millisecond)
+
+	closeDone := make(chan error, 1)
+	go func() {
+		closeDone <- client.Close()
+	}()
+
+	select {
+	case err := <-readinessDone:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("expected readiness cancellation, got %v", err)
+		}
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("expected readiness wait to cancel promptly")
+	}
+
+	select {
+	case err := <-closeDone:
+		if err != nil {
+			t.Fatalf("expected close to succeed, got %v", err)
+		}
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("expected close to return promptly while readiness was blocked")
+	}
+
+	if !session.closed {
+		t.Fatal("expected cached session to be closed")
+	}
+}
+
 type fakeMoshResize struct {
 	cols uint16
 	rows uint16
 }
 
 type fakeMoshSession struct {
-	mu       sync.Mutex
-	sent     [][]byte
-	resizes  []fakeMoshResize
-	closed   bool
-	closedCh chan struct{}
-	awaitReady func(time.Duration) ([]byte, error)
+	mu         sync.Mutex
+	sent       [][]byte
+	resizes    []fakeMoshResize
+	closed     bool
+	closedCh   chan struct{}
+	awaitReady func(context.Context, time.Duration) ([]byte, error)
 }
 
 func (f *fakeMoshSession) Send(payload []byte) error {
@@ -408,9 +502,9 @@ func (f *fakeMoshSession) Recv(time.Duration) ([]byte, error) {
 	return nil, nil
 }
 
-func (f *fakeMoshSession) AwaitReady(timeout time.Duration) ([]byte, error) {
+func (f *fakeMoshSession) AwaitReady(ctx context.Context, timeout time.Duration) ([]byte, error) {
 	if f.awaitReady != nil {
-		return f.awaitReady(timeout)
+		return f.awaitReady(ctx, timeout)
 	}
 
 	return []byte("ready"), nil

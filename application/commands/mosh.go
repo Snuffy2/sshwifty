@@ -420,6 +420,8 @@ func (d *moshClient) remote(user string, address string, authMethodBuilder sshAu
 		return
 	}
 
+	d.cacheSession(session)
+
 	initialOutput, err := d.awaitRemoteSessionReady(session)
 	if err != nil {
 		d.sendConnectFailed((*u)[:], fmt.Errorf("failed to verify remote mosh session readiness: %w", err))
@@ -427,7 +429,6 @@ func (d *moshClient) remote(user string, address string, authMethodBuilder sshAu
 		return
 	}
 
-	d.cacheSession(session)
 	d.sessionReceive <- session
 	if err = d.w.SendManual(MoshServerConnectSucceed, (*u)[:d.w.HeaderSize()]); err != nil {
 		return
@@ -466,7 +467,7 @@ func (d *moshClient) buildRemoteSession(address string, peerAddr net.Addr, port 
 }
 
 func (d *moshClient) awaitRemoteSessionReady(session moshSession) ([]byte, error) {
-	return session.AwaitReady(d.recvTimeout())
+	return session.AwaitReady(d.baseCtx, d.recvTimeout())
 }
 
 func (d *moshClient) sendRemoteOutput(buf []byte, output []byte) error {

@@ -5,6 +5,7 @@
 package commands
 
 import (
+	"context"
 	"testing"
 	"time"
 )
@@ -36,19 +37,26 @@ func TestMoshSessionReceiveTimeoutIsNonFatal(t *testing.T) {
 }
 
 func TestMoshSessionAwaitReadyReturnsInitialOutput(t *testing.T) {
+	activityAt := time.Now().Add(25 * time.Millisecond)
 	session := moshGoSession{
 		client: moshGoClientFunc{
 			recv: func(timeout time.Duration) []byte {
-				if timeout != 250*time.Millisecond {
-					t.Fatalf("expected readiness timeout 250ms, got %s", timeout)
+				if timeout != 0 {
+					t.Fatalf("expected immediate initial output read, got timeout %s", timeout)
 				}
-
 				return []byte("ready")
 			},
 		},
+		readyRecvBaseline: activityAt.Add(-10 * time.Millisecond),
+		lastRecv: func() time.Time {
+			if time.Now().After(activityAt) {
+				return activityAt
+			}
+			return activityAt.Add(-50 * time.Millisecond)
+		},
 	}
 
-	output, err := session.AwaitReady(250 * time.Millisecond)
+	output, err := session.AwaitReady(context.Background(), 250*time.Millisecond)
 	if err != nil {
 		t.Fatalf("expected readiness to succeed, got %v", err)
 	}
@@ -58,16 +66,44 @@ func TestMoshSessionAwaitReadyReturnsInitialOutput(t *testing.T) {
 	}
 }
 
-func TestMoshSessionAwaitReadyTimesOutWithoutOutput(t *testing.T) {
+func TestMoshSessionAwaitReadySucceedsWithoutInitialOutput(t *testing.T) {
+	now := time.Now()
 	session := moshGoSession{
 		client: moshGoClientFunc{
-			recv: func(time.Duration) []byte {
+			recv: func(timeout time.Duration) []byte {
+				if timeout != 0 {
+					t.Fatalf("expected immediate initial output read, got timeout %s", timeout)
+				}
 				return nil
 			},
 		},
+		readyRecvBaseline: now,
+		lastRecv: func() time.Time {
+			return now.Add(10 * time.Millisecond)
+		},
 	}
 
-	output, err := session.AwaitReady(250 * time.Millisecond)
+	output, err := session.AwaitReady(context.Background(), 250*time.Millisecond)
+	if err != nil {
+		t.Fatalf("expected quiet readiness to succeed, got %v", err)
+	}
+
+	if output != nil {
+		t.Fatalf("expected nil output for quiet ready session, got %q", output)
+	}
+}
+
+func TestMoshSessionAwaitReadyTimesOutWithoutActivity(t *testing.T) {
+	now := time.Now()
+	session := moshGoSession{
+		client:            moshGoClientFunc{},
+		readyRecvBaseline: now,
+		lastRecv: func() time.Time {
+			return now
+		},
+	}
+
+	output, err := session.AwaitReady(context.Background(), 250*time.Millisecond)
 	if err == nil {
 		t.Fatal("expected readiness timeout to fail")
 	}
