@@ -66,6 +66,33 @@ func TestMoshSessionAwaitReadyReturnsInitialOutput(t *testing.T) {
 	}
 }
 
+func TestMoshSessionAwaitReadyDrainsBufferedOutputBeforeActivityCheck(t *testing.T) {
+	now := time.Now()
+	session := moshGoSession{
+		client: moshGoClientFunc{
+			recv: func(timeout time.Duration) []byte {
+				if timeout != 0 {
+					t.Fatalf("expected immediate buffered output read, got timeout %s", timeout)
+				}
+				return []byte("early")
+			},
+		},
+		readyRecvBaseline: now,
+		lastRecv: func() time.Time {
+			return now
+		},
+	}
+
+	output, err := session.AwaitReady(context.Background(), 250*time.Millisecond)
+	if err != nil {
+		t.Fatalf("expected buffered readiness to succeed, got %v", err)
+	}
+
+	if string(output) != "early" {
+		t.Fatalf("expected buffered readiness output %q, got %q", "early", output)
+	}
+}
+
 func TestMoshSessionAwaitReadySucceedsWithoutInitialOutput(t *testing.T) {
 	now := time.Now()
 	session := moshGoSession{

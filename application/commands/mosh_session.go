@@ -63,8 +63,12 @@ func (m *moshGoSession) AwaitReady(ctx context.Context, timeout time.Duration) (
 	defer ticker.Stop()
 
 	for {
+		if output := m.client.Recv(0); len(output) > 0 {
+			return output, nil
+		}
+
 		if m.lastRecv().After(m.readyRecvBaseline) {
-			return m.client.Recv(0), nil
+			return nil, nil
 		}
 
 		select {
