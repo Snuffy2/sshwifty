@@ -301,6 +301,10 @@ func (e *Handler) handleClose(h Header, d byte, _ log.Logger) error {
 		return stErr
 	}
 
+	if st.closing() {
+		return nil
+	}
+
 	if e.senderPaused {
 		e.sender.resume()
 		defer e.sender.pause()

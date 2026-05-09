@@ -36,6 +36,30 @@ func TestFilterExecHookEnviron(t *testing.T) {
 	}
 }
 
+// TestFilterExecHookEnvironDoesNotForwardSshwiftySecrets verifies that hook
+// subprocesses do not inherit sensitive Sshwifty environment variables.
+func TestFilterExecHookEnvironDoesNotForwardSshwiftySecrets(t *testing.T) {
+	envs := []string{
+		"SSHWIFTY_SHAREDKEY=secret",
+		"SSHWIFTY_DOCKER_TLSCERTKEY=secret",
+		"PATH=/usr/bin",
+	}
+
+	filtered := envs[:filterExecHookEnviron(envs)]
+
+	if !slices.Contains(filtered, "PATH=/usr/bin") {
+		t.Fatalf("expected PATH to remain in filtered hook environment")
+	}
+
+	if slices.Contains(filtered, "SSHWIFTY_SHAREDKEY=secret") {
+		t.Fatalf("expected SSHWIFTY_SHAREDKEY to be filtered from hook environment")
+	}
+
+	if slices.Contains(filtered, "SSHWIFTY_DOCKER_TLSCERTKEY=secret") {
+		t.Fatalf("expected SSHWIFTY_DOCKER_TLSCERTKEY to be filtered from hook environment")
+	}
+}
+
 func TestExecHookMergeParametersWithEnvirons(t *testing.T) {
 	params := NewHookParameters(2).
 		Insert("Test 1", "Val1").
