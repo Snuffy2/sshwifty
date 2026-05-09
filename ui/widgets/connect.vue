@@ -54,8 +54,8 @@ SPDX-License-Identifier: AGPL-3.0-only
           <p>
             Sshwifty is a free software, you can deploy it on your own trusted
             infrastructure.
-            <a href="https://github.com/Snuffy2/sshwifty" target="_blank"
-              >Learn more</a
+            <a :href="sourceURL" target="_blank" rel="noopener noreferrer"
+              >View source code</a
             >
           </p>
         </div>
@@ -99,6 +99,8 @@ import Window from "./window.vue";
 import ConnectSwitch from "./connect_switch.vue";
 import ConnectKnown from "./connect_known.vue";
 import ConnectNew from "./connect_new.vue";
+
+/* global __SSHWIFTY_SOURCE_URL__ */
 
 export default {
   components: {
@@ -161,11 +163,13 @@ export default {
    * @returns {{tab: string, canSelect: boolean}}
    *   `tab` — active panel: `"new"` or `"known"`.
    *   `canSelect` — reserved flag for future debounce logic.
+   *   `sourceURL` — exact source location for the running build.
    */
   data() {
     return {
       tab: !this.restrictedToPresets ? "new" : "known",
       canSelect: true,
+      sourceURL: __SSHWIFTY_SOURCE_URL__,
     };
   },
   methods: {

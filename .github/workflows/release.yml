@@ -55,6 +55,8 @@ jobs:
             type=semver,pattern={{version}},value=${{ github.event.release.tag_name }},enable=${{ github.event_name == 'release' }}
             type=raw,value=latest,enable=${{ github.event_name == 'release' && !github.event.release.prerelease }}
             type=raw,value=${{ inputs.tag_name }},enable=${{ github.event_name == 'workflow_dispatch' }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/Snuffy2/sshwifty/archive/${{ github.sha }}.tar.gz
 
       - name: Build and publish Docker image
         uses: docker/build-push-action@v7
@@ -66,5 +68,6 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             SSHWIFTY_VERSION=${{ github.event_name == 'release' && github.event.release.tag_name || inputs.tag_name }}
+            SSHWIFTY_SOURCE_URL=https://github.com/Snuffy2/sshwifty/archive/${{ github.sha }}.tar.gz
           cache-from: type=gha
           cache-to: type=gha,mode=max

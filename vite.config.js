@@ -13,6 +13,40 @@ const uiRoot = path.join(repoRoot, "ui");
 const distDir = path.join(repoRoot, ".tmp", "dist");
 const backendTarget = "http://127.0.0.1:8182";
 const publicDir = path.join(uiRoot, "public");
+const defaultSourceURL = "https://github.com/Snuffy2/sshwifty";
+
+/**
+ * Resolve and validate the source URL embedded into the frontend.
+ *
+ * @param {NodeJS.ProcessEnv} env Environment variables.
+ * @returns {string} HTTPS source URL to expose in the UI.
+ */
+export function resolveSourceURL(env = process.env) {
+  const sourceURL = env.SSHWIFTY_SOURCE_URL ?? defaultSourceURL;
+
+  if (sourceURL.trim() !== sourceURL || sourceURL.length === 0) {
+    throw new Error("SSHWIFTY_SOURCE_URL must be a non-empty URL");
+  }
+
+  let parsedURL;
+  try {
+    parsedURL = new URL(sourceURL);
+  } catch {
+    throw new Error("SSHWIFTY_SOURCE_URL must be a valid URL");
+  }
+
+  if (parsedURL.protocol !== "https:") {
+    throw new Error("SSHWIFTY_SOURCE_URL must use https:");
+  }
+
+  if (parsedURL.username !== "" || parsedURL.password !== "") {
+    throw new Error("SSHWIFTY_SOURCE_URL must not include credentials");
+  }
+
+  return sourceURL;
+}
+
+const sourceURL = resolveSourceURL();
 
 const copiedRootFiles = [
   "README.md",
@@ -284,11 +318,7 @@ export default defineConfig(
   ({ command, mode }) => ({
     base: "/sshwifty/assets/",
     root: uiRoot,
-    plugins: [
-      vue(),
-      copyRootFilesPlugin(),
-      sshwiftyPublicAssetsPlugin(),
-    ],
+    plugins: [vue(), copyRootFilesPlugin(), sshwiftyPublicAssetsPlugin()],
     publicDir,
     resolve: {
       alias: [
@@ -322,6 +352,7 @@ export default defineConfig(
       __VUE_OPTIONS_API__: JSON.stringify(true),
       __VUE_PROD_DEVTOOLS__: JSON.stringify(false),
       __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: JSON.stringify(false),
+      __SSHWIFTY_SOURCE_URL__: JSON.stringify(sourceURL),
       "process.env.NODE_ENV": JSON.stringify(mode),
     },
     build: {

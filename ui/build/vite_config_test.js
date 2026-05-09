@@ -6,8 +6,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
+import viteConfig from "../../vite.config.js";
 import {
   resolveDevAssetRoute,
+  resolveSourceURL,
   renderDevShellHtml,
   rewriteDevShellScriptPaths,
 } from "../../vite.config.js";
@@ -17,6 +19,7 @@ const repoRoot = path.resolve(testDir, "../..");
 const viteConfigPath = path.join(repoRoot, "vite.config.js");
 const indexHtmlPath = path.join(repoRoot, "ui", "index.html");
 const errorHtmlPath = path.join(repoRoot, "ui", "error.html");
+const connectVuePath = path.join(repoRoot, "ui", "widgets", "connect.vue");
 const legacyHelperNames = [
   ["passthrough", "AssetToken"],
   ["replace", "PublicAssetPaths"],
@@ -57,6 +60,46 @@ describe("vite config cleanup guards", () => {
     for (const polyfillName of legacyPolyfillNames) {
       expect(viteConfig).not.toContain(polyfillName);
     }
+  });
+
+  test("source URL defaults to the repository and rejects invalid values", () => {
+    expect(resolveSourceURL({})).toBe("https://github.com/Snuffy2/sshwifty");
+    expect(
+      resolveSourceURL({
+        SSHWIFTY_SOURCE_URL:
+          "https://github.com/Snuffy2/sshwifty/archive/abc123.tar.gz",
+      }),
+    ).toBe("https://github.com/Snuffy2/sshwifty/archive/abc123.tar.gz");
+    expect(() => resolveSourceURL({ SSHWIFTY_SOURCE_URL: "" })).toThrow(
+      "non-empty",
+    );
+    expect(() =>
+      resolveSourceURL({ SSHWIFTY_SOURCE_URL: "git://example.test/repo" }),
+    ).toThrow("https:");
+    expect(() =>
+      resolveSourceURL({
+        SSHWIFTY_SOURCE_URL: "https://token@example.test/repo.tar.gz",
+      }),
+    ).toThrow("credentials");
+  });
+
+  test("vite config exposes the validated source URL to the frontend", () => {
+    const config = viteConfig({ command: "build", mode: "test" });
+
+    expect(config.define.__SSHWIFTY_SOURCE_URL__).toBe(
+      JSON.stringify(resolveSourceURL()),
+    );
+  });
+
+  test("connect widget binds the source link to the configured frontend value", () => {
+    const connectVue = readSource(connectVuePath);
+
+    expect(connectVue).toContain(':href="sourceURL"');
+    expect(connectVue).toContain('rel="noopener noreferrer"');
+    expect(connectVue).toContain("sourceURL: __SSHWIFTY_SOURCE_URL__");
+    expect(connectVue).not.toContain(
+      'href="https://github.com/Snuffy2/sshwifty"',
+    );
   });
 
   test("ui/index.html uses BASE_URL asset links and local scripts", () => {
