@@ -6,7 +6,7 @@ Sshwifty is a web-based SSH and Telnet client. The repository combines:
 
 - A Go backend in `sshwifty.go` and `application/`.
 - A Vue 3 frontend in `ui/`.
-- A Webpack build pipeline in `webpack.config.js`.
+- A Vite build pipeline in `vite.config.js`.
 - Docker packaging in `Dockerfile` and `docker-compose.example.yaml`.
 - GitHub Actions automation under `.github/`.
 
@@ -50,13 +50,13 @@ npm test
 
 Important behavior:
 
-- `npm run generate` cleans `.tmp/`, builds frontend assets with Webpack, and
+- `npm run generate` cleans `.tmp/`, builds frontend assets with Vite, and
   runs Go static page generation.
 - `npm run build` runs generation and then builds the `sshwifty` binary.
-- `npm run testonly` runs Mocha frontend tests and `go test ./... -race`.
+- `npm run testonly` runs Vitest frontend tests and `go test ./... -race`.
 - `npm test` runs generation first, then `testonly`.
-- `npm run dev` starts Webpack watch mode and runs `go run sshwifty.go` with
-  `SSHWIFTY_CONFIG=sshwifty.conf.example.json` and `SSHWIFTY_DEBUG=_`.
+- `npm run dev` starts the Go backend with `sshwifty.conf.example.json` and
+  runs a Vite dev server with HMR and backend proxying.
 
 For Go-only checks, use:
 
@@ -80,7 +80,7 @@ risk:
 
 - Go backend change: run targeted `go test` for the touched package, then
   consider `go test ./... -race -timeout 30s`.
-- Frontend logic change: run the relevant Mocha tests or `npm run testonly`.
+- Frontend logic change: run the relevant Vitest tests or `npm run testonly`.
 - Build pipeline, generated assets, or static serving change: run
   `npm run generate` and, when practical, `npm run build`.
 - Lint/style-only change: run `npm run lint` or
@@ -103,9 +103,7 @@ requests, and manual dispatch.
 - Match existing Go package structure and frontend component patterns.
 - Add or update tests for changed behavior.
 - Keep Go code formatted with `gofmt`.
-- Keep frontend code compatible with Vue 3 and the current Webpack/Babel setup.
-  The supported Vue dependency set is `vue` 3.x, `@vue/compiler-sfc` 3.x, and
-  `vue-loader` 17.x; do not reintroduce `vue-template-compiler`.
+- Keep frontend code compatible with Vue 3 and the current Vite setup.
 - Use existing command, stream, and connector abstractions instead of
   duplicating protocol logic.
 - Treat hook commands and connection inputs as untrusted; avoid command-line
@@ -115,8 +113,7 @@ requests, and manual dispatch.
 ## Frontend Notes
 
 The UI uses Vue 3 single-file components and plain CSS under `ui/`. Tests live
-beside frontend modules as `*_test.js` and run under Mocha with Babel
-registration.
+beside frontend modules as `*_test.js` and run under Vitest.
 
 ### When changing UI behavior
 
