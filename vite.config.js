@@ -19,6 +19,7 @@ const copiedRootFiles = [
   "DEPENDENCIES.md",
   "LICENSE.md",
 ];
+const generatedHtmlFiles = ["index.html", "error.html"];
 
 const passthroughPublicAssets = new Map([
   ["/sshwifty/assets/site.webmanifest", "site.webmanifest"],
@@ -41,6 +42,40 @@ function copyRootFilesPlugin() {
           path.join(repoRoot, fileName),
           path.join(distDir, fileName),
         );
+      }
+    },
+  };
+}
+
+function normalizeHtmlOutputsPlugin() {
+  return {
+    name: "normalize-html-outputs",
+    apply: "build",
+    closeBundle() {
+      const nestedHtmlDir = path.join(distDir, "ui");
+
+      for (const fileName of generatedHtmlFiles) {
+        const nestedPath = path.join(nestedHtmlDir, fileName);
+        const flatPath = path.join(distDir, fileName);
+
+        if (!fs.existsSync(nestedPath)) {
+          continue;
+        }
+
+        let html = fs.readFileSync(nestedPath, "utf8");
+        for (const publicPath of passthroughPublicAssets.keys()) {
+          html = html.replaceAll(
+            passthroughAssetToken(publicPath),
+            publicPath,
+          );
+        }
+
+        fs.writeFileSync(flatPath, html);
+        fs.rmSync(nestedPath);
+      }
+
+      if (fs.existsSync(nestedHtmlDir) && fs.readdirSync(nestedHtmlDir).length === 0) {
+        fs.rmdirSync(nestedHtmlDir);
       }
     },
   };
@@ -104,7 +139,12 @@ function sshwiftyPublicAssetsPlugin() {
 
 export default defineConfig(({ mode }) => ({
   base: "/sshwifty/assets/",
-  plugins: [vue(), copyRootFilesPlugin(), sshwiftyPublicAssetsPlugin()],
+  plugins: [
+    vue(),
+    copyRootFilesPlugin(),
+    sshwiftyPublicAssetsPlugin(),
+    normalizeHtmlOutputsPlugin(),
+  ],
   publicDir,
   resolve: {
     alias: [
