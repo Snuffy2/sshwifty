@@ -132,6 +132,9 @@ type commonInput struct {
 	// Shared key, empty to enable public access
 	SharedKey string
 
+	// PresetAdminKey controls full preset replacement API access
+	PresetAdminKey string
+
 	// DialTimeout, default 5s
 	DialTimeout int
 
@@ -176,8 +179,9 @@ func (f commonInput) concretize() (Configuration, error) {
 		return Configuration{}, err
 	}
 	return Configuration{
-		HostName:  f.HostName,
-		SharedKey: f.SharedKey,
+		HostName:       f.HostName,
+		SharedKey:      f.SharedKey,
+		PresetAdminKey: f.PresetAdminKey,
 		DialTimeout: time.Duration(setZeroUintToDefault(
 			f.DialTimeout,
 			5,

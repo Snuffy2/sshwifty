@@ -8,7 +8,9 @@ import (
 	"crypto/hmac"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -17,7 +19,10 @@ import (
 	"github.com/Snuffy2/sshwifty/application/log"
 )
 
-const preserveHiddenPresetPasswordsHeader = "X-Preserve-Hidden-Preset-Passwords"
+const (
+	preserveHiddenPresetPasswordsHeader = "X-Preserve-Hidden-Preset-Passwords"
+	presetAdminKeyHeader                = "X-Preset-Admin-Key"
+)
 
 // presetConfig handles backend preset configuration reads and writes.
 type presetConfig struct {
@@ -99,11 +104,18 @@ func (p presetConfig) Put(
 		}
 	}
 
-	if r.Header.Get(preserveHiddenPresetPasswordsHeader) == "yes" {
-		presets = preserveHiddenPresetPasswords(
+	currentPresets := p.commonCfg.CurrentPresets()
+	fingerprintOnly := r.Header.Get(preserveHiddenPresetPasswordsHeader) == "yes"
+	if fingerprintOnly {
+		presets = preserveHiddenPresetPasswords(presets, currentPresets)
+		if err := validateFingerprintOnlyPresetUpdate(
 			presets,
-			p.commonCfg.CurrentPresets(),
-		)
+			currentPresets,
+		); err != nil {
+			return NewError(http.StatusBadRequest, err.Error())
+		}
+	} else if err := p.requirePresetAdminAuth(r); err != nil {
+		return err
 	}
 	normalized, _, err := configuration.EnsurePresetIDs(presets)
 	if err != nil {
@@ -120,12 +132,67 @@ func (p presetConfig) Put(
 	if err := configuration.ReplaceFilePresetsWithRuntime(
 		p.commonCfg.SourceFile,
 		normalized,
-		p.commonCfg.CurrentPresets(),
+		currentPresets,
 	); err != nil {
 		return NewError(http.StatusInternalServerError, err.Error())
 	}
 	p.commonCfg.PresetRepository.Replace(normalized)
 	return p.writePresets(w, normalized)
+}
+
+func validateFingerprintOnlyPresetUpdate(
+	presets []configuration.Preset,
+	current []configuration.Preset,
+) error {
+	if len(presets) != len(current) {
+		return fmt.Errorf("fingerprint save cannot add or remove presets")
+	}
+	currentByID := make(map[string]configuration.Preset, len(current))
+	for _, preset := range current {
+		currentByID[preset.ID] = preset
+	}
+	for _, preset := range presets {
+		currentPreset, ok := currentByID[preset.ID]
+		if !ok {
+			return fmt.Errorf("fingerprint save cannot add preset %q", preset.ID)
+		}
+		if preset.Title != currentPreset.Title ||
+			preset.Type != currentPreset.Type ||
+			preset.Host != currentPreset.Host ||
+			preset.TabColor != currentPreset.TabColor {
+			return fmt.Errorf("fingerprint save cannot change preset %q", preset.ID)
+		}
+		if !samePresetMetaExceptFingerprint(preset.Meta, currentPreset.Meta) {
+			return fmt.Errorf(
+				"fingerprint save cannot change non-fingerprint metadata for preset %q",
+				preset.ID,
+			)
+		}
+	}
+	return nil
+}
+
+func samePresetMetaExceptFingerprint(
+	next map[string]string,
+	current map[string]string,
+) bool {
+	for key, value := range next {
+		if key == "Fingerprint" {
+			continue
+		}
+		if current[key] != value {
+			return false
+		}
+	}
+	for key, value := range current {
+		if key == "Fingerprint" {
+			continue
+		}
+		if next[key] != value {
+			return false
+		}
+	}
+	return true
 }
 
 func preserveHiddenPresetPasswords(
@@ -215,6 +282,33 @@ func (p presetConfig) requireAuth(r *http.Request) error {
 		return ErrSocketAuthFailed
 	}
 	return nil
+}
+
+func (p presetConfig) requirePresetAdminAuth(r *http.Request) error {
+	if p.commonCfg.PresetAdminKey == "" {
+		return NewError(
+			http.StatusForbidden,
+			"Full preset updates require PresetAdminKey authentication",
+		)
+	}
+	key := r.Header.Get(presetAdminKeyHeader)
+	if len(key) <= 0 || len(key) > 64 {
+		return ErrSocketInvalidAuthKey
+	}
+	time.Sleep(500 * time.Millisecond)
+	decodedKey, decodedKeyErr := base64.StdEncoding.DecodeString(key)
+	if decodedKeyErr != nil {
+		return NewError(http.StatusBadRequest, decodedKeyErr.Error())
+	}
+	if !hmac.Equal(presetAdminAuthKey(p.commonCfg.PresetAdminKey), decodedKey) {
+		return ErrSocketAuthFailed
+	}
+	return nil
+}
+
+func presetAdminAuthKey(key string) []byte {
+	timeMixer := strconv.FormatInt(time.Now().Unix()/100, 10)
+	return hashCombineSocketKeys(timeMixer, key)[:32]
 }
 
 // writePresets serializes presets using the same preset shape sent to the UI.

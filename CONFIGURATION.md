@@ -27,6 +27,10 @@ as a starting point for your own configuration.
   // web interface (bypass the Authenticate page)
   "SharedKey": "WEB_ACCESS_PASSWORD",
 
+  // Optional admin key for full preset add/edit/remove API writes.
+  // Fingerprint saves from the current UI do not require this key.
+  "PresetAdminKey": "",
+
   // Remote dial timeout. This limits how long of time the backend can spend
   // to connect to a remote host. The max timeout will be determined by
   // server configuration (ReadTimeout).
@@ -293,14 +297,19 @@ GET /sshwifty/config/presets
 PUT /sshwifty/config/presets
 ```
 
-`GET` returns the current preset list. `PUT` replaces the full preset list and
-can therefore add, edit, or remove presets. Presets without an `id` are assigned
-one automatically. Duplicate preset IDs are rejected.
+`GET` returns the current preset list. `PUT` can save a fingerprint for an
+existing preset, or replace the full preset list for add/edit/remove clients.
+Presets without an `id` are assigned one automatically. Duplicate preset IDs are
+rejected.
 
 When `SharedKey` is configured, requests to this endpoint must use the same
-`X-Key` authentication flow as `/sshwifty/socket/verify`. When the active
-configuration was loaded from environment variables, writes are rejected because
-there is no JSON file to update.
+`X-Key` authentication flow as `/sshwifty/socket/verify`. Full preset-list
+replacement also requires `PresetAdminKey` or `SSHWIFTY_PRESET_ADMIN_KEY` via
+the `X-Preset-Admin-Key` header, using the same time-windowed key derivation as
+`X-Key`. Fingerprint saves from the current UI do not require the admin key and
+are limited server-side to changing only the selected preset's `Fingerprint`
+metadata. When the active configuration was loaded from environment variables,
+writes are rejected because there is no JSON file to update.
 
 ## Environment Variables
 
@@ -309,6 +318,7 @@ Valid environment variables are:
 ```text
 SSHWIFTY_HOSTNAME
 SSHWIFTY_SHAREDKEY
+SSHWIFTY_PRESET_ADMIN_KEY
 SSHWIFTY_DIALTIMEOUT
 SSHWIFTY_SOCKS5
 SSHWIFTY_SOCKS5_USER

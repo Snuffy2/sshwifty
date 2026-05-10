@@ -74,6 +74,46 @@ func TestPersistPresetIDsAddsMissingIDsToConfigFile(t *testing.T) {
 	}
 }
 
+func TestPersistPresetIDsPreservesUnknownTopLevelFields(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	content := []byte(`{
+  "Servers": [
+    {"ListenInterface": "127.0.0.1", "ListenPort": 8182}
+  ],
+  "Presets": [
+    {"Title": "Atlantis", "Type": "SSH", "Host": "atlantis.home"}
+  ],
+  "FutureTopLevel": {"enabled": true}
+}`)
+	if err := os.WriteFile(configPath, content, 0o600); err != nil {
+		t.Fatalf("os.WriteFile returned error: %v", err)
+	}
+
+	_, cfg, err := loadFile(configPath)
+	if err != nil {
+		t.Fatalf("loadFile returned error: %v", err)
+	}
+	presets, _, err := EnsurePresetIDs(cfg.Presets)
+	if err != nil {
+		t.Fatalf("EnsurePresetIDs returned error: %v", err)
+	}
+	if err := PersistPresetIDs(cfg.SourceFile, presets); err != nil {
+		t.Fatalf("PersistPresetIDs returned error: %v", err)
+	}
+
+	var raw map[string]json.RawMessage
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("os.ReadFile returned error: %v", err)
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("json.Unmarshal returned error: %v", err)
+	}
+	if _, ok := raw["FutureTopLevel"]; !ok {
+		t.Fatal("unknown top-level field was not preserved")
+	}
+}
+
 func TestReplaceFilePresetsPreservesRawMetaValues(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
 	keyPath := filepath.Join(t.TempDir(), "id_ed25519")
@@ -149,6 +189,48 @@ func TestReplaceFilePresetsPreservesUnsupportedRawPresets(t *testing.T) {
 	}
 	if raw.Presets[1].ID != "preset-future" {
 		t.Fatalf("second raw preset ID = %q, want preset-future", raw.Presets[1].ID)
+	}
+}
+
+func TestReplaceFilePresetsPreservesUnknownTopLevelFields(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	content := []byte(`{
+  "Servers": [
+    {"ListenInterface": "127.0.0.1", "ListenPort": 8182}
+  ],
+  "Presets": [
+    {"ID": "preset-atlantis", "Title": "Atlantis", "Type": "SSH", "Host": "atlantis.home:22"}
+  ],
+  "FutureTopLevel": {"enabled": true}
+}`)
+	if err := os.WriteFile(configPath, content, 0o600); err != nil {
+		t.Fatalf("os.WriteFile returned error: %v", err)
+	}
+
+	if err := ReplaceFilePresets(configPath, []Preset{
+		{
+			ID:    "preset-atlantis",
+			Title: "Atlantis",
+			Type:  "SSH",
+			Host:  "atlantis.home:22",
+			Meta: map[string]string{
+				"Fingerprint": "SHA256:abc",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("ReplaceFilePresets returned error: %v", err)
+	}
+
+	var raw map[string]json.RawMessage
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("os.ReadFile returned error: %v", err)
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("json.Unmarshal returned error: %v", err)
+	}
+	if _, ok := raw["FutureTopLevel"]; !ok {
+		t.Fatal("unknown top-level field was not preserved")
 	}
 }
 

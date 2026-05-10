@@ -21,21 +21,21 @@ func PersistPresetIDs(filePath string, presets []Preset) error {
 		return nil
 	}
 
-	raw, mode, err := readCommonInputFile(filePath)
+	doc, err := readCommonInputFileDocument(filePath)
 	if err != nil {
 		return err
 	}
-	if len(raw.Presets) != len(presets) {
+	if len(doc.input.Presets) != len(presets) {
 		return fmt.Errorf(
 			"cannot persist preset IDs: file has %d presets, runtime has %d",
-			len(raw.Presets),
+			len(doc.input.Presets),
 			len(presets),
 		)
 	}
-	for i := range raw.Presets {
-		raw.Presets[i].ID = presets[i].ID
+	for i := range doc.input.Presets {
+		doc.input.Presets[i].ID = presets[i].ID
 	}
-	return writeCommonInputFile(filePath, raw, mode)
+	return writeCommonInputFileDocument(filePath, doc)
 }
 
 // ReplaceFilePresets atomically updates the Presets list in a JSON config file.
@@ -63,20 +63,25 @@ func replaceFilePresets(
 		return fmt.Errorf("preset config updates require a file-backed configuration")
 	}
 
-	raw, mode, err := readCommonInputFile(filePath)
+	doc, err := readCommonInputFileDocument(filePath)
 	if err != nil {
 		return err
 	}
 	concrete := runtimePresets
 	if concrete == nil {
 		var concreteErr error
-		concrete, concreteErr = raw.Presets.concretize()
+		concrete, concreteErr = doc.input.Presets.concretize()
 		if concreteErr != nil {
 			return concreteErr
 		}
 	}
-	raw.Presets = mergePresetInputs(raw.Presets, concrete, presets, runtimePresets)
-	return writeCommonInputFile(filePath, raw, mode)
+	doc.input.Presets = mergePresetInputs(
+		doc.input.Presets,
+		concrete,
+		presets,
+		runtimePresets,
+	)
+	return writeCommonInputFileDocument(filePath, doc)
 }
 
 // PresetConfigWritable reports whether filePath points to a writable config file.
@@ -238,28 +243,69 @@ func presetMapByID(presets []Preset) map[string]Preset {
 	return byID
 }
 
-// readCommonInputFile decodes filePath and returns its file mode for rewrites.
-func readCommonInputFile(filePath string) (commonInput, os.FileMode, error) {
+type commonInputFileDocument struct {
+	input commonInput
+	raw   map[string]json.RawMessage
+	mode  os.FileMode
+}
+
+func readCommonInputFileDocument(filePath string) (commonInputFileDocument, error) {
 	info, statErr := os.Stat(filePath)
 	if statErr != nil {
-		return commonInput{}, 0, statErr
+		return commonInputFileDocument{}, statErr
 	}
 
-	f, openErr := os.Open(filePath)
-	if openErr != nil {
-		return commonInput{}, 0, openErr
+	data, readErr := os.ReadFile(filePath)
+	if readErr != nil {
+		return commonInputFileDocument{}, readErr
 	}
-	defer f.Close()
 
 	cfg := commonInput{}
-	if decodeErr := json.NewDecoder(f).Decode(&cfg); decodeErr != nil {
-		return commonInput{}, 0, decodeErr
+	if decodeErr := json.Unmarshal(data, &cfg); decodeErr != nil {
+		return commonInputFileDocument{}, decodeErr
 	}
-	return cfg, info.Mode(), nil
+	raw := map[string]json.RawMessage{}
+	if decodeErr := json.Unmarshal(data, &raw); decodeErr != nil {
+		return commonInputFileDocument{}, decodeErr
+	}
+	return commonInputFileDocument{
+		input: cfg,
+		raw:   raw,
+		mode:  info.Mode(),
+	}, nil
+}
+
+// readCommonInputFile decodes filePath and returns its file mode for rewrites.
+func readCommonInputFile(filePath string) (commonInput, os.FileMode, error) {
+	doc, err := readCommonInputFileDocument(filePath)
+	if err != nil {
+		return commonInput{}, 0, err
+	}
+	return doc.input, doc.mode, nil
+}
+
+func writeCommonInputFileDocument(
+	filePath string,
+	doc commonInputFileDocument,
+) error {
+	raw := doc.raw
+	if raw == nil {
+		raw = map[string]json.RawMessage{}
+	}
+	presets, marshalErr := json.Marshal(doc.input.Presets)
+	if marshalErr != nil {
+		return marshalErr
+	}
+	raw["Presets"] = presets
+	return writeCommonInputFile(filePath, raw, doc.mode)
 }
 
 // writeCommonInputFile atomically rewrites filePath with cfg encoded as JSON.
-func writeCommonInputFile(filePath string, cfg commonInput, mode os.FileMode) error {
+func writeCommonInputFile(
+	filePath string,
+	cfg map[string]json.RawMessage,
+	mode os.FileMode,
+) error {
 	tmp, createErr := os.CreateTemp(filepath.Dir(filePath), filepath.Base(filePath)+".*.tmp")
 	if createErr != nil {
 		return createErr

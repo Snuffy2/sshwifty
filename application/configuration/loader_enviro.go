@@ -112,8 +112,9 @@ func Environ() Loader {
 		}
 
 		cfg, err := commonInput{
-			HostName:  GetEnv("SSHWIFTY_HOSTNAME"),
-			SharedKey: GetEnv("SSHWIFTY_SHAREDKEY"),
+			HostName:       GetEnv("SSHWIFTY_HOSTNAME"),
+			SharedKey:      GetEnv("SSHWIFTY_SHAREDKEY"),
+			PresetAdminKey: GetEnv("SSHWIFTY_PRESET_ADMIN_KEY"),
 			DialTimeout: castUintToInt(
 				parseEnvUintDefault("SSHWIFTY_DIALTIMEOUT", 0, 32),
 			),

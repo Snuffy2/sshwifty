@@ -25,6 +25,8 @@ type Common struct {
 	// SharedKey is the pre-shared secret required for client authentication;
 	// an empty value disables authentication.
 	SharedKey string
+	// PresetAdminKey is the pre-shared secret required for full preset rewrites.
+	PresetAdminKey string
 	// Dialer is the function used to open outbound network connections,
 	// optionally via SOCKS5 or with access-control restrictions.
 	Dialer network.Dial

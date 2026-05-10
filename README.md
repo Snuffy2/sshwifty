@@ -33,6 +33,8 @@ services:
       # Optional: base64-encoded 32-byte key for encrypted preset passwords.
       # Generate with: openssl rand -base64 32
       # SSHWIFTY_PRESET_SECRET_KEY: "replace-with-generated-key"
+      # Optional: enables future full preset add/edit/remove API clients.
+      # SSHWIFTY_PRESET_ADMIN_KEY: "replace-with-admin-key"
 ```
 
 Then open `http://localhost:8182`.
@@ -67,7 +69,9 @@ Writable file-backed configuration enables preset updates from the UI, such as
 saving SSH/Mosh fingerprints. If `SSHWIFTY_PRESET_SECRET_KEY` is set, plaintext
 preset `Password` values are migrated on startup to `Encrypted Password` and the
 plaintext value is removed from the JSON file. Without that key, plaintext
-password presets continue to work as before.
+password presets continue to work as before. Full preset add/edit/remove API
+writes also require `PresetAdminKey` or `SSHWIFTY_PRESET_ADMIN_KEY`; fingerprint
+saves from the current UI remain limited to the selected preset's fingerprint.
 
 Generate a preset secret key with one of these commands:
 
