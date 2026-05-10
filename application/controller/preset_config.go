@@ -177,8 +177,10 @@ func validatePresetConfigRequest(request presetConfigRequest) error {
 		)
 	}
 	for _, preset := range request.Presets {
-		if stringTooLong(preset.ID, maxPresetConfigStringBytes) ||
-			stringTooLong(preset.Title, maxPresetConfigStringBytes) ||
+		if stringTooLong(preset.ID, configuration.MaxPresetIDLength) {
+			return fmt.Errorf("preset ID exceeds maximum length")
+		}
+		if stringTooLong(preset.Title, maxPresetConfigStringBytes) ||
 			stringTooLong(preset.Type, maxPresetConfigStringBytes) ||
 			stringTooLong(preset.Host, maxPresetConfigStringBytes) ||
 			stringTooLong(preset.TabColor, maxPresetConfigStringBytes) {

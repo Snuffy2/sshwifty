@@ -4,7 +4,10 @@
 
 package configuration
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestEnsurePresetIDsAddsMissingIDs(t *testing.T) {
 	presets, changed, err := EnsurePresetIDs([]Preset{
@@ -43,5 +46,14 @@ func TestEnsurePresetIDsRejectsDuplicateIDs(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("EnsurePresetIDs returned nil error, want duplicate ID error")
+	}
+}
+
+func TestEnsurePresetIDsRejectsOversizedID(t *testing.T) {
+	_, _, err := EnsurePresetIDs([]Preset{
+		{ID: strings.Repeat("a", MaxPresetIDLength+1), Title: "Atlantis", Type: "SSH", Host: "atlantis.home:22"},
+	})
+	if err == nil {
+		t.Fatal("EnsurePresetIDs returned nil error, want oversized ID error")
 	}
 }

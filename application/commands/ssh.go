@@ -278,7 +278,6 @@ func parseSSHConfig(p configuration.Preset) (configuration.Preset, error) {
 const (
 	sshMaxUsernameLen = 127
 	sshMaxHostnameLen = 255
-	sshMaxPresetIDLen = 255
 )
 
 func (d *sshClient) Bootup(
@@ -317,7 +316,10 @@ func (d *sshClient) Bootup(
 			rErr, SSHRequestErrorBadAuthMethod)
 	}
 
-	presetID, presetIDErr := parseOptionalPresetID(r, (*sBuf)[:sshMaxPresetIDLen])
+	presetID, presetIDErr := parseOptionalPresetID(
+		r,
+		(*sBuf)[:configuration.MaxPresetIDLength],
+	)
 	if presetIDErr != nil {
 		return nil, command.ToFSMError(
 			presetIDErr, SSHRequestErrorBadAuthMethod)

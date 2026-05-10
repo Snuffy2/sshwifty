@@ -180,7 +180,7 @@ func (d *moshClient) Bootup(
 	d.meta = requestMeta
 	presetID, presetIDErr := parseOptionalPresetID(
 		r,
-		(*sBuf)[:sshMaxPresetIDLen],
+		(*sBuf)[:configuration.MaxPresetIDLength],
 	)
 	if presetIDErr != nil {
 		return nil, command.ToFSMError(presetIDErr, MoshRequestErrorBadMetadata)

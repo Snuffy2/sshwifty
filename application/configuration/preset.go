@@ -10,6 +10,11 @@ import (
 	"fmt"
 )
 
+const (
+	// MaxPresetIDLength is the maximum byte length accepted for preset IDs.
+	MaxPresetIDLength = 255
+)
+
 // Preset describes a pre-configured remote endpoint displayed in the Sshwifty
 // UI. Each Preset is associated with a command type (e.g. "SSH" or "Telnet")
 // and may carry command-specific metadata in the Meta map.
@@ -49,6 +54,13 @@ func EnsurePresetIDs(presets []Preset) ([]Preset, bool, error) {
 			}
 			normalized[i].ID = id
 			changed = true
+		}
+		if len(normalized[i].ID) > MaxPresetIDLength {
+			return nil, false, fmt.Errorf(
+				"preset ID %q exceeds maximum length %d",
+				normalized[i].ID,
+				MaxPresetIDLength,
+			)
 		}
 		if _, ok := seen[normalized[i].ID]; ok {
 			return nil, false, fmt.Errorf("duplicate preset ID %q", normalized[i].ID)

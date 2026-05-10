@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/Snuffy2/sshwifty/application/commands"
 	"github.com/Snuffy2/sshwifty/application/configuration"
@@ -85,6 +86,7 @@ func newAdminTestPresetConfig(t *testing.T, configPath string) presetConfig {
 }
 
 func authorizePresetConfigRequest(controller presetConfig, request *http.Request) {
+	waitForStableSocketAuthWindow()
 	verifier := newSocketVerification(
 		socket{commonCfg: controller.commonCfg},
 		configuration.Server{},
@@ -97,12 +99,20 @@ func authorizePresetConfigRequest(controller presetConfig, request *http.Request
 }
 
 func authorizePresetAdminRequest(controller presetConfig, request *http.Request) {
+	waitForStableSocketAuthWindow()
 	request.Header.Set(
 		presetAdminKeyHeader,
 		base64.StdEncoding.EncodeToString(
 			presetAdminAuthKey(controller.commonCfg.PresetAdminKey),
 		),
 	)
+}
+
+func waitForStableSocketAuthWindow() {
+	if time.Now().Unix()%100 < 98 {
+		return
+	}
+	time.Sleep(3 * time.Second)
 }
 
 func normalizeStartupPresetIDsForTest(
@@ -601,6 +611,29 @@ func TestPresetConfigPutRejectsOversizedRequest(t *testing.T) {
 	err := controller.Put(&writer, request, log.Ditch{})
 	if err == nil {
 		t.Fatal("Put returned nil error, want oversized body error")
+	}
+}
+
+func TestPresetConfigPutRejectsOversizedPresetID(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	writePresetAPIConfig(t, configPath, nil)
+	controller := newAdminTestPresetConfig(t, configPath)
+	body := []byte(`{"presets":[{"id":"` +
+		strings.Repeat("a", configuration.MaxPresetIDLength+1) +
+		`","title":"Atlantis","type":"SSH","host":"atlantis.home"}]}`)
+	request := httptest.NewRequest(
+		http.MethodPut,
+		"/sshwifty/config/presets",
+		bytes.NewReader(body),
+	)
+	authorizePresetConfigRequest(controller, request)
+	authorizePresetAdminRequest(controller, request)
+	recorder := httptest.NewRecorder()
+	writer := newResponseWriter(recorder)
+
+	err := controller.Put(&writer, request, log.Ditch{})
+	if err == nil {
+		t.Fatal("Put returned nil error, want oversized preset ID error")
 	}
 }
 
