@@ -256,6 +256,24 @@ export default {
       type: Object,
       default: () => null,
     },
+    /**
+     * Whether the backend can persist preset updates.
+     *
+     * @type {boolean}
+     */
+    presetConfigWritable: {
+      type: Boolean,
+      default: () => false,
+    },
+    /**
+     * Saves an accepted fingerprint to a preset in backend config.
+     *
+     * @type {function}
+     */
+    savePresetFingerprint: {
+      type: Function,
+      default: () => null,
+    },
   },
   emits: ["navigate-to", "tab-opened", "tab-closed", "tab-updated"],
   data() {
@@ -478,6 +496,7 @@ export default {
               null,
               false,
               () => {},
+              null,
             ),
           ),
         };
@@ -497,7 +516,9 @@ export default {
 
       self.runConnect((stream) => {
         const presetExecution = buildPresetExecution(preset);
+        const saveFingerprint = self.buildPresetFingerprintSaver(preset);
         if (presetExecution !== null) {
+          presetExecution.config.saveFingerprint = saveFingerprint;
           self.connector.connector = {
             id: preset.command.id(),
             name: preset.command.name(),
@@ -534,12 +555,35 @@ export default {
               null,
               [],
               () => {},
+              saveFingerprint,
             ),
           ),
         };
 
         self.connector.inputting = true;
       });
+    },
+    /**
+     * Builds a preset fingerprint save callback when config persistence is available.
+     *
+     * @param {{ preset: object }} preset Merged preset entry.
+     * @returns {function(string): Promise<void>|null} Save callback or null.
+     */
+    buildPresetFingerprintSaver(preset) {
+      if (!this.presetConfigWritable || !preset.preset.id()) {
+        return null;
+      }
+
+      return async (fingerprint) => {
+        const updatedPresets = await this.savePresetFingerprint(
+          preset.preset.id(),
+          fingerprint,
+        );
+
+        this.presets = markRaw(
+          this.commands.mergePresets(new presets.Presets(updatedPresets)),
+        );
+      };
     },
     /**
      * Looks up a connector from the registry by its display name.

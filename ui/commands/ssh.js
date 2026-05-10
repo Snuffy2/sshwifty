@@ -544,6 +544,7 @@ class Wizard {
     subs,
     controls,
     history,
+    saveFingerprint = null,
   ) {
     this.info = info;
     this.preset = preset;
@@ -558,6 +559,7 @@ class Wizard {
     this.step = subs;
     this.controls = controls.get("SSH");
     this.history = history;
+    this.saveFingerprint = saveFingerprint;
   }
 
   /**
@@ -796,6 +798,7 @@ class Wizard {
             (newFingerprint) => {
               configInput.fingerprint = newFingerprint;
             },
+            configInput.saveFingerprint ? configInput.saveFingerprint : null,
           ),
         );
       },
@@ -854,6 +857,7 @@ class Wizard {
               fingerprint: self.preset
                 ? self.preset.metaDefault("Fingerprint", "")
                 : "",
+              saveFingerprint: self.saveFingerprint,
             },
             self.session,
           );
@@ -917,7 +921,13 @@ class Wizard {
    *   fingerprint string so it can be persisted.
    * @returns {Promise<object>} The next wizard step (wait or prompt).
    */
-  async stepFingerprintPrompt(rd, sd, verify, newFingerprint) {
+  async stepFingerprintPrompt(
+    rd,
+    sd,
+    verify,
+    newFingerprint,
+    saveFingerprint = null,
+  ) {
     const self = this;
 
     let fingerprintData = new TextDecoder("utf-8").decode(
@@ -935,6 +945,25 @@ class Wizard {
         fingerprintChanged = true;
     }
 
+    const acceptFingerprint = () => {
+      newFingerprint(fingerprintData);
+
+      sd.send(CLIENT_CONNECT_RESPOND_FINGERPRINT, new Uint8Array([0]));
+
+      self.step.resolve(self.stepContinueWaitForEstablishWait());
+    };
+    const actions = [];
+
+    if (saveFingerprint !== null) {
+      actions.push({
+        text: "Save",
+        async respond() {
+          await saveFingerprint(fingerprintData);
+          acceptFingerprint();
+        },
+      });
+    }
+
     return command.prompt(
       !fingerprintChanged
         ? "Do you recognize this server?"
@@ -942,14 +971,8 @@ class Wizard {
       !fingerprintChanged
         ? "Verify server fingerprint displayed below"
         : "It's very unusual. Please verify the new server fingerprint below",
-      !fingerprintChanged ? "Yes, I do" : "I'm aware of the change",
-      (_r) => {
-        newFingerprint(fingerprintData);
-
-        sd.send(CLIENT_CONNECT_RESPOND_FINGERPRINT, new Uint8Array([0]));
-
-        self.step.resolve(self.stepContinueWaitForEstablishWait());
-      },
+      "Continue",
+      (_r) => acceptFingerprint(),
       () => {
         sd.send(CLIENT_CONNECT_RESPOND_FINGERPRINT, new Uint8Array([1]));
 
@@ -963,6 +986,7 @@ class Wizard {
           value: fingerprintData,
         },
       ]),
+      actions,
     );
   }
 
@@ -1138,6 +1162,9 @@ class Executer extends Wizard {
           charset: self.config.charset ? self.config.charset : "utf-8",
           tabColor: self.config.tabColor ? self.config.tabColor : "",
           fingerprint: self.config.fingerprint,
+          saveFingerprint: self.config.saveFingerprint
+            ? self.config.saveFingerprint
+            : null,
         },
         self.session,
       );
@@ -1217,6 +1244,7 @@ export class Command {
     subs,
     controls,
     history,
+    saveFingerprint = null,
   ) {
     return new Wizard(
       info,
@@ -1227,6 +1255,7 @@ export class Command {
       subs,
       controls,
       history,
+      saveFingerprint,
     );
   }
 

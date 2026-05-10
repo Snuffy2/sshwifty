@@ -284,6 +284,7 @@ class Prompt {
     this.t = data.title;
     this.m = data.message;
     this.a = data.actionText;
+    this.actionsList = data.actions || [];
     this.r = data.respond;
     this.c = data.cancel;
 
@@ -346,6 +347,15 @@ class Prompt {
    */
   actionText() {
     return this.a;
+  }
+
+  /**
+   * Returns secondary prompt actions.
+   *
+   * @returns {Array<object>} Secondary actions.
+   */
+  actions() {
+    return this.actionsList;
   }
 
   /**
@@ -463,11 +473,20 @@ export function wait(title, message) {
  * @returns {object} Prompt step data
  *
  */
-export function prompt(title, message, actionText, respond, cancel, inputs) {
+export function prompt(
+  title,
+  message,
+  actionText,
+  respond,
+  cancel,
+  inputs,
+  actions = [],
+) {
   return next(NEXT_PROMPT, {
     title: title,
     message: message,
     actionText: actionText,
+    actions: actions,
     inputs: inputs,
     respond: respond,
     cancel: cancel,
@@ -763,7 +782,16 @@ class Builder {
    * @returns {Wizard} Command wizard
    *
    */
-  wizard(streams, controls, history, preset, session, keptSessions, done) {
+  wizard(
+    streams,
+    controls,
+    history,
+    preset,
+    session,
+    keptSessions,
+    done,
+    saveFingerprint = null,
+  ) {
     let subs = new subscribe.Subscribe();
 
     return new Wizard(
@@ -776,6 +804,7 @@ class Builder {
         subs,
         controls,
         history,
+        saveFingerprint,
       ),
       subs,
       done,

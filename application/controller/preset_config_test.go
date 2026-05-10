@@ -137,3 +137,11 @@ func TestPresetConfigPutRejectsDuplicateIDs(t *testing.T) {
 		t.Fatal("Put returned nil error, want duplicate ID error")
 	}
 }
+
+func TestSocketAccessConfigurationIncludesPresetConfigWritable(t *testing.T) {
+	accessConfig := newSocketAccessConfiguration(nil, "", true)
+
+	if !accessConfig.PresetConfigWritable {
+		t.Fatal("PresetConfigWritable = false, want true")
+	}
+}

@@ -54,6 +54,8 @@ const mainTemplate = `
   :server-message="serverMessage"
   :preset-data="presetData.presets"
   :restricted-to-presets="presetData.restricted"
+  :preset-config-writable="presetData.writable"
+  :save-preset-fingerprint="savePresetFingerprint"
   :view-port="viewPort"
   @navigate-to="changeURLHash"
   @tab-opened="tabOpened"
@@ -72,6 +74,8 @@ const mainTemplate = `
 const socksInterface = "/sshwifty/socket";
 /** @type {string} HTTP verification endpoint used to obtain a session key. */
 const socksVerificationInterface = socksInterface + "/verify";
+/** @type {string} HTTP preset configuration endpoint. */
+const presetConfigInterface = "/sshwifty/config/presets";
 /**
  * @type {number} Time bucket size (ms) used to truncate the current timestamp
  * before mixing it into the socket key, limiting key reuse windows.
@@ -148,7 +152,9 @@ function startApp(rootEl) {
         presetData: {
           presets: markRaw(new Presets([])),
           restricted: false,
+          writable: false,
         },
+        presetConfigPassphrase: "",
         authErr: "",
         loadErr: "",
         socket: null,
@@ -325,7 +331,7 @@ function startApp(rootEl) {
        * @param {object} key - Key provider with a `fetch()` method.
        * @returns {void}
        */
-      executeHomeApp(authResult, key) {
+      executeHomeApp(authResult, key, passphrase = "") {
         let authData = JSON.parse(authResult.data);
         this.serverMessage = authData.server_message
           ? authData.server_message
@@ -335,11 +341,98 @@ function startApp(rootEl) {
             new Presets(authData.presets ? authData.presets : []),
           ),
           restricted: authResult.onlyAllowPresetRemotes,
+          writable: authData.preset_config_writable === true,
         };
+        this.presetConfigPassphrase = passphrase;
         this.socket = markRaw(
           this.buildSocket(key, authResult.timeout, authResult.heartbeat),
         );
         this.page = "app";
+      },
+      /**
+       * Builds auth headers for preset config API calls.
+       *
+       * @returns {Promise<Object.<string, string>>} HTTP headers.
+       */
+      async presetConfigHeaders() {
+        let headers = {
+          "Content-Type": "application/json",
+        };
+
+        if (this.presetConfigPassphrase.length <= 0 || !this.key) {
+          headers["X-Key"] = "";
+
+          return headers;
+        }
+
+        const authKey = await this.getSocketAuthKey(
+          this.presetConfigPassphrase,
+        );
+
+        headers["X-Key"] = btoa(String.fromCharCode.apply(null, authKey));
+
+        return headers;
+      },
+      /**
+       * Saves an accepted SSH/Mosh fingerprint into one preset.
+       *
+       * @param {string} presetID Stable preset ID.
+       * @param {string} fingerprint Accepted fingerprint.
+       * @returns {Promise<Array<object>>} Updated preset config list.
+       */
+      async savePresetFingerprint(presetID, fingerprint) {
+        if (!this.presetData.writable) {
+          throw new Error("Preset config is not writable");
+        }
+
+        const headers = await this.presetConfigHeaders();
+        const getResponse = await xhr.get(presetConfigInterface, headers);
+        if (getResponse.status !== 200) {
+          throw new Error("Preset config read failed: " + getResponse.status);
+        }
+
+        let body = JSON.parse(getResponse.responseText);
+        let found = false;
+        let updatedPresets = (body.presets ? body.presets : []).map(
+          (preset) => {
+            if (preset.id !== presetID) {
+              return preset;
+            }
+
+            found = true;
+
+            return {
+              ...preset,
+              meta: {
+                ...(preset.meta ? preset.meta : {}),
+                Fingerprint: fingerprint,
+              },
+            };
+          },
+        );
+
+        if (!found) {
+          throw new Error("Preset ID was not found: " + presetID);
+        }
+
+        const putResponse = await xhr.put(
+          presetConfigInterface,
+          headers,
+          JSON.stringify({ presets: updatedPresets }),
+        );
+        if (putResponse.status !== 200) {
+          throw new Error("Preset config write failed: " + putResponse.status);
+        }
+
+        body = JSON.parse(putResponse.responseText);
+        updatedPresets = body.presets ? body.presets : [];
+        this.presetData = {
+          presets: markRaw(new Presets(updatedPresets)),
+          restricted: this.presetData.restricted,
+          writable: this.presetData.writable,
+        };
+
+        return updatedPresets;
       },
       /**
        * Performs authentication and stores the server-returned key for later use.
@@ -497,23 +590,27 @@ function startApp(rootEl) {
           let self = this;
           switch (result.result) {
             case 200:
-              this.executeHomeApp(result, {
-                async fetch() {
-                  let result = await self.doAuth(passphrase);
+              this.executeHomeApp(
+                result,
+                {
+                  async fetch() {
+                    let result = await self.doAuth(passphrase);
 
-                  if (result.result !== 200) {
-                    throw new Error(
-                      "Unable to fetch key from remote, unexpected " +
-                        "error code: " +
-                        result.result,
+                    if (result.result !== 200) {
+                      throw new Error(
+                        "Unable to fetch key from remote, unexpected " +
+                          "error code: " +
+                          result.result,
+                      );
+                    }
+
+                    return await buildSocketKey(
+                      atob(result.key) + "+" + passphrase,
                     );
-                  }
-
-                  return await buildSocketKey(
-                    atob(result.key) + "+" + passphrase,
-                  );
+                  },
                 },
-              });
+                passphrase,
+              );
               break;
 
             case 403:

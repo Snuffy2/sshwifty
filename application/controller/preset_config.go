@@ -140,6 +140,6 @@ func (p presetConfig) writePresets(
 	w.Header().Add("Pragma", "no-store")
 	w.Header().Add("Content-Type", "text/json; charset=utf-8")
 	return json.NewEncoder(w).Encode(presetConfigResponse{
-		Presets: newSocketAccessConfiguration(presets, "").Presets,
+		Presets: newSocketAccessConfiguration(presets, "", false).Presets,
 	})
 }

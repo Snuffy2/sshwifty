@@ -50,3 +50,8 @@ func (c Common) CurrentPresets() []Preset {
 	}
 	return c.PresetRepository.List()
 }
+
+// PresetConfigWritable reports whether runtime preset changes can be persisted.
+func (c Common) PresetConfigWritable() bool {
+	return PresetConfigWritable(c.SourceFile)
+}

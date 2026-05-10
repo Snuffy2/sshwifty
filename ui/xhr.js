@@ -21,7 +21,7 @@
  *   giving callers access to status, response text, and headers.
  * @throws Will reject if the request encounters a network error or times out.
  */
-function send(method, url, headers) {
+function send(method, url, headers, body = null) {
   return new Promise((res, rej) => {
     let authReq = new XMLHttpRequest();
 
@@ -47,7 +47,7 @@ function send(method, url, headers) {
       authReq.setRequestHeader(h, headers[h]);
     }
 
-    authReq.send();
+    authReq.send(body);
   });
 }
 
@@ -60,6 +60,18 @@ function send(method, url, headers) {
  */
 export function get(url, headers) {
   return send("GET", url, headers);
+}
+
+/**
+ * Issues an HTTP PUT request with a request body.
+ *
+ * @param {string} url - Target URL.
+ * @param {Object.<string, string>} headers - Additional request headers.
+ * @param {string} body - Request body.
+ * @returns {Promise<XMLHttpRequest>} Resolves with the completed XHR instance.
+ */
+export function put(url, headers, body) {
+  return send("PUT", url, headers, body);
 }
 
 /**

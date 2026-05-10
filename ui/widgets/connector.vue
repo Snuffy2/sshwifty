@@ -242,6 +242,16 @@ SPDX-License-Identifier: AGPL-3.0-only
           {{ current.actionText }}
         </button>
         <button
+          v-for="(action, actionIndex) in current.actions"
+          :key="action.text"
+          type="button"
+          :disabled="current.submitting || disabled"
+          :tabindex="submitterTabIndex + actionIndex + 1"
+          @click="runAction(action)"
+        >
+          {{ action.text }}
+        </button>
+        <button
           v-if="showCancelButton()"
           type="button"
           :disabled="cancelButtonDisabled()"
@@ -319,6 +329,7 @@ function buildEmptyCurrent() {
     message: "",
     fields: [],
     actionText: "Continue",
+    actions: [],
     cancellable: false,
     submittable: false,
     submitting: false,
@@ -444,7 +455,9 @@ export default {
      *   when Cancel is the only footer action.
      */
     cancelButtonTabIndex() {
-      return this.current.submittable ? this.submitterTabIndex + 1 : 1;
+      return this.current.submittable
+        ? this.submitterTabIndex + this.current.actions.length + 1
+        : 1;
     },
     /**
      * Handles the footer Cancel button.
@@ -523,6 +536,7 @@ export default {
 
             this.submitterTabIndex = tabIndex > 0 ? tabIndex : 1;
             this.current.actionText = this.current.data.actionText();
+            this.current.actions = this.current.data.actions();
             this.current.submittable = true;
             this.current.alert = true;
             this.current.cancellable = true;
@@ -1095,6 +1109,37 @@ export default {
         process.env.NODE_ENV === "development" && console.trace(e);
 
         return;
+      }
+    },
+    /**
+     * Runs a secondary prompt action after validating the current fields.
+     *
+     * @param {{respond: function}} action - Prompt action descriptor.
+     * @returns {Promise<void>}
+     */
+    async runAction(action) {
+      if (this.current.submitting || this.disabled) {
+        return;
+      }
+
+      if (this.current.data === null || !this.current.submittable) {
+        return;
+      }
+
+      if (!this.verifyAll()) {
+        return;
+      }
+
+      this.current.submitting = true;
+
+      try {
+        await action.respond(this.getFieldValues());
+      } catch (e) {
+        this.current.submitting = false;
+
+        alert("Action has failed: " + e);
+
+        process.env.NODE_ENV === "development" && console.trace(e);
       }
     },
     /**

@@ -51,6 +51,33 @@ func ReplaceFilePresets(filePath string, presets []Preset) error {
 	return writeCommonInputFile(filePath, raw, mode)
 }
 
+// PresetConfigWritable reports whether filePath points to a writable config file.
+func PresetConfigWritable(filePath string) bool {
+	if filePath == "" {
+		return false
+	}
+	f, err := os.OpenFile(filePath, os.O_RDWR, 0)
+	if err != nil {
+		return false
+	}
+	if closeErr := f.Close(); closeErr != nil {
+		return false
+	}
+	tmp, createErr := os.CreateTemp(
+		filepath.Dir(filePath),
+		filepath.Base(filePath)+".writable.*.tmp",
+	)
+	if createErr != nil {
+		return false
+	}
+	tmpName := tmp.Name()
+	if closeErr := tmp.Close(); closeErr != nil {
+		_ = os.Remove(tmpName)
+		return false
+	}
+	return os.Remove(tmpName) == nil
+}
+
 // presetInputsFromPresets converts normalized presets back to file input shape.
 func presetInputsFromPresets(presets []Preset) presetInputs {
 	inputs := make(presetInputs, len(presets))

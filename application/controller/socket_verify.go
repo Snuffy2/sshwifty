@@ -52,8 +52,9 @@ type socketRemotePreset struct {
 // after successful authentication on the verification endpoint. It carries the
 // list of preset remote connections and the HTML-escaped server message.
 type socketAccessConfiguration struct {
-	Presets       []socketRemotePreset `json:"presets"`
-	ServerMessage string               `json:"server_message"`
+	Presets              []socketRemotePreset `json:"presets"`
+	ServerMessage        string               `json:"server_message"`
+	PresetConfigWritable bool                 `json:"preset_config_writable"`
 }
 
 // newSocketAccessConfiguration builds a socketAccessConfiguration from the
@@ -63,6 +64,7 @@ type socketAccessConfiguration struct {
 func newSocketAccessConfiguration(
 	remotes []configuration.Preset,
 	serverMessage string,
+	presetConfigWritable bool,
 ) socketAccessConfiguration {
 	presets := make([]socketRemotePreset, len(remotes))
 	for i := range presets {
@@ -76,8 +78,9 @@ func newSocketAccessConfiguration(
 		}
 	}
 	return socketAccessConfiguration{
-		Presets:       presets,
-		ServerMessage: parseServerMessage(html.EscapeString(serverMessage)),
+		Presets:              presets,
+		ServerMessage:        parseServerMessage(html.EscapeString(serverMessage)),
+		PresetConfigWritable: presetConfigWritable,
 	}
 }
 
@@ -110,6 +113,7 @@ func newSocketVerification(
 			newSocketAccessConfiguration(
 				commCfg.Presets,
 				srvCfg.ServerMessage,
+				commCfg.PresetConfigWritable(),
 			),
 		),
 	}
@@ -148,6 +152,7 @@ func (s socketVerification) setServerConfigRespond(
 		newSocketAccessConfiguration(
 			s.commonCfg.CurrentPresets(),
 			s.serverCfg.ServerMessage,
+			s.commonCfg.PresetConfigWritable(),
 		),
 	))
 }
