@@ -37,6 +37,7 @@ func loadFile(filePath string) (string, Configuration, error) {
 		return fileTypeName, Configuration{}, jDecodeErr
 	}
 	finalCfg, err := cfg.concretize()
+	finalCfg.SourceFile = filePath
 	return fileTypeName, finalCfg, err
 }
 

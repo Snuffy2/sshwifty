@@ -167,6 +167,10 @@ as a starting point for your own configuration.
   //          DO NOT add any secret information into Preset.
   "Presets": [
     {
+      // Stable preset ID. Sshwifty will automatically add missing IDs to
+      // file-backed configurations on startup. IDs must be unique.
+      "ID": "preset-sdf",
+
       // Title of the preset
       "Title": "SDF.org Unix Shell",
 
@@ -271,6 +275,24 @@ as a starting point for your own configuration.
   "OnlyAllowPresetRemotes": false,
 }
 ```
+
+### Preset Management API
+
+File-backed configurations can update presets without restarting Sshwifty:
+
+```http
+GET /sshwifty/config/presets
+PUT /sshwifty/config/presets
+```
+
+`GET` returns the current preset list. `PUT` replaces the full preset list and
+can therefore add, edit, or remove presets. Presets without an `id` are assigned
+one automatically. Duplicate preset IDs are rejected.
+
+When `SharedKey` is configured, requests to this endpoint must use the same
+`X-Key` authentication flow as `/sshwifty/socket/verify`. When the active
+configuration was loaded from environment variables, writes are rejected because
+there is no JSON file to update.
 
 ## Environment Variables
 

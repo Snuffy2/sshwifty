@@ -17,6 +17,7 @@ import (
 // hook rules, and optional SOCKS5 proxy credentials. Use Verify to validate
 // the values before using the configuration.
 type Configuration struct {
+	SourceFile             string
 	HostName               string
 	SharedKey              string
 	DialTimeout            time.Duration
@@ -58,14 +59,10 @@ func (c Configuration) Dialer() network.Dial {
 		d = network.BuildSocks5Dial(c.Socks5, c.Socks5User, c.Socks5Password, d)
 	}
 	if c.OnlyAllowPresetRemotes {
-		accessList := make(network.AllowedHosts, len(c.Presets))
-		for _, k := range c.Presets {
-			if len(k.Host) <= 0 {
-				continue
-			}
-			accessList[k.Host] = struct{}{}
-		}
-		d = network.AccessControlDial(accessList, d)
+		d = network.AccessControlDial(
+			NewPresetRepository(c.Presets),
+			d,
+		)
 	}
 	return d
 }
@@ -82,16 +79,34 @@ func (c Configuration) hookSettings() HookSettings {
 // Common derives the Common settings struct from the Configuration, building
 // the Dialer and HookSettings in the process.
 func (c Configuration) Common() Common {
+	presetRepository := NewPresetRepository(c.Presets)
 	return Common{
+		SourceFile:             c.SourceFile,
 		HostName:               c.HostName,
 		SharedKey:              c.SharedKey,
-		Dialer:                 c.Dialer(),
+		Dialer:                 c.dialerWithPresetRepository(presetRepository),
 		DialTimeout:            c.DialTimeout,
 		Socks5Configured:       len(c.Socks5) > 0,
 		Presets:                c.Presets,
+		PresetRepository:       presetRepository,
 		Hooks:                  c.hookSettings(),
 		OnlyAllowPresetRemotes: c.OnlyAllowPresetRemotes,
 	}
+}
+
+// dialerWithPresetRepository constructs a Dial function using presetRepository
+// as the live allow-list when preset-only dialing is enabled.
+func (c Configuration) dialerWithPresetRepository(
+	presetRepository *PresetRepository,
+) network.Dial {
+	d := network.TCPDial()
+	if len(c.Socks5) > 0 {
+		d = network.BuildSocks5Dial(c.Socks5, c.Socks5User, c.Socks5Password, d)
+	}
+	if c.OnlyAllowPresetRemotes {
+		d = network.AccessControlDial(presetRepository, d)
+	}
+	return d
 }
 
 // DecideDialTimeout returns the effective dial timeout clamped to the given

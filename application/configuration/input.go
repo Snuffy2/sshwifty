@@ -76,6 +76,7 @@ func (f serverInputs) concretize() ([]Server, error) {
 // presetInput holds raw user-supplied values for a single preset endpoint
 // before Meta values have been parsed through the String scheme resolver.
 type presetInput struct {
+	ID       string
 	Title    string
 	Type     string
 	Host     string
@@ -92,6 +93,7 @@ func (f presetInput) concretize() (Preset, error) {
 		return Preset{}, err
 	}
 	return Preset{
+		ID:       strings.TrimSpace(f.ID),
 		Title:    f.Title,
 		Type:     strings.TrimSpace(f.Type),
 		Host:     f.Host,

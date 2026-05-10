@@ -26,6 +26,7 @@
   ],
   "Presets": [
     {
+      "ID": "preset-sdf",
       "Title": "SDF.org Unix Shell",
       "Type": "SSH",
       "Host": "sdf.org:22",
@@ -36,6 +37,7 @@
       }
     },
     {
+      "ID": "preset-localhost-ssh",
       "Title": "My own super secure server",
       "Type": "SSH",
       "Host": "localhost",
@@ -48,6 +50,7 @@
       }
     },
     {
+      "ID": "preset-localhost-telnet",
       "Title": "My own super expensive router",
       "Type": "Telnet",
       "Host": "localhost",
@@ -56,6 +59,7 @@
       }
     },
     {
+      "ID": "preset-example-mosh",
       "Title": "Example Mosh",
       "Type": "Mosh",
       "Host": "ssh.example.com:22",

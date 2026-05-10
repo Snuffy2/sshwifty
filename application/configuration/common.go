@@ -18,6 +18,8 @@ import (
 // instances within a single Configuration. It is derived from a Configuration
 // via Configuration.Common() and passed to each server at startup.
 type Common struct {
+	// SourceFile is the JSON configuration file path when loaded from disk.
+	SourceFile string
 	// HostName is the public hostname used in generated links and TLS validation.
 	HostName string
 	// SharedKey is the pre-shared secret required for client authentication;
@@ -32,9 +34,19 @@ type Common struct {
 	Socks5Configured bool
 	// Presets is the list of pre-configured remote endpoints shown in the UI.
 	Presets []Preset
+	// PresetRepository stores the live preset list for runtime updates.
+	PresetRepository *PresetRepository
 	// Hooks contains the hook settings that govern lifecycle callbacks.
 	Hooks HookSettings
 	// OnlyAllowPresetRemotes restricts outbound connections to hosts listed in
 	// Presets when true.
 	OnlyAllowPresetRemotes bool
+}
+
+// CurrentPresets returns the current live preset list.
+func (c Common) CurrentPresets() []Preset {
+	if c.PresetRepository == nil {
+		return c.Presets
+	}
+	return c.PresetRepository.List()
 }

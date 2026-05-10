@@ -40,6 +40,7 @@ type socketVerification struct {
 // preset remote connection. It is derived from configuration.Preset and
 // transmitted to the client as part of the socket access configuration.
 type socketRemotePreset struct {
+	ID       string            `json:"id"`
 	Title    string            `json:"title"`
 	Type     string            `json:"type"`
 	Host     string            `json:"host"`
@@ -67,6 +68,7 @@ func newSocketAccessConfiguration(
 	for i := range presets {
 		presets[i] = socketRemotePreset{
 			Title:    remotes[i].Title,
+			ID:       remotes[i].ID,
 			Type:     remotes[i].Type,
 			Host:     remotes[i].Host,
 			TabColor: remotes[i].TabColor,
@@ -142,7 +144,12 @@ func (s socketVerification) setServerConfigRespond(
 		hd.Add("X-OnlyAllowPresetRemotes", "yes")
 	}
 	hd.Add("Content-Type", "text/json; charset=utf-8")
-	w.Write(s.configRspBody)
+	w.Write(buildAccessConfigRespondBody(
+		newSocketAccessConfiguration(
+			s.commonCfg.CurrentPresets(),
+			s.serverCfg.ServerMessage,
+		),
+	))
 }
 
 // Get handles HTTP GET requests for the socket verification endpoint. When no

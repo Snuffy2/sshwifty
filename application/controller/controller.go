@@ -46,6 +46,7 @@ type handler struct {
 	homeCtl         home
 	socketCtl       socket
 	socketVerifyCtl socketVerification
+	presetConfigCtl presetConfig
 }
 
 // ServeHTTP implements http.Handler. It enforces hostname restrictions,
@@ -104,6 +105,8 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		err = serveController(h.socketCtl, &ctlResponder, r, clientLogger)
 	case "/sshwifty/socket/verify":
 		err = serveController(h.socketVerifyCtl, &ctlResponder, r, clientLogger)
+	case "/sshwifty/config/presets":
+		err = serveController(h.presetConfigCtl, &ctlResponder, r, clientLogger)
 	case "/robots.txt":
 		err = serveStaticCacheData(
 			"robots.txt",
@@ -173,6 +176,7 @@ func Builder(cmds command.Commands) server.HandlerBuilder {
 			homeCtl:         home{},
 			socketCtl:       socketCtl,
 			socketVerifyCtl: newSocketVerification(socketCtl, cfg, commonCfg),
+			presetConfigCtl: newPresetConfig(commonCfg, cmds),
 		}
 	}
 }
