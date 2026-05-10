@@ -201,6 +201,50 @@ func TestMoshBuildRemoteSessionHonorsPresetRestriction(t *testing.T) {
 	}
 }
 
+func TestMoshResolveSSHBootstrapAddressResolvesHostnameToIPv4(t *testing.T) {
+	client := &moshClient{
+		baseCtx: context.Background(),
+		cfg: command.Configuration{
+			DialTimeout: 2 * time.Second,
+		},
+		hostResolver: func(ctx context.Context, host string) ([]net.IP, error) {
+			deadline, hasDeadline := ctx.Deadline()
+			if !hasDeadline {
+				t.Fatal("expected hostname resolution context to carry a deadline")
+			}
+			if time.Until(deadline) <= 0 {
+				t.Fatal("expected hostname resolution deadline to be in the future")
+			}
+			if host != "example.com" {
+				t.Fatalf("expected resolver host example.com, got %q", host)
+			}
+
+			return []net.IP{
+				net.ParseIP("2001:db8::1"),
+				net.ParseIP("198.51.100.23"),
+			}, nil
+		},
+	}
+
+	address, err := client.resolveMoshSSHBootstrapAddress("example.com:22")
+	if err != nil {
+		t.Fatalf("expected SSH bootstrap address resolution to succeed, got %v", err)
+	}
+
+	if address != "198.51.100.23:22" {
+		t.Fatalf("expected IPv4 bootstrap address, got %q", address)
+	}
+}
+
+func TestMoshResolveSSHBootstrapAddressRejectsIPv6Literal(t *testing.T) {
+	client := &moshClient{baseCtx: context.Background()}
+
+	_, err := client.resolveMoshSSHBootstrapAddress("[2001:db8::1]:22")
+	if err == nil {
+		t.Fatal("expected IPv6 literal bootstrap address to be rejected")
+	}
+}
+
 func TestMoshAwaitRemoteSessionReadyReturnsInitialOutput(t *testing.T) {
 	client := &moshClient{
 		baseCtx: context.Background(),
@@ -278,6 +322,33 @@ func TestMoshAwaitRemoteSessionReadyAllowsQuietSession(t *testing.T) {
 	}
 }
 
+func TestParseMoshServerDetachedPID(t *testing.T) {
+	output := `MOSH CONNECT 60002 6HuXgr4e2ThPQW14LBDYCw
+
+mosh-server (mosh 1.4.0)
+[mosh-server detached, pid = 63458]`
+
+	pid, ok := parseMoshServerDetachedPID(output)
+	if !ok {
+		t.Fatal("expected detached mosh-server PID to parse")
+	}
+
+	if pid != 63458 {
+		t.Fatalf("expected PID 63458, got %d", pid)
+	}
+}
+
+func TestParseMoshServerDetachedPIDAllowsMissingPID(t *testing.T) {
+	pid, ok := parseMoshServerDetachedPID("MOSH CONNECT 60002 key")
+	if ok {
+		t.Fatal("expected missing detached PID to be reported")
+	}
+
+	if pid != 0 {
+		t.Fatalf("expected PID 0 when missing, got %d", pid)
+	}
+}
+
 func TestMoshBootupRejectsSocks5(t *testing.T) {
 	bufferPool := command.NewBufferPool(4096)
 	client := newMosh(
@@ -343,6 +414,47 @@ func TestMoshBootupRejectsMoshServerArguments(t *testing.T) {
 
 	if err.Code() != MoshRequestErrorBadMetadata {
 		t.Fatalf("expected bad metadata code, got %d", err.Code())
+	}
+}
+
+func TestMoshBootupCopiesUsernameBeforeReusingScratchBuffer(t *testing.T) {
+	bufferPool := command.NewBufferPool(4096)
+	machine := newMosh(
+		log.Ditch{},
+		command.NewHooks(configuration.HookSettings{}),
+		command.StreamResponder{},
+		command.Configuration{},
+		&bufferPool,
+	)
+	client, ok := machine.(*moshClient)
+	if !ok {
+		t.Fatal("expected newMosh to return *moshClient")
+	}
+
+	remoteStarted := make(chan string, 1)
+	client.remoteStarter = func(user string, address string, authMethodBuilder sshAuthMethodBuilder) {
+		client.remoteCloseWait.Done()
+		remoteStarted <- user
+	}
+
+	payload := buildMoshBootPayload(t, "pi", "atlantis.home", 22, SSHAuthMethodPrivateKey)
+	payload = appendMoshString(t, payload, "mosh-server")
+
+	state, err := client.Bootup(newLimitedReader(payload), nil)
+	if err != command.NoFSMError() {
+		t.Fatalf("expected bootup to succeed, got %v", err)
+	}
+	if state == nil {
+		t.Fatal("expected bootup state")
+	}
+
+	select {
+	case user := <-remoteStarted:
+		if user != "pi" {
+			t.Fatalf("expected copied username %q, got %q", "pi", user)
+		}
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("expected remote startup")
 	}
 }
 

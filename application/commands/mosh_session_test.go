@@ -6,6 +6,7 @@ package commands
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 )
@@ -33,6 +34,26 @@ func TestMoshSessionReceiveTimeoutIsNonFatal(t *testing.T) {
 
 	if output != nil {
 		t.Fatalf("expected nil output on timeout, got %q", output)
+	}
+}
+
+func TestMoshSessionReceiveReturnsErrorAfterClose(t *testing.T) {
+	session := moshGoSession{
+		client: moshGoClientFunc{},
+		closed: make(chan struct{}),
+	}
+
+	if err := session.Close(); err != nil {
+		t.Fatalf("expected close to succeed, got %v", err)
+	}
+
+	output, err := session.Recv(250 * time.Millisecond)
+	if !errors.Is(err, ErrMoshSessionClosed) {
+		t.Fatalf("expected session closed error, got %v", err)
+	}
+
+	if output != nil {
+		t.Fatalf("expected nil output after close, got %q", output)
 	}
 }
 
