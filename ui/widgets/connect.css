@@ -73,33 +73,3 @@
   position: absolute;
   backdrop-filter: blur(1px);
 }
-
-#connect-warning {
-  padding: 20px;
-  font-size: 0.85em;
-  background: #b44;
-  color: #fff;
-}
-
-#connect-warning-icon {
-  float: left;
-  display: block;
-  margin: 5px 20px 5px 0;
-}
-
-#connect-warning-icon::after {
-  background: #c55;
-}
-
-#connect-warning-msg {
-  overflow: auto;
-}
-
-#connect-warning-msg p {
-  margin: 0 0 5px 0;
-}
-
-#connect-warning-msg a {
-  color: #faa;
-  text-decoration: underline;
-}

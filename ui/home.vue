@@ -76,6 +76,12 @@ SPDX-License-Identifier: AGPL-3.0-only
           <hr />
           <p class="secondary" v-html="serverMessage"></p>
         </div>
+
+        <p id="home-content-source" class="secondary">
+          <a :href="sourceURL" target="_blank" rel="noopener noreferrer">
+            View source code
+          </a>
+        </p>
       </div>
     </screens>
 
@@ -147,6 +153,8 @@ import * as home_socket from "./home_socketctl.js";
 import * as home_history from "./home_historyctl.js";
 
 import * as presets from "./commands/presets.js";
+
+/* global __SSHWIFTY_SOURCE_URL__ */
 
 const BACKEND_CONNECT_ERROR =
   "Unable to connect to the Sshwifty backend server: ";
@@ -275,6 +283,7 @@ export default {
         lastID: 0,
         tabs: [],
       },
+      sourceURL: __SSHWIFTY_SOURCE_URL__,
     };
   },
   mounted() {
