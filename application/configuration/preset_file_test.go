@@ -151,3 +151,86 @@ func TestReplaceFilePresetsPreservesUnsupportedRawPresets(t *testing.T) {
 		t.Fatalf("second raw preset ID = %q, want preset-future", raw.Presets[1].ID)
 	}
 }
+
+func TestReplaceFilePresetsWithRuntimeDoesNotResolveRawMeta(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	keyPath := filepath.Join(t.TempDir(), "id_ed25519")
+	writePresetConfig(t, configPath, []map[string]any{
+		{
+			"ID":    "preset-atlantis",
+			"Title": "Atlantis",
+			"Type":  "SSH",
+			"Host":  "atlantis.home:22",
+			"Meta": map[string]any{
+				"User":           "pi",
+				"Authentication": "Private Key",
+				"Private Key":    "file://" + keyPath,
+			},
+		},
+	})
+	runtime := []Preset{
+		{
+			ID:    "preset-atlantis",
+			Title: "Atlantis",
+			Type:  "SSH",
+			Host:  "atlantis.home:22",
+			Meta: map[string]string{
+				"User":           "pi",
+				"Authentication": "Private Key",
+				"Private Key":    "PRIVATE KEY DATA",
+			},
+		},
+	}
+	next := []Preset{runtime[0]}
+	next[0].Meta["Fingerprint"] = "SHA256:abc"
+
+	if err := ReplaceFilePresetsWithRuntime(configPath, next, runtime); err != nil {
+		t.Fatalf("ReplaceFilePresetsWithRuntime returned error: %v", err)
+	}
+
+	raw, _, err := readCommonInputFile(configPath)
+	if err != nil {
+		t.Fatalf("readCommonInputFile returned error: %v", err)
+	}
+	if raw.Presets[0].Meta["Private Key"] != String("file://"+keyPath) {
+		t.Fatalf("raw private key = %q, want file URI", raw.Presets[0].Meta["Private Key"])
+	}
+}
+
+func TestReplaceFilePresetsDeletesOmittedMetaKeys(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	writePresetConfig(t, configPath, []map[string]any{
+		{
+			"ID":    "preset-atlantis",
+			"Title": "Atlantis",
+			"Type":  "SSH",
+			"Host":  "atlantis.home:22",
+			"Meta": map[string]any{
+				"User":        "pi",
+				"Fingerprint": "SHA256:abc",
+			},
+		},
+	})
+
+	if err := ReplaceFilePresets(configPath, []Preset{
+		{
+			ID:    "preset-atlantis",
+			Title: "Atlantis",
+			Type:  "SSH",
+			Host:  "atlantis.home:22",
+			Meta: map[string]string{
+				"User": "pi",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("ReplaceFilePresets returned error: %v", err)
+	}
+
+	raw, _, err := readCommonInputFile(configPath)
+	if err != nil {
+		t.Fatalf("readCommonInputFile returned error: %v", err)
+	}
+	if _, ok := raw.Presets[0].Meta["Fingerprint"]; ok {
+		t.Fatal("raw fingerprint was not deleted")
+	}
+}

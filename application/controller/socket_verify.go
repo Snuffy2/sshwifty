@@ -87,7 +87,8 @@ func newSocketAccessConfiguration(
 func sanitizeSocketPresetMeta(meta map[string]string) map[string]string {
 	sanitized := make(map[string]string, len(meta))
 	for key, value := range meta {
-		if key == configuration.PresetMetaPassword {
+		if key == configuration.PresetMetaPassword ||
+			key == configuration.PresetMetaEncryptedPassword {
 			continue
 		}
 		sanitized[key] = value

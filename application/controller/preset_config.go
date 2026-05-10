@@ -64,6 +64,12 @@ func (p presetConfig) Put(
 	r *http.Request,
 	l log.Logger,
 ) error {
+	if p.commonCfg.SharedKey == "" {
+		return NewError(
+			http.StatusForbidden,
+			"Preset updates require SharedKey authentication",
+		)
+	}
 	if err := p.requireAuth(r); err != nil {
 		return err
 	}

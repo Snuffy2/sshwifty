@@ -67,9 +67,13 @@ func replaceFilePresets(
 	if err != nil {
 		return err
 	}
-	concrete, concreteErr := raw.Presets.concretize()
-	if concreteErr != nil {
-		return concreteErr
+	concrete := runtimePresets
+	if concrete == nil {
+		var concreteErr error
+		concrete, concreteErr = raw.Presets.concretize()
+		if concreteErr != nil {
+			return concreteErr
+		}
 	}
 	raw.Presets = mergePresetInputs(raw.Presets, concrete, presets, runtimePresets)
 	return writeCommonInputFile(filePath, raw, mode)
@@ -181,9 +185,14 @@ func preserveRawString(raw string, current string, next string) string {
 }
 
 func mergePresetMeta(raw Meta, current map[string]string, next map[string]string) Meta {
-	merged := copyMeta(raw)
+	merged := Meta{}
 	for key, value := range next {
 		if currentValue, ok := current[key]; ok && value == currentValue {
+			if rawValue, rawOK := raw[key]; rawOK {
+				merged[key] = rawValue
+				continue
+			}
+			merged[key] = String(value)
 			continue
 		}
 		merged[key] = String(value)

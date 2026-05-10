@@ -14,7 +14,11 @@ func presetPasswordCredential(
 	user string,
 	host string,
 ) (string, bool) {
-	for _, preset := range cfg.Presets {
+	presets := cfg.Presets
+	if cfg.PresetRepository != nil {
+		presets = cfg.PresetRepository.List()
+	}
+	for _, preset := range presets {
 		if preset.Host != host {
 			continue
 		}

@@ -55,6 +55,26 @@ func newTestPresetConfig(t *testing.T, configPath string) presetConfig {
 	return newPresetConfig(cfg.Common(), commands.New())
 }
 
+func newAuthenticatedTestPresetConfig(t *testing.T, configPath string) presetConfig {
+	t.Helper()
+
+	controller := newTestPresetConfig(t, configPath)
+	controller.commonCfg.SharedKey = "test-shared-key"
+	return controller
+}
+
+func authorizePresetConfigRequest(controller presetConfig, request *http.Request) {
+	verifier := newSocketVerification(
+		socket{commonCfg: controller.commonCfg},
+		configuration.Server{},
+		controller.commonCfg,
+	)
+	request.Header.Set(
+		"X-Key",
+		base64.StdEncoding.EncodeToString(verifier.authKey(request)),
+	)
+}
+
 func normalizeStartupPresetIDsForTest(
 	cfg configuration.Configuration,
 ) (configuration.Configuration, error) {
@@ -94,9 +114,10 @@ func TestPresetConfigPutAddsMissingIDsAndPersists(t *testing.T) {
 	writePresetAPIConfig(t, configPath, []map[string]any{
 		{"ID": "preset-atlantis", "Title": "Atlantis", "Type": "SSH", "Host": "atlantis.home"},
 	})
-	controller := newTestPresetConfig(t, configPath)
+	controller := newAuthenticatedTestPresetConfig(t, configPath)
 	body := []byte(`{"presets":[{"title":"Columbia","type":"SSH","host":"columbia.home","meta":{"User":"pi"}}]}`)
 	request := httptest.NewRequest(http.MethodPut, "/sshwifty/config/presets", bytes.NewReader(body))
+	authorizePresetConfigRequest(controller, request)
 	recorder := httptest.NewRecorder()
 	writer := newResponseWriter(recorder)
 
@@ -130,9 +151,10 @@ func TestPresetConfigPutRemovesSupportedPresetsAndPreservesRawUnsupported(t *tes
 		{"ID": "preset-atlantis", "Title": "Atlantis", "Type": "SSH", "Host": "atlantis.home"},
 		{"ID": "preset-future", "Title": "Future", "Type": "Future", "Host": "future.home"},
 	})
-	controller := newTestPresetConfig(t, configPath)
+	controller := newAuthenticatedTestPresetConfig(t, configPath)
 	body := []byte(`{"presets":[{"id":"preset-columbia","title":"Columbia","type":"SSH","host":"columbia.home","meta":{"User":"pi"}}]}`)
 	request := httptest.NewRequest(http.MethodPut, "/sshwifty/config/presets", bytes.NewReader(body))
+	authorizePresetConfigRequest(controller, request)
 	recorder := httptest.NewRecorder()
 	writer := newResponseWriter(recorder)
 
@@ -167,9 +189,10 @@ func TestPresetConfigPutRemovesSupportedPresetsAndPreservesRawUnsupported(t *tes
 func TestPresetConfigPutRejectsDuplicateIDs(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
 	writePresetAPIConfig(t, configPath, nil)
-	controller := newTestPresetConfig(t, configPath)
+	controller := newAuthenticatedTestPresetConfig(t, configPath)
 	body := []byte(`{"presets":[{"id":"dup","title":"A","type":"SSH","host":"a.home"},{"id":"dup","title":"B","type":"SSH","host":"b.home"}]}`)
 	request := httptest.NewRequest(http.MethodPut, "/sshwifty/config/presets", bytes.NewReader(body))
+	authorizePresetConfigRequest(controller, request)
 	recorder := httptest.NewRecorder()
 	writer := newResponseWriter(recorder)
 
@@ -179,16 +202,32 @@ func TestPresetConfigPutRejectsDuplicateIDs(t *testing.T) {
 	}
 }
 
-func TestPresetConfigPutRejectsIDsDuplicatedAfterTrimming(t *testing.T) {
+func TestPresetConfigPutRequiresSharedKey(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
 	writePresetAPIConfig(t, configPath, nil)
 	controller := newTestPresetConfig(t, configPath)
+	body := []byte(`{"presets":[{"id":"preset-atlantis","title":"Atlantis","type":"SSH","host":"atlantis.home"}]}`)
+	request := httptest.NewRequest(http.MethodPut, "/sshwifty/config/presets", bytes.NewReader(body))
+	recorder := httptest.NewRecorder()
+	writer := newResponseWriter(recorder)
+
+	err := controller.Put(&writer, request, log.Ditch{})
+	if err == nil {
+		t.Fatal("Put returned nil error, want authentication requirement")
+	}
+}
+
+func TestPresetConfigPutRejectsIDsDuplicatedAfterTrimming(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	writePresetAPIConfig(t, configPath, nil)
+	controller := newAuthenticatedTestPresetConfig(t, configPath)
 	body := []byte(`{"presets":[{"id":" dup ","title":"A","type":"SSH","host":"a.home"},{"id":"dup","title":"B","type":"SSH","host":"b.home"}]}`)
 	request := httptest.NewRequest(
 		http.MethodPut,
 		"/sshwifty/config/presets",
 		bytes.NewReader(body),
 	)
+	authorizePresetConfigRequest(controller, request)
 	recorder := httptest.NewRecorder()
 	writer := newResponseWriter(recorder)
 
@@ -207,13 +246,14 @@ func TestPresetConfigPutEncryptsPlaintextPasswordsWhenKeyIsSet(t *testing.T) {
 	)
 	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
 	writePresetAPIConfig(t, configPath, nil)
-	controller := newTestPresetConfig(t, configPath)
+	controller := newAuthenticatedTestPresetConfig(t, configPath)
 	body := []byte(`{"presets":[{"id":"preset-atlantis","title":"Atlantis","type":"SSH","host":"atlantis.home","meta":{"User":"pi","Authentication":"Password","Password":"mypassword"}}]}`)
 	request := httptest.NewRequest(
 		http.MethodPut,
 		"/sshwifty/config/presets",
 		bytes.NewReader(body),
 	)
+	authorizePresetConfigRequest(controller, request)
 	recorder := httptest.NewRecorder()
 	writer := newResponseWriter(recorder)
 
@@ -228,8 +268,8 @@ func TestPresetConfigPutEncryptsPlaintextPasswordsWhenKeyIsSet(t *testing.T) {
 	if _, ok := response.Presets[0].Meta[configuration.PresetMetaPassword]; ok {
 		t.Fatal("response still contains plaintext Password")
 	}
-	if response.Presets[0].Meta[configuration.PresetMetaEncryptedPassword] == "" {
-		t.Fatal("response missing Encrypted Password")
+	if _, ok := response.Presets[0].Meta[configuration.PresetMetaEncryptedPassword]; ok {
+		t.Fatal("response exposed Encrypted Password")
 	}
 
 	_, reloaded, err := configuration.CustomFile(configPath)(log.Ditch{})
@@ -268,7 +308,7 @@ func TestSocketAccessConfigurationDoesNotExposePlaintextPasswords(t *testing.T) 
 	if _, ok := accessConfig.Presets[0].Meta[configuration.PresetMetaPassword]; ok {
 		t.Fatal("socket access configuration exposed plaintext Password")
 	}
-	if accessConfig.Presets[0].Meta[configuration.PresetMetaEncryptedPassword] != "encrypted" {
-		t.Fatal("socket access configuration removed encrypted password")
+	if _, ok := accessConfig.Presets[0].Meta[configuration.PresetMetaEncryptedPassword]; ok {
+		t.Fatal("socket access configuration exposed Encrypted Password")
 	}
 }

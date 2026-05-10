@@ -111,6 +111,45 @@ func TestNormalizeStartupPresetIDsMigratesPlaintextPresetPassword(t *testing.T) 
 	if reloaded.Presets[0].Meta["Encrypted Password"] == "" {
 		t.Fatal("persisted config is missing Encrypted Password")
 	}
+	if len(reloaded.Presets) != 1 {
+		t.Fatalf("persisted preset count = %d, want 1", len(reloaded.Presets))
+	}
+}
+
+func TestNormalizeStartupPresetIDsAllowsEnvPlaintextPresetPassword(t *testing.T) {
+	t.Setenv(
+		configuration.PresetSecretKeyEnv,
+		base64.StdEncoding.EncodeToString(
+			[]byte("0123456789abcdef0123456789abcdef"),
+		),
+	)
+	cfg := configuration.Configuration{
+		Presets: []configuration.Preset{
+			{
+				Title: "Atlantis",
+				Type:  "SSH",
+				Host:  "atlantis.home",
+				Meta: map[string]string{
+					"Authentication": "Password",
+					"Password":       "mypassword",
+				},
+			},
+		},
+	}
+
+	normalized, err := normalizeStartupPresetIDs(cfg)
+	if err != nil {
+		t.Fatalf("normalizeStartupPresetIDs returned error: %v", err)
+	}
+	if normalized.Presets[0].SecretMeta["Password"] != "mypassword" {
+		t.Fatal("normalized preset did not keep decrypted password in SecretMeta")
+	}
+	if _, ok := normalized.Presets[0].Meta["Password"]; ok {
+		t.Fatal("normalized env preset still contains plaintext Password")
+	}
+	if normalized.Presets[0].Meta["Encrypted Password"] == "" {
+		t.Fatal("normalized env preset is missing Encrypted Password")
+	}
 }
 
 func TestNormalizeStartupPresetIDsAllowsReadOnlyFileBackedIDs(t *testing.T) {

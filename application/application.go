@@ -179,7 +179,7 @@ func normalizeStartupPresetIDs(
 	}
 	c.Presets = presets
 	if changed && configuration.PresetConfigWritable(c.SourceFile) {
-		if err := configuration.ReplaceFilePresets(c.SourceFile, presets); err != nil {
+		if err := configuration.PersistPresetIDs(c.SourceFile, presets); err != nil {
 			return configuration.Configuration{}, err
 		}
 	}
@@ -190,9 +190,12 @@ func normalizeStartupPresetIDs(
 	c.Presets = presets
 	if secretsChanged {
 		if !configuration.PresetConfigWritable(c.SourceFile) {
-			return configuration.Configuration{}, fmt.Errorf(
-				"preset password migration requires a writable file-backed configuration",
-			)
+			if c.SourceFile != "" {
+				return configuration.Configuration{}, fmt.Errorf(
+					"preset password migration requires a writable file-backed configuration",
+				)
+			}
+			return c, nil
 		}
 		if err := configuration.ReplaceFilePresets(c.SourceFile, presets); err != nil {
 			return configuration.Configuration{}, err
