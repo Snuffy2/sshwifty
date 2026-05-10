@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Snuffy2/sshwifty/application/command"
@@ -23,6 +24,10 @@ const (
 	preserveHiddenPresetPasswordsHeader = "X-Preserve-Hidden-Preset-Passwords"
 	presetFingerprintIDHeader           = "X-Preset-Fingerprint-ID"
 	presetAdminKeyHeader                = "X-Preset-Admin-Key"
+	maxPresetConfigRequestBytes         = 256 * 1024
+	maxPresetConfigPresets              = 512
+	maxPresetConfigStringBytes          = 4096
+	maxPresetFingerprintBytes           = 256
 )
 
 // presetConfig handles backend preset configuration reads and writes.
@@ -31,6 +36,7 @@ type presetConfig struct {
 
 	commonCfg configuration.Common
 	commands  command.Commands
+	writeLock *sync.Mutex
 }
 
 // presetConfigResponse is the JSON envelope returned by preset config APIs.
@@ -51,6 +57,7 @@ func newPresetConfig(
 	return presetConfig{
 		commonCfg: commonCfg,
 		commands:  commands,
+		writeLock: &sync.Mutex{},
 	}
 }
 
@@ -89,7 +96,14 @@ func (p presetConfig) Put(
 	}
 
 	var request presetConfigRequest
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+	if err := json.NewDecoder(http.MaxBytesReader(
+		w,
+		r.Body,
+		maxPresetConfigRequestBytes,
+	)).Decode(&request); err != nil {
+		return NewError(http.StatusBadRequest, err.Error())
+	}
+	if err := validatePresetConfigRequest(request); err != nil {
 		return NewError(http.StatusBadRequest, err.Error())
 	}
 
@@ -104,6 +118,9 @@ func (p presetConfig) Put(
 			Meta:     preset.Meta,
 		}
 	}
+
+	p.writeLock.Lock()
+	defer p.writeLock.Unlock()
 
 	currentPresets := p.commonCfg.CurrentPresets()
 	fingerprintOnly := r.Header.Get(preserveHiddenPresetPasswordsHeader) == "yes"
@@ -140,6 +157,36 @@ func (p presetConfig) Put(
 	}
 	p.commonCfg.PresetRepository.Replace(normalized)
 	return p.writePresets(w, normalized)
+}
+
+func validatePresetConfigRequest(request presetConfigRequest) error {
+	if len(request.Presets) > maxPresetConfigPresets {
+		return fmt.Errorf(
+			"preset count %d exceeds maximum %d",
+			len(request.Presets),
+			maxPresetConfigPresets,
+		)
+	}
+	for _, preset := range request.Presets {
+		if stringTooLong(preset.ID, maxPresetConfigStringBytes) ||
+			stringTooLong(preset.Title, maxPresetConfigStringBytes) ||
+			stringTooLong(preset.Type, maxPresetConfigStringBytes) ||
+			stringTooLong(preset.Host, maxPresetConfigStringBytes) ||
+			stringTooLong(preset.TabColor, maxPresetConfigStringBytes) {
+			return fmt.Errorf("preset fields exceed maximum length")
+		}
+		for key, value := range preset.Meta {
+			if stringTooLong(key, maxPresetConfigStringBytes) ||
+				stringTooLong(value, maxPresetConfigStringBytes) {
+				return fmt.Errorf("preset metadata exceeds maximum length")
+			}
+		}
+	}
+	return nil
+}
+
+func stringTooLong(value string, maxBytes int) bool {
+	return len(value) > maxBytes
 }
 
 func validateFingerprintOnlyPresetUpdate(
@@ -181,8 +228,10 @@ func validateFingerprintOnlyPresetUpdate(
 		if preset.ID != targetPresetID {
 			return fmt.Errorf("fingerprint save cannot change preset %q", preset.ID)
 		}
-		if strings.TrimSpace(preset.Meta["Fingerprint"]) == "" {
-			return fmt.Errorf("fingerprint save cannot remove a fingerprint")
+		if err := validatePresetFingerprint(
+			preset.Meta["Fingerprint"],
+		); err != nil {
+			return err
 		}
 		if changedFingerprint {
 			return fmt.Errorf("fingerprint save can only change one preset")
@@ -191,6 +240,25 @@ func validateFingerprintOnlyPresetUpdate(
 	}
 	if !changedFingerprint {
 		return fmt.Errorf("fingerprint save did not change preset %q", targetPresetID)
+	}
+	return nil
+}
+
+func validatePresetFingerprint(fingerprint string) error {
+	fingerprint = strings.TrimSpace(fingerprint)
+	if fingerprint == "" {
+		return fmt.Errorf("fingerprint save cannot remove a fingerprint")
+	}
+	if len(fingerprint) > maxPresetFingerprintBytes {
+		return fmt.Errorf("fingerprint exceeds maximum length")
+	}
+	if !strings.Contains(fingerprint, ":") {
+		return fmt.Errorf("fingerprint has invalid format")
+	}
+	for _, r := range fingerprint {
+		if r < 0x21 || r == 0x7f {
+			return fmt.Errorf("fingerprint has invalid format")
+		}
 	}
 	return nil
 }
