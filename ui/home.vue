@@ -153,6 +153,7 @@ import * as home_socket from "./home_socketctl.js";
 import * as home_history from "./home_historyctl.js";
 
 import * as presets from "./commands/presets.js";
+import { buildPresetExecution } from "./home_preset_execution.js";
 
 /* global __SSHWIFTY_SOURCE_URL__ */
 
@@ -495,6 +496,31 @@ export default {
       const self = this;
 
       self.runConnect((stream) => {
+        const presetExecution = buildPresetExecution(preset);
+        if (presetExecution !== null) {
+          self.connector.connector = {
+            id: preset.command.id(),
+            name: preset.command.name(),
+            description: preset.command.description(),
+            wizard: markRaw(
+              preset.command.execute(
+                stream,
+                self.controls,
+                self.connector.historyRec,
+                presetExecution.config,
+                presetExecution.session,
+                presetExecution.keptSessions,
+                () => {
+                  self.connector.knowns = self.connector.historyRec.all();
+                },
+              ),
+            ),
+          };
+
+          self.connector.inputting = true;
+          return;
+        }
+
         self.connector.connector = {
           id: preset.command.id(),
           name: preset.command.name(),
