@@ -178,7 +178,7 @@ func normalizeStartupPresetIDs(
 		return configuration.Configuration{}, err
 	}
 	c.Presets = presets
-	if changed {
+	if changed && configuration.PresetConfigWritable(c.SourceFile) {
 		if err := configuration.PersistPresetIDs(c.SourceFile, presets); err != nil {
 			return configuration.Configuration{}, err
 		}

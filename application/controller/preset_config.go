@@ -65,10 +65,10 @@ func (p presetConfig) Put(
 	if err := p.requireAuth(r); err != nil {
 		return err
 	}
-	if p.commonCfg.SourceFile == "" {
+	if !p.commonCfg.PresetConfigWritable() {
 		return NewError(
 			http.StatusConflict,
-			"Preset updates require a file-backed configuration",
+			"Preset updates require a writable file-backed configuration",
 		)
 	}
 
