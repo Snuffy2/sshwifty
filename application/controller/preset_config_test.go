@@ -313,6 +313,7 @@ func TestPresetConfigPutPreservesHiddenPasswordOnFingerprintSave(t *testing.T) {
 		bytes.NewReader(body),
 	)
 	authorizePresetConfigRequest(controller, request)
+	request.Header.Set(preserveHiddenPresetPasswordsHeader, "yes")
 	recorder := httptest.NewRecorder()
 	writer := newResponseWriter(recorder)
 
@@ -343,11 +344,98 @@ func TestPresetConfigPutPreservesHiddenPasswordOnFingerprintSave(t *testing.T) {
 	}
 }
 
+func TestPresetConfigPutCanDeleteHiddenPassword(t *testing.T) {
+	t.Setenv(
+		configuration.PresetSecretKeyEnv,
+		base64.StdEncoding.EncodeToString(
+			[]byte("0123456789abcdef0123456789abcdef"),
+		),
+	)
+	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	writePresetAPIConfig(t, configPath, []map[string]any{
+		{
+			"ID":    "preset-atlantis",
+			"Title": "Atlantis",
+			"Type":  "SSH",
+			"Host":  "atlantis.home",
+			"Meta": map[string]string{
+				"User":           "pi",
+				"Authentication": "Password",
+				"Password":       "mypassword",
+			},
+		},
+	})
+	controller := newAuthenticatedTestPresetConfig(t, configPath)
+	body := []byte(`{"presets":[{"id":"preset-atlantis","title":"Atlantis","type":"SSH","host":"atlantis.home:22","meta":{"User":"pi","Authentication":"Password"}}]}`)
+	request := httptest.NewRequest(
+		http.MethodPut,
+		"/sshwifty/config/presets",
+		bytes.NewReader(body),
+	)
+	authorizePresetConfigRequest(controller, request)
+	recorder := httptest.NewRecorder()
+	writer := newResponseWriter(recorder)
+
+	if err := controller.Put(&writer, request, log.Ditch{}); err != nil {
+		t.Fatalf("Put returned error: %v", err)
+	}
+
+	live := controller.commonCfg.CurrentPresets()
+	if _, ok := live[0].Meta[configuration.PresetMetaEncryptedPassword]; ok {
+		t.Fatal("live preset still contains Encrypted Password")
+	}
+	if _, ok := live[0].SecretMeta[configuration.PresetMetaPassword]; ok {
+		t.Fatal("live preset still contains hidden Password")
+	}
+
+	_, reloaded, err := configuration.CustomFile(configPath)(log.Ditch{})
+	if err != nil {
+		t.Fatalf("CustomFile returned error: %v", err)
+	}
+	if _, ok := reloaded.Presets[0].Meta[configuration.PresetMetaEncryptedPassword]; ok {
+		t.Fatal("persisted config still contains Encrypted Password")
+	}
+	if _, ok := reloaded.Presets[0].Meta[configuration.PresetMetaPassword]; ok {
+		t.Fatal("persisted config still contains Password")
+	}
+}
+
 func TestSocketAccessConfigurationIncludesPresetConfigWritable(t *testing.T) {
 	accessConfig := newSocketAccessConfiguration(nil, "", true)
 
 	if !accessConfig.PresetConfigWritable {
 		t.Fatal("PresetConfigWritable = false, want true")
+	}
+}
+
+func TestSocketVerificationAdvertisesPresetConfigWritableOnlyWithSharedKey(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	writePresetAPIConfig(t, configPath, nil)
+
+	withoutKey := newSocketVerification(
+		socket{},
+		configuration.Server{},
+		configuration.Common{SourceFile: configPath},
+	)
+	var withoutKeyConfig socketAccessConfiguration
+	if err := json.Unmarshal(withoutKey.configRspBody, &withoutKeyConfig); err != nil {
+		t.Fatalf("json.Unmarshal without key returned error: %v", err)
+	}
+	if withoutKeyConfig.PresetConfigWritable {
+		t.Fatal("PresetConfigWritable = true without SharedKey, want false")
+	}
+
+	withKey := newSocketVerification(
+		socket{},
+		configuration.Server{},
+		configuration.Common{SourceFile: configPath, SharedKey: "secret"},
+	)
+	var withKeyConfig socketAccessConfiguration
+	if err := json.Unmarshal(withKey.configRspBody, &withKeyConfig); err != nil {
+		t.Fatalf("json.Unmarshal with key returned error: %v", err)
+	}
+	if !withKeyConfig.PresetConfigWritable {
+		t.Fatal("PresetConfigWritable = false with SharedKey, want true")
 	}
 }
 

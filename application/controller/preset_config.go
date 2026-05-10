@@ -17,6 +17,8 @@ import (
 	"github.com/Snuffy2/sshwifty/application/log"
 )
 
+const preserveHiddenPresetPasswordsHeader = "X-Preserve-Hidden-Preset-Passwords"
+
 // presetConfig handles backend preset configuration reads and writes.
 type presetConfig struct {
 	baseController
@@ -97,7 +99,12 @@ func (p presetConfig) Put(
 		}
 	}
 
-	presets = preserveHiddenPresetPasswords(presets, p.commonCfg.CurrentPresets())
+	if r.Header.Get(preserveHiddenPresetPasswordsHeader) == "yes" {
+		presets = preserveHiddenPresetPasswords(
+			presets,
+			p.commonCfg.CurrentPresets(),
+		)
+	}
 	normalized, _, err := configuration.EnsurePresetIDs(presets)
 	if err != nil {
 		return NewError(http.StatusBadRequest, err.Error())

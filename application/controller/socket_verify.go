@@ -125,7 +125,7 @@ func newSocketVerification(
 			newSocketAccessConfiguration(
 				commCfg.Presets,
 				srvCfg.ServerMessage,
-				commCfg.PresetConfigWritable(),
+				commCfg.SharedKey != "" && commCfg.PresetConfigWritable(),
 			),
 		),
 	}
@@ -164,7 +164,7 @@ func (s socketVerification) setServerConfigRespond(
 		newSocketAccessConfiguration(
 			s.commonCfg.CurrentPresets(),
 			s.serverCfg.ServerMessage,
-			s.commonCfg.PresetConfigWritable(),
+			s.commonCfg.SharedKey != "" && s.commonCfg.PresetConfigWritable(),
 		),
 	))
 }

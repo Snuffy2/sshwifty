@@ -124,3 +124,23 @@ func TestApplyPresetSecretsRejectsEncryptedPasswordWithoutKey(t *testing.T) {
 		t.Fatal("ApplyPresetSecrets returned nil error, want missing key error")
 	}
 }
+
+func TestApplyPresetSecretsRejectsInvalidNonceLength(t *testing.T) {
+	t.Setenv(
+		PresetSecretKeyEnv,
+		base64.StdEncoding.EncodeToString(
+			[]byte("0123456789abcdef0123456789abcdef"),
+		),
+	)
+
+	_, _, err := ApplyPresetSecrets([]Preset{
+		{
+			Meta: map[string]string{
+				PresetMetaEncryptedPassword: "v1:aes-256-gcm:AQ==:Y2lwaGVydGV4dA==",
+			},
+		},
+	})
+	if err == nil {
+		t.Fatal("ApplyPresetSecrets returned nil error, want nonce length error")
+	}
+}

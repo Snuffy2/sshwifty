@@ -157,6 +157,13 @@ func decryptPresetSecret(key []byte, encrypted string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if len(nonce) != aead.NonceSize() {
+		return "", fmt.Errorf(
+			"encrypted preset password nonce has length %d, want %d",
+			len(nonce),
+			aead.NonceSize(),
+		)
+	}
 	plaintext, err := aead.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
 		return "", fmt.Errorf("decrypt preset password: %w", err)

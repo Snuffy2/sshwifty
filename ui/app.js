@@ -386,6 +386,7 @@ function startApp(rootEl) {
         }
 
         const headers = await this.presetConfigHeaders();
+        headers["X-Preserve-Hidden-Preset-Passwords"] = "yes";
         const getResponse = await xhr.get(presetConfigInterface, headers);
         if (getResponse.status !== 200) {
           throw new Error("Preset config read failed: " + getResponse.status);
