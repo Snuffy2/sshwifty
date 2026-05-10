@@ -201,45 +201,19 @@ func TestMoshBuildRemoteSessionHonorsPresetRestriction(t *testing.T) {
 	}
 }
 
-func TestMoshResolveSSHBootstrapAddressResolvesHostnameToIPv4(t *testing.T) {
-	client := &moshClient{
-		baseCtx: context.Background(),
-		cfg: command.Configuration{
-			DialTimeout: 2 * time.Second,
-		},
-		hostResolver: func(ctx context.Context, host string) ([]net.IP, error) {
-			deadline, hasDeadline := ctx.Deadline()
-			if !hasDeadline {
-				t.Fatal("expected hostname resolution context to carry a deadline")
-			}
-			if time.Until(deadline) <= 0 {
-				t.Fatal("expected hostname resolution deadline to be in the future")
-			}
-			if host != "example.com" {
-				t.Fatalf("expected resolver host example.com, got %q", host)
-			}
-
-			return []net.IP{
-				net.ParseIP("2001:db8::1"),
-				net.ParseIP("198.51.100.23"),
-			}, nil
-		},
-	}
-
-	address, err := client.resolveMoshSSHBootstrapAddress("example.com:22")
+func TestMoshSSHBootstrapNetworkUsesIPv4DialForHostnames(t *testing.T) {
+	networkName, err := moshSSHBootstrapNetwork("example.com:22")
 	if err != nil {
-		t.Fatalf("expected SSH bootstrap address resolution to succeed, got %v", err)
+		t.Fatalf("expected SSH bootstrap network selection to succeed, got %v", err)
 	}
 
-	if address != "198.51.100.23:22" {
-		t.Fatalf("expected IPv4 bootstrap address, got %q", address)
+	if networkName != "tcp4" {
+		t.Fatalf("expected tcp4 bootstrap network, got %q", networkName)
 	}
 }
 
-func TestMoshResolveSSHBootstrapAddressRejectsIPv6Literal(t *testing.T) {
-	client := &moshClient{baseCtx: context.Background()}
-
-	_, err := client.resolveMoshSSHBootstrapAddress("[2001:db8::1]:22")
+func TestMoshSSHBootstrapNetworkRejectsIPv6Literal(t *testing.T) {
+	_, err := moshSSHBootstrapNetwork("[2001:db8::1]:22")
 	if err == nil {
 		t.Fatal("expected IPv6 literal bootstrap address to be rejected")
 	}
@@ -346,6 +320,57 @@ func TestParseMoshServerDetachedPIDAllowsMissingPID(t *testing.T) {
 
 	if pid != 0 {
 		t.Fatalf("expected PID 0 when missing, got %d", pid)
+	}
+}
+
+func TestMoshRemoteMonitorExitClosesSession(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	session := newBlockingFakeMoshSession()
+	client := &moshClient{
+		baseCtx:       ctx,
+		baseCtxCancel: cancel,
+		l:             log.Ditch{},
+		session:       session,
+	}
+	monitorDone := make(chan bool, 1)
+	monitorDone <- true
+
+	client.closeSessionWhenRemoteMoshServerExits(monitorDone)
+
+	if !session.closed {
+		t.Fatal("expected ended remote mosh-server to close the local session")
+	}
+
+	select {
+	case <-ctx.Done():
+	default:
+		t.Fatal("expected ended remote mosh-server to cancel the base context")
+	}
+}
+
+func TestMoshRemoteMonitorFailureKeepsSessionOpen(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	session := newBlockingFakeMoshSession()
+	client := &moshClient{
+		baseCtx:       ctx,
+		baseCtxCancel: cancel,
+		l:             log.Ditch{},
+		session:       session,
+	}
+	monitorDone := make(chan bool, 1)
+	monitorDone <- false
+
+	client.closeSessionWhenRemoteMoshServerExits(monitorDone)
+
+	if session.closed {
+		t.Fatal("expected monitor failure to leave the local session open")
+	}
+
+	select {
+	case <-ctx.Done():
+		t.Fatal("expected monitor failure to leave the base context active")
+	default:
 	}
 }
 
