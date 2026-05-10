@@ -38,7 +38,7 @@ SPDX-License-Identifier: AGPL-3.0-only
       ></connect-known>
 
       <connect-new
-        v-if="tab === 'new' && !inputting"
+        v-if="tab === 'new' && !inputting && !restrictedToPresets"
         :connectors="connectors"
         @select="selectConnector"
       ></connect-new>
@@ -159,6 +159,10 @@ export default {
      */
     switchTab(to) {
       if (this.inputting) {
+        return;
+      }
+
+      if (to === "new" && this.restrictedToPresets) {
         return;
       }
 
