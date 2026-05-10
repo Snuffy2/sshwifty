@@ -43,6 +43,10 @@ describe("Mosh Command", () => {
     assert.strictEqual(new mosh.Command().id(), 0x02);
   });
 
+  it("uses a protocol color distinct from SSH green", () => {
+    assert.strictEqual(new mosh.Command().color(), "#c73");
+  });
+
   it("keeps launcher compatibility and omits the default Mosh Server", () => {
     const cmd = new mosh.Command();
 

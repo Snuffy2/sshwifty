@@ -1101,7 +1101,7 @@ export class Command {
   }
 
   color() {
-    return "#9c6";
+    return "#c73";
   }
 
   wizard(
