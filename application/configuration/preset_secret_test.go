@@ -40,6 +40,37 @@ func TestApplyPresetSecretsLeavesPlaintextWithoutKey(t *testing.T) {
 	}
 }
 
+func TestApplyPresetSecretsRemovesEncryptedPasswordWhenPlaintextUsedWithoutKey(t *testing.T) {
+	t.Setenv(PresetSecretKeyEnv, "")
+
+	presets, changed, err := ApplyPresetSecrets([]Preset{
+		{
+			Title: "Atlantis",
+			Type:  "SSH",
+			Host:  "atlantis.home:22",
+			Meta: map[string]string{
+				PresetMetaPassword:          "mypassword",
+				PresetMetaEncryptedPassword: "v1:aes-256-gcm:nonce:ciphertext",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("ApplyPresetSecrets returned error: %v", err)
+	}
+	if !changed {
+		t.Fatal("ApplyPresetSecrets changed = false, want true")
+	}
+	if presets[0].Meta[PresetMetaPassword] != "mypassword" {
+		t.Fatal("plaintext password was not preserved")
+	}
+	if _, ok := presets[0].Meta[PresetMetaEncryptedPassword]; ok {
+		t.Fatal("encrypted password was preserved without a key")
+	}
+	if presets[0].SecretMeta[PresetMetaPassword] != "mypassword" {
+		t.Fatal("plaintext password was not stored in SecretMeta")
+	}
+}
+
 func TestApplyPresetSecretsEncryptsPlaintextWithKey(t *testing.T) {
 	t.Setenv(PresetSecretKeyEnv, presetSecretTestKey(t))
 

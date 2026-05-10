@@ -8,8 +8,9 @@ import "sync"
 
 // PresetRepository stores the live preset list shared by HTTP controllers.
 type PresetRepository struct {
-	lock    sync.RWMutex
-	presets []Preset
+	lock       sync.RWMutex
+	updateLock sync.Mutex
+	presets    []Preset
 }
 
 // NewPresetRepository creates a repository seeded with presets.
@@ -36,6 +37,16 @@ func (r *PresetRepository) Replace(presets []Preset) {
 
 	r.presets = make([]Preset, len(presets))
 	copy(r.presets, presets)
+}
+
+// LockUpdates serializes multi-step preset update transactions.
+func (r *PresetRepository) LockUpdates() {
+	r.updateLock.Lock()
+}
+
+// UnlockUpdates releases a multi-step preset update transaction.
+func (r *PresetRepository) UnlockUpdates() {
+	r.updateLock.Unlock()
 }
 
 // Allowed reports whether host is in the live preset list.

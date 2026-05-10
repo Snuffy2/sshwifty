@@ -42,6 +42,12 @@ func writePresetAPIConfig(t *testing.T, path string, presets []map[string]any) {
 func newTestPresetConfig(t *testing.T, configPath string) presetConfig {
 	t.Helper()
 
+	return newTestPresetConfigPair(t, configPath)[0]
+}
+
+func newTestPresetConfigPair(t *testing.T, configPath string) [2]presetConfig {
+	t.Helper()
+
 	_, cfg, err := configuration.CustomFile(configPath)(log.Ditch{})
 	if err != nil {
 		t.Fatalf("CustomFile returned error: %v", err)
@@ -54,7 +60,12 @@ func newTestPresetConfig(t *testing.T, configPath string) presetConfig {
 	if err != nil {
 		t.Fatalf("Reconfigure returned error: %v", err)
 	}
-	return newPresetConfig(cfg.Common(), commands.New())
+	commonCfg := cfg.Common()
+	cmds := commands.New()
+	return [2]presetConfig{
+		newPresetConfig(commonCfg, cmds),
+		newPresetConfig(commonCfg, cmds),
+	}
 }
 
 func newAuthenticatedTestPresetConfig(t *testing.T, configPath string) presetConfig {
@@ -526,7 +537,9 @@ func TestPresetConfigPutSerializesConcurrentFingerprintSaves(t *testing.T) {
 			},
 		},
 	})
-	controller := newAuthenticatedTestPresetConfig(t, configPath)
+	controllers := newTestPresetConfigPair(t, configPath)
+	controllers[0].commonCfg.SharedKey = "test-shared-key"
+	controllers[1].commonCfg.SharedKey = "test-shared-key"
 	bodies := [][]byte{
 		[]byte(`{"presets":[{"id":"preset-atlantis","title":"Atlantis","type":"SSH","host":"atlantis.home:22","meta":{"User":"pi","Fingerprint":"SHA256:atlantis"}},{"id":"preset-columbia","title":"Columbia","type":"SSH","host":"columbia.home:22","meta":{"User":"pi"}}]}`),
 		[]byte(`{"presets":[{"id":"preset-atlantis","title":"Atlantis","type":"SSH","host":"atlantis.home:22","meta":{"User":"pi"}},{"id":"preset-columbia","title":"Columbia","type":"SSH","host":"columbia.home:22","meta":{"User":"pi","Fingerprint":"SHA256:columbia"}}]}`),
@@ -544,6 +557,7 @@ func TestPresetConfigPutSerializesConcurrentFingerprintSaves(t *testing.T) {
 				"/sshwifty/config/presets",
 				bytes.NewReader(bodies[i]),
 			)
+			controller := controllers[i]
 			authorizePresetConfigRequest(controller, request)
 			request.Header.Set(preserveHiddenPresetPasswordsHeader, "yes")
 			request.Header.Set(presetFingerprintIDHeader, targetIDs[i])
@@ -708,6 +722,38 @@ func TestPresetConfigPutCanDeleteHiddenPassword(t *testing.T) {
 	}
 	if _, ok := reloaded.Presets[0].Meta[configuration.PresetMetaPassword]; ok {
 		t.Fatal("persisted config still contains Password")
+	}
+}
+
+func TestPresetConfigPutPreservesPlaintextPasswordWhenEncryptedAlsoPresentWithoutKey(t *testing.T) {
+	t.Setenv(configuration.PresetSecretKeyEnv, "")
+	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	writePresetAPIConfig(t, configPath, nil)
+	controller := newAdminTestPresetConfig(t, configPath)
+	body := []byte(`{"presets":[{"id":"preset-atlantis","title":"Atlantis","type":"SSH","host":"atlantis.home","meta":{"User":"pi","Authentication":"Password","Password":"mypassword","Encrypted Password":"v1:aes-256-gcm:nonce:ciphertext"}}]}`)
+	request := httptest.NewRequest(
+		http.MethodPut,
+		"/sshwifty/config/presets",
+		bytes.NewReader(body),
+	)
+	authorizePresetConfigRequest(controller, request)
+	authorizePresetAdminRequest(controller, request)
+	recorder := httptest.NewRecorder()
+	writer := newResponseWriter(recorder)
+
+	if err := controller.Put(&writer, request, log.Ditch{}); err != nil {
+		t.Fatalf("Put returned error: %v", err)
+	}
+
+	_, reloaded, err := configuration.CustomFile(configPath)(log.Ditch{})
+	if err != nil {
+		t.Fatalf("CustomFile returned error: %v", err)
+	}
+	if reloaded.Presets[0].Meta[configuration.PresetMetaPassword] != "mypassword" {
+		t.Fatal("persisted config missing plaintext Password")
+	}
+	if _, ok := reloaded.Presets[0].Meta[configuration.PresetMetaEncryptedPassword]; ok {
+		t.Fatal("persisted config kept Encrypted Password without key")
 	}
 }
 

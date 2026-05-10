@@ -49,6 +49,10 @@ func ApplyPresetSecrets(presets []Preset) ([]Preset, bool, error) {
 		if hasPlaintext {
 			processed[i].SecretMeta[PresetMetaPassword] = plaintext
 			if !hasKey {
+				if hasEncrypted {
+					delete(processed[i].Meta, PresetMetaEncryptedPassword)
+					changed = true
+				}
 				continue
 			}
 			encryptedPassword, encryptErr := encryptPresetSecret(key, plaintext)

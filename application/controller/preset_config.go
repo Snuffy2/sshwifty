@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/Snuffy2/sshwifty/application/command"
@@ -36,7 +35,6 @@ type presetConfig struct {
 
 	commonCfg configuration.Common
 	commands  command.Commands
-	writeLock *sync.Mutex
 }
 
 // presetConfigResponse is the JSON envelope returned by preset config APIs.
@@ -57,7 +55,6 @@ func newPresetConfig(
 	return presetConfig{
 		commonCfg: commonCfg,
 		commands:  commands,
-		writeLock: &sync.Mutex{},
 	}
 }
 
@@ -119,8 +116,8 @@ func (p presetConfig) Put(
 		}
 	}
 
-	p.writeLock.Lock()
-	defer p.writeLock.Unlock()
+	p.lockPresetUpdates()
+	defer p.unlockPresetUpdates()
 
 	currentPresets := p.commonCfg.CurrentPresets()
 	fingerprintOnly := r.Header.Get(preserveHiddenPresetPasswordsHeader) == "yes"
@@ -157,6 +154,18 @@ func (p presetConfig) Put(
 	}
 	p.commonCfg.PresetRepository.Replace(normalized)
 	return p.writePresets(w, normalized)
+}
+
+func (p presetConfig) lockPresetUpdates() {
+	if p.commonCfg.PresetRepository != nil {
+		p.commonCfg.PresetRepository.LockUpdates()
+	}
+}
+
+func (p presetConfig) unlockPresetUpdates() {
+	if p.commonCfg.PresetRepository != nil {
+		p.commonCfg.PresetRepository.UnlockUpdates()
+	}
 }
 
 func validatePresetConfigRequest(request presetConfigRequest) error {
