@@ -541,10 +541,7 @@ func (d *moshClient) monitorRemoteMoshServer(conn *ssh.Client, output string) (<
 	go func() {
 		defer close(done)
 		defer session.Close()
-		commandText := fmt.Sprintf(
-			"while kill -0 %d 2>/dev/null; do sleep 1; done; printf 'sshwifty-mosh-server-exited\\n'",
-			pid,
-		)
+		commandText := renderMoshServerMonitorCommand(pid)
 		output, err := session.CombinedOutput(commandText)
 		if err != nil {
 			d.l.Debug("Remote mosh-server monitor exited with an error: %s", err)
@@ -555,6 +552,14 @@ func (d *moshClient) monitorRemoteMoshServer(conn *ssh.Client, output string) (<
 	}()
 
 	return done, nil
+}
+
+func renderMoshServerMonitorCommand(pid int) string {
+	script := fmt.Sprintf(
+		`while kill -0 %d 2>/dev/null; do sleep 1; done; printf "%%s\n" sshwifty-mosh-server-exited`,
+		pid,
+	)
+	return fmt.Sprintf("sh -c '%s'", script)
 }
 
 func (d *moshClient) closeSessionWhenRemoteMoshServerExits(monitorDone <-chan bool) {

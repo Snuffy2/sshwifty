@@ -69,9 +69,6 @@ func (m *moshGoSession) Send(payload []byte) error {
 }
 
 func (m *moshGoSession) Recv(timeout time.Duration) ([]byte, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
 	select {
 	case <-m.closed:
 		return nil, ErrMoshSessionClosed
@@ -92,9 +89,6 @@ func (m *moshGoSession) Recv(timeout time.Duration) ([]byte, error) {
 }
 
 func (m *moshGoSession) AwaitReady(ctx context.Context, timeout time.Duration) ([]byte, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
 	select {
 	case <-m.closed:
 		return nil, ErrMoshSessionClosed
@@ -108,6 +102,12 @@ func (m *moshGoSession) AwaitReady(ctx context.Context, timeout time.Duration) (
 	defer ticker.Stop()
 
 	for {
+		select {
+		case <-m.closed:
+			return nil, ErrMoshSessionClosed
+		default:
+		}
+
 		if output := m.client.Recv(0); len(output) > 0 {
 			return output, nil
 		}
@@ -119,6 +119,8 @@ func (m *moshGoSession) AwaitReady(ctx context.Context, timeout time.Duration) (
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
+		case <-m.closed:
+			return nil, ErrMoshSessionClosed
 		case <-deadline.C:
 			return nil, fmt.Errorf("timed out waiting for mosh session activity within %s", timeout)
 		case <-ticker.C:

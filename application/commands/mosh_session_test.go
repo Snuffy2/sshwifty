@@ -57,6 +57,71 @@ func TestMoshSessionReceiveReturnsErrorAfterClose(t *testing.T) {
 	}
 }
 
+func TestMoshSessionCloseInterruptsBlockedReceive(t *testing.T) {
+	recvEntered := make(chan struct{})
+	releaseRecv := make(chan struct{})
+	closeEntered := make(chan struct{})
+	session := moshGoSession{
+		client: moshGoClientFunc{
+			recv: func(time.Duration) []byte {
+				close(recvEntered)
+				<-releaseRecv
+				return nil
+			},
+			close: func() {
+				close(closeEntered)
+			},
+		},
+		closed: make(chan struct{}),
+	}
+
+	recvDone := make(chan error, 1)
+	go func() {
+		_, err := session.Recv(5 * time.Second)
+		recvDone <- err
+	}()
+
+	select {
+	case <-recvEntered:
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("expected receive to enter client")
+	}
+
+	closeDone := make(chan error, 1)
+	go func() {
+		closeDone <- session.Close()
+	}()
+
+	var closeErr error
+	select {
+	case <-closeEntered:
+	case <-time.After(250 * time.Millisecond):
+		close(releaseRecv)
+		t.Fatal("expected close to interrupt blocked receive promptly")
+	}
+
+	select {
+	case closeErr = <-closeDone:
+	case <-time.After(250 * time.Millisecond):
+		close(releaseRecv)
+		t.Fatal("expected close to finish promptly")
+	}
+	if closeErr != nil {
+		close(releaseRecv)
+		t.Fatalf("expected close to succeed, got %v", closeErr)
+	}
+
+	close(releaseRecv)
+	select {
+	case err := <-recvDone:
+		if !errors.Is(err, ErrMoshSessionClosed) {
+			t.Fatalf("expected blocked receive to observe close, got %v", err)
+		}
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("expected receive to finish after close")
+	}
+}
+
 func TestMoshSessionCloseWaitsForInFlightSendAndBlocksNewSends(t *testing.T) {
 	sendEntered := make(chan struct{})
 	releaseSend := make(chan struct{})
@@ -146,6 +211,83 @@ func TestMoshSessionCloseWaitsForInFlightSendAndBlocksNewSends(t *testing.T) {
 
 	if sentCount != 1 {
 		t.Fatalf("expected only in-flight send to reach client, got %d sends", sentCount)
+	}
+}
+
+func TestMoshSessionCloseInterruptsAwaitReady(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	now := time.Now()
+	recvEntered := make(chan struct{})
+	closeEntered := make(chan struct{})
+	session := moshGoSession{
+		client: moshGoClientFunc{
+			recv: func(timeout time.Duration) []byte {
+				if timeout != 0 {
+					t.Fatalf("expected immediate readiness receive, got timeout %s", timeout)
+				}
+				select {
+				case <-recvEntered:
+				default:
+					close(recvEntered)
+				}
+				return nil
+			},
+			close: func() {
+				close(closeEntered)
+			},
+		},
+		readyRecvBaseline: now,
+		lastRecv: func() time.Time {
+			return now
+		},
+		closed: make(chan struct{}),
+	}
+
+	readyDone := make(chan error, 1)
+	go func() {
+		_, err := session.AwaitReady(ctx, 5*time.Second)
+		readyDone <- err
+	}()
+
+	select {
+	case <-recvEntered:
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("expected readiness wait to poll client")
+	}
+
+	closeDone := make(chan error, 1)
+	go func() {
+		closeDone <- session.Close()
+	}()
+
+	select {
+	case <-closeEntered:
+	case <-time.After(250 * time.Millisecond):
+		cancel()
+		t.Fatal("expected close to interrupt readiness wait promptly")
+	}
+
+	select {
+	case err := <-closeDone:
+		if err != nil {
+			cancel()
+			t.Fatalf("expected close to succeed, got %v", err)
+		}
+	case <-time.After(250 * time.Millisecond):
+		cancel()
+		t.Fatal("expected close to finish promptly")
+	}
+
+	select {
+	case err := <-readyDone:
+		if !errors.Is(err, ErrMoshSessionClosed) {
+			t.Fatalf("expected readiness wait to observe close, got %v", err)
+		}
+	case <-time.After(250 * time.Millisecond):
+		cancel()
+		t.Fatal("expected readiness wait to finish after close")
 	}
 }
 

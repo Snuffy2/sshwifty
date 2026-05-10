@@ -346,6 +346,14 @@ func TestParseMoshServerDetachedPIDAllowsMissingPID(t *testing.T) {
 	}
 }
 
+func TestRenderMoshServerMonitorCommandUsesPOSIXShell(t *testing.T) {
+	commandText := renderMoshServerMonitorCommand(63458)
+	want := `sh -c 'while kill -0 63458 2>/dev/null; do sleep 1; done; printf "%s\n" sshwifty-mosh-server-exited'`
+	if commandText != want {
+		t.Fatalf("expected POSIX shell monitor command %q, got %q", want, commandText)
+	}
+}
+
 func TestMoshRemoteMonitorExitClosesSession(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	session := newBlockingFakeMoshSession()
