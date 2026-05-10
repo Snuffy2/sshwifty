@@ -352,6 +352,7 @@ func (d *sshClient) buildAuthMethod(
 				ssh.PasswordCallback(func() (string, error) {
 					if credential, ok := presetPasswordCredential(
 						d.cfg,
+						"SSH",
 						user,
 						host,
 					); ok {

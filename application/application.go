@@ -83,18 +83,9 @@ func (a Application) run(
 		return false, cErr
 	}
 
-	c, err = normalizeStartupPresetIDs(c)
+	c, err = normalizeStartupPresets(c, commands)
 	if err != nil {
-		a.logger.Error("Unable to normalize preset IDs: %s", err)
-
-		return false, err
-	}
-
-	// Allowing command to alter presets
-	c.Presets, err = commands.Reconfigure(c.Presets)
-
-	if err != nil {
-		a.logger.Error("Unable to reconfigure presets: %s", err)
+		a.logger.Error("Unable to normalize presets: %s", err)
 
 		return false, err
 	}
@@ -165,13 +156,14 @@ func (a Application) run(
 	}
 }
 
-// normalizeStartupPresetIDs ensures loaded presets have stable IDs.
+// normalizeStartupPresets ensures loaded presets have stable IDs and secrets.
 //
 // File-backed configurations are rewritten when IDs are generated so future
 // API edits can target stable identifiers. Duplicate IDs are returned as
 // configuration errors.
-func normalizeStartupPresetIDs(
+func normalizeStartupPresets(
 	c configuration.Configuration,
+	commands command.Commands,
 ) (configuration.Configuration, error) {
 	presets, changed, err := configuration.EnsurePresetIDs(c.Presets)
 	if err != nil {
@@ -183,7 +175,14 @@ func normalizeStartupPresetIDs(
 			return configuration.Configuration{}, err
 		}
 	}
-	presets, secretsChanged, err := configuration.ApplyPresetSecrets(c.Presets)
+
+	presets, err = commands.Reconfigure(c.Presets)
+	if err != nil {
+		return configuration.Configuration{}, err
+	}
+	runtimePresets := presets
+
+	presets, secretsChanged, err := configuration.ApplyPresetSecrets(presets)
 	if err != nil {
 		return configuration.Configuration{}, err
 	}
@@ -197,7 +196,11 @@ func normalizeStartupPresetIDs(
 			}
 			return c, nil
 		}
-		if err := configuration.ReplaceFilePresets(c.SourceFile, presets); err != nil {
+		if err := configuration.ReplaceFilePresetsWithRuntime(
+			c.SourceFile,
+			presets,
+			runtimePresets,
+		); err != nil {
 			return configuration.Configuration{}, err
 		}
 	}

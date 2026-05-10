@@ -28,6 +28,7 @@ func TestPresetPasswordCredentialMatchesHostUserAndPasswordAuth(t *testing.T) {
 				},
 			},
 		},
+		"SSH",
 		"pi",
 		"atlantis.home:22",
 	)
@@ -79,6 +80,7 @@ func TestPresetPasswordCredentialUsesLivePresetRepository(t *testing.T) {
 				},
 			},
 		},
+		"SSH",
 		"pi",
 		"atlantis.home:22",
 	)
@@ -88,5 +90,42 @@ func TestPresetPasswordCredentialUsesLivePresetRepository(t *testing.T) {
 	}
 	if credential != "newpassword" {
 		t.Fatalf("credential = %q, want newpassword", credential)
+	}
+}
+
+func TestPresetPasswordCredentialMatchesCommandType(t *testing.T) {
+	credential, ok := presetPasswordCredential(
+		command.Configuration{
+			Presets: []configuration.Preset{
+				{
+					Type: "Mosh",
+					Host: "atlantis.home:22",
+					Meta: map[string]string{
+						"Authentication": "Password",
+						"User":           "pi",
+						"Password":       "moshpassword",
+					},
+				},
+				{
+					Type: "SSH",
+					Host: "atlantis.home:22",
+					Meta: map[string]string{
+						"Authentication": "Password",
+						"User":           "pi",
+						"Password":       "sshpassword",
+					},
+				},
+			},
+		},
+		"SSH",
+		"pi",
+		"atlantis.home:22",
+	)
+
+	if !ok {
+		t.Fatal("presetPasswordCredential ok = false, want true")
+	}
+	if credential != "sshpassword" {
+		t.Fatalf("credential = %q, want sshpassword", credential)
 	}
 }

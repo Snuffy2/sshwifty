@@ -11,6 +11,7 @@ import (
 
 func presetPasswordCredential(
 	cfg command.Configuration,
+	presetType string,
 	user string,
 	host string,
 ) (string, bool) {
@@ -19,6 +20,9 @@ func presetPasswordCredential(
 		presets = cfg.PresetRepository.List()
 	}
 	for _, preset := range presets {
+		if preset.Type != presetType {
+			continue
+		}
 		if preset.Host != host {
 			continue
 		}

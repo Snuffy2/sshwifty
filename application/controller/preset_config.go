@@ -97,6 +97,7 @@ func (p presetConfig) Put(
 		}
 	}
 
+	presets = preserveHiddenPresetPasswords(presets, p.commonCfg.CurrentPresets())
 	normalized, _, err := configuration.EnsurePresetIDs(presets)
 	if err != nil {
 		return NewError(http.StatusBadRequest, err.Error())
@@ -118,6 +119,70 @@ func (p presetConfig) Put(
 	}
 	p.commonCfg.PresetRepository.Replace(normalized)
 	return p.writePresets(w, normalized)
+}
+
+func preserveHiddenPresetPasswords(
+	presets []configuration.Preset,
+	current []configuration.Preset,
+) []configuration.Preset {
+	currentByID := make(map[string]configuration.Preset, len(current))
+	for _, preset := range current {
+		currentByID[preset.ID] = preset
+	}
+	merged := make([]configuration.Preset, len(presets))
+	for i, preset := range presets {
+		merged[i] = preset
+		currentPreset, ok := currentByID[preset.ID]
+		if !ok {
+			continue
+		}
+		if preset.Meta["Authentication"] != "Password" ||
+			currentPreset.Meta["Authentication"] != "Password" {
+			continue
+		}
+		if hasPresetPasswordMeta(preset.Meta) {
+			continue
+		}
+		merged[i].Meta = copyPresetMeta(preset.Meta)
+		copyHiddenPresetPassword(merged[i].Meta, currentPreset.Meta)
+	}
+	return merged
+}
+
+func hasPresetPasswordMeta(meta map[string]string) bool {
+	if meta == nil {
+		return false
+	}
+	if _, ok := meta[configuration.PresetMetaPassword]; ok {
+		return true
+	}
+	if _, ok := meta[configuration.PresetMetaEncryptedPassword]; ok {
+		return true
+	}
+	return false
+}
+
+func copyPresetMeta(meta map[string]string) map[string]string {
+	copied := make(map[string]string, len(meta))
+	for key, value := range meta {
+		copied[key] = value
+	}
+	return copied
+}
+
+func copyHiddenPresetPassword(
+	target map[string]string,
+	source map[string]string,
+) {
+	if source == nil {
+		return
+	}
+	if value, ok := source[configuration.PresetMetaPassword]; ok {
+		target[configuration.PresetMetaPassword] = value
+	}
+	if value, ok := source[configuration.PresetMetaEncryptedPassword]; ok {
+		target[configuration.PresetMetaEncryptedPassword] = value
+	}
 }
 
 // requireAuth applies the same shared-key verification used by socket verify.

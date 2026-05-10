@@ -284,6 +284,65 @@ func TestPresetConfigPutEncryptsPlaintextPasswordsWhenKeyIsSet(t *testing.T) {
 	}
 }
 
+func TestPresetConfigPutPreservesHiddenPasswordOnFingerprintSave(t *testing.T) {
+	t.Setenv(
+		configuration.PresetSecretKeyEnv,
+		base64.StdEncoding.EncodeToString(
+			[]byte("0123456789abcdef0123456789abcdef"),
+		),
+	)
+	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	writePresetAPIConfig(t, configPath, []map[string]any{
+		{
+			"ID":    "preset-atlantis",
+			"Title": "Atlantis",
+			"Type":  "SSH",
+			"Host":  "atlantis.home",
+			"Meta": map[string]string{
+				"User":           "pi",
+				"Authentication": "Password",
+				"Password":       "mypassword",
+			},
+		},
+	})
+	controller := newAuthenticatedTestPresetConfig(t, configPath)
+	body := []byte(`{"presets":[{"id":"preset-atlantis","title":"Atlantis","type":"SSH","host":"atlantis.home:22","meta":{"User":"pi","Authentication":"Password","Fingerprint":"SHA256:abc"}}]}`)
+	request := httptest.NewRequest(
+		http.MethodPut,
+		"/sshwifty/config/presets",
+		bytes.NewReader(body),
+	)
+	authorizePresetConfigRequest(controller, request)
+	recorder := httptest.NewRecorder()
+	writer := newResponseWriter(recorder)
+
+	if err := controller.Put(&writer, request, log.Ditch{}); err != nil {
+		t.Fatalf("Put returned error: %v", err)
+	}
+
+	live := controller.commonCfg.CurrentPresets()
+	if live[0].SecretMeta[configuration.PresetMetaPassword] != "mypassword" {
+		t.Fatal("live preset lost hidden password")
+	}
+	if live[0].Meta["Fingerprint"] != "SHA256:abc" {
+		t.Fatal("live preset missing fingerprint")
+	}
+
+	_, reloaded, err := configuration.CustomFile(configPath)(log.Ditch{})
+	if err != nil {
+		t.Fatalf("CustomFile returned error: %v", err)
+	}
+	if _, ok := reloaded.Presets[0].Meta[configuration.PresetMetaPassword]; ok {
+		t.Fatal("persisted config still contains plaintext Password")
+	}
+	if reloaded.Presets[0].Meta[configuration.PresetMetaEncryptedPassword] == "" {
+		t.Fatal("persisted config missing Encrypted Password")
+	}
+	if reloaded.Presets[0].Meta["Fingerprint"] != "SHA256:abc" {
+		t.Fatal("persisted config missing fingerprint")
+	}
+}
+
 func TestSocketAccessConfigurationIncludesPresetConfigWritable(t *testing.T) {
 	accessConfig := newSocketAccessConfiguration(nil, "", true)
 

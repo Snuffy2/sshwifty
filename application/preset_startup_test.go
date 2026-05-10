@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/Snuffy2/sshwifty/application/commands"
 	"github.com/Snuffy2/sshwifty/application/configuration"
 	"github.com/Snuffy2/sshwifty/application/log"
 )
@@ -37,9 +38,9 @@ func TestNormalizeStartupPresetIDsPersistsFileBackedIDs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CustomFile returned error: %v", err)
 	}
-	normalized, err := normalizeStartupPresetIDs(cfg)
+	normalized, err := normalizeStartupPresets(cfg, commands.New())
 	if err != nil {
-		t.Fatalf("normalizeStartupPresetIDs returned error: %v", err)
+		t.Fatalf("normalizeStartupPresets returned error: %v", err)
 	}
 	if normalized.Presets[0].ID == "" {
 		t.Fatal("normalized preset ID is empty")
@@ -93,9 +94,9 @@ func TestNormalizeStartupPresetIDsMigratesPlaintextPresetPassword(t *testing.T) 
 	if err != nil {
 		t.Fatalf("CustomFile returned error: %v", err)
 	}
-	normalized, err := normalizeStartupPresetIDs(cfg)
+	normalized, err := normalizeStartupPresets(cfg, commands.New())
 	if err != nil {
-		t.Fatalf("normalizeStartupPresetIDs returned error: %v", err)
+		t.Fatalf("normalizeStartupPresets returned error: %v", err)
 	}
 	if normalized.Presets[0].SecretMeta["Password"] != "mypassword" {
 		t.Fatal("normalized preset did not keep decrypted password in SecretMeta")
@@ -137,9 +138,9 @@ func TestNormalizeStartupPresetIDsAllowsEnvPlaintextPresetPassword(t *testing.T)
 		},
 	}
 
-	normalized, err := normalizeStartupPresetIDs(cfg)
+	normalized, err := normalizeStartupPresets(cfg, commands.New())
 	if err != nil {
-		t.Fatalf("normalizeStartupPresetIDs returned error: %v", err)
+		t.Fatalf("normalizeStartupPresets returned error: %v", err)
 	}
 	if normalized.Presets[0].SecretMeta["Password"] != "mypassword" {
 		t.Fatal("normalized preset did not keep decrypted password in SecretMeta")
@@ -149,6 +150,48 @@ func TestNormalizeStartupPresetIDsAllowsEnvPlaintextPresetPassword(t *testing.T)
 	}
 	if normalized.Presets[0].Meta["Encrypted Password"] == "" {
 		t.Fatal("normalized env preset is missing Encrypted Password")
+	}
+}
+
+func TestNormalizeStartupPresetsIgnoresUnsupportedEncryptedPassword(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configData := map[string]any{
+		"Servers": []map[string]any{
+			{"ListenInterface": "127.0.0.1", "ListenPort": 8182},
+		},
+		"Presets": []map[string]any{
+			{"Title": "Atlantis", "Type": "SSH", "Host": "atlantis.home"},
+			{
+				"Title": "Future",
+				"Type":  "Future",
+				"Host":  "future.home",
+				"Meta": map[string]string{
+					"Encrypted Password": "v1:aes-256-gcm:nonce:ciphertext",
+				},
+			},
+		},
+	}
+	content, err := json.MarshalIndent(configData, "", "  ")
+	if err != nil {
+		t.Fatalf("json.MarshalIndent returned error: %v", err)
+	}
+	if err := os.WriteFile(configPath, content, 0o600); err != nil {
+		t.Fatalf("os.WriteFile returned error: %v", err)
+	}
+
+	_, cfg, err := configuration.CustomFile(configPath)(log.Ditch{})
+	if err != nil {
+		t.Fatalf("CustomFile returned error: %v", err)
+	}
+	normalized, err := normalizeStartupPresets(cfg, commands.New())
+	if err != nil {
+		t.Fatalf("normalizeStartupPresets returned error: %v", err)
+	}
+	if len(normalized.Presets) != 1 {
+		t.Fatalf("normalized preset count = %d, want 1", len(normalized.Presets))
+	}
+	if normalized.Presets[0].Type != "SSH" {
+		t.Fatalf("normalized preset type = %q, want SSH", normalized.Presets[0].Type)
 	}
 }
 
@@ -182,9 +225,9 @@ func TestNormalizeStartupPresetIDsAllowsReadOnlyFileBackedIDs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CustomFile returned error: %v", err)
 	}
-	normalized, err := normalizeStartupPresetIDs(cfg)
+	normalized, err := normalizeStartupPresets(cfg, commands.New())
 	if err != nil {
-		t.Fatalf("normalizeStartupPresetIDs returned error: %v", err)
+		t.Fatalf("normalizeStartupPresets returned error: %v", err)
 	}
 	if normalized.Presets[0].ID == "" {
 		t.Fatal("normalized preset ID is empty")

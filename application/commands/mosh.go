@@ -252,6 +252,7 @@ func (d *moshClient) buildAuthMethod(
 				ssh.PasswordCallback(func() (string, error) {
 					if credential, ok := presetPasswordCredential(
 						d.cfg,
+						"Mosh",
 						user,
 						host,
 					); ok {
