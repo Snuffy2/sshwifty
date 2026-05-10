@@ -11,15 +11,16 @@
  *
  * @param {object} presetData Preset accessor object.
  * @param {string} authentication Selected authentication method.
- * @returns {string|null} Credential string, empty for `None`, or null when incomplete.
+ * @returns {string|null} Credential string, empty when the selected method
+ *   needs a later credential prompt, or null when the auth method is invalid.
  */
 export function presetCredential(presetData, authentication) {
   switch (authentication) {
     case "Password":
-      return presetData.metaDefault("Password", "") || null;
+      return presetData.metaDefault("Password", "");
 
     case "Private Key":
-      return presetData.metaDefault("Private Key", "") || null;
+      return presetData.metaDefault("Private Key", "");
 
     case "None":
       return "";
@@ -30,11 +31,12 @@ export function presetCredential(presetData, authentication) {
 }
 
 /**
- * Builds a non-interactive execution payload for complete presets.
+ * Builds a non-interactive execution payload for presets with complete
+ * connection details.
  *
- * Returns null when a preset is missing fields that would otherwise force the
- * wizard to ask for connection details, fingerprint confirmation, or
- * credentials.
+ * Returns null when a preset is missing fields that would force the first
+ * connection-details prompt. Missing fingerprints and credentials stay in the
+ * execution payload so the command flow can ask only those later prompts.
  *
  * @param {{ command: object, preset: object }} preset Merged preset entry.
  * @returns {{config: object, session: object, keptSessions: Array<string>}|null}
@@ -83,7 +85,6 @@ export function buildPresetExecution(preset) {
     charset,
     tabColor,
     fingerprint,
-    trustPresetFingerprint: fingerprint.length <= 0,
   };
 
   if (commandName === "Mosh") {

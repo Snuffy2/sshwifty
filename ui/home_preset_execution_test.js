@@ -51,7 +51,6 @@ describe("preset execution helpers", () => {
         charset: "utf-8",
         tabColor: "#123",
         fingerprint: "SHA256:abc",
-        trustPresetFingerprint: false,
       },
       session: {
         credential: "secret",
@@ -60,14 +59,13 @@ describe("preset execution helpers", () => {
     });
   });
 
-  it("falls back to the wizard when an SSH preset would still need a prompt", () => {
+  it("falls back to the wizard when SSH connection details are incomplete", () => {
     const execution = buildPresetExecution(
       mergedPreset("SSH", {
         title: "Example SSH",
         type: "SSH",
         host: "example.com:22",
         meta: {
-          User: "alice",
           Authentication: "Password",
         },
       }),
@@ -76,7 +74,7 @@ describe("preset execution helpers", () => {
     assert.strictEqual(execution, null);
   });
 
-  it("builds direct SSH execution for complete credential presets without fingerprints", () => {
+  it("builds direct SSH execution for Atlantis-style private key presets", () => {
     const execution = buildPresetExecution(
       mergedPreset("SSH", {
         title: "Atlantis SSH",
@@ -97,10 +95,34 @@ describe("preset execution helpers", () => {
       charset: "utf-8",
       tabColor: "",
       fingerprint: "",
-      trustPresetFingerprint: true,
     });
     assert.strictEqual(execution.session.credential, "PRIVATE KEY DATA");
     assert.deepStrictEqual(execution.keptSessions, ["credential"]);
+  });
+
+  it("builds direct SSH execution for Atlantis-style password presets without passwords", () => {
+    const execution = buildPresetExecution(
+      mergedPreset("SSH", {
+        title: "Atlantis Password SSH",
+        type: "SSH",
+        host: "atlantis.home:22",
+        meta: {
+          User: "pi",
+          Authentication: "Password",
+        },
+      }),
+    );
+
+    assert.deepStrictEqual(execution.config, {
+      user: "pi",
+      authentication: "Password",
+      host: "atlantis.home:22",
+      charset: "utf-8",
+      tabColor: "",
+      fingerprint: "",
+    });
+    assert.strictEqual(execution.session.credential, "");
+    assert.deepStrictEqual(execution.keptSessions, []);
   });
 
   it("builds direct Mosh execution with the default mosh-server command", () => {
