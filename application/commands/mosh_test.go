@@ -172,7 +172,28 @@ func TestMoshBuildRemoteSessionUsesReachedPeerIPv4WithoutResolver(t *testing.T) 
 	}
 }
 
-func TestMoshBuildRemoteSessionHonorsPresetRestriction(t *testing.T) {
+func TestMoshValidateRemoteAllowedHonorsPresetRestriction(t *testing.T) {
+	client := &moshClient{
+		baseCtx: context.Background(),
+		cfg: command.Configuration{
+			OnlyAllowPresetRemotes: true,
+			Presets: []configuration.Preset{
+				{Host: "example.com:22"},
+			},
+		},
+	}
+
+	err := client.validateMoshRemoteAllowed("other.example.com:22")
+	if !errors.Is(err, network.ErrAccessControlDialTargetHostNotAllowed) {
+		t.Fatalf(
+			"expected preset restriction error %v, got %v",
+			network.ErrAccessControlDialTargetHostNotAllowed,
+			err,
+		)
+	}
+}
+
+func TestMoshBuildRemoteSessionDoesNotApplyPresetRestrictionAfterBootstrap(t *testing.T) {
 	client := &moshClient{
 		baseCtx: context.Background(),
 		cfg: command.Configuration{
@@ -182,22 +203,24 @@ func TestMoshBuildRemoteSessionHonorsPresetRestriction(t *testing.T) {
 			},
 		},
 		hostResolver: func(context.Context, string) ([]net.IP, error) {
-			t.Fatal("expected rejected target to fail before DNS resolution")
-			return nil, nil
-		},
-		sessionBuilder: func(string, int, string) (moshSession, error) {
-			t.Fatal("expected rejected target to fail before session dial")
-			return nil, nil
+			return []net.IP{net.ParseIP("198.51.100.23")}, nil
 		},
 	}
 
-	_, err := client.buildRemoteSession("other.example.com:22", nil, 60001, "secret")
-	if !errors.Is(err, network.ErrAccessControlDialTargetHostNotAllowed) {
-		t.Fatalf(
-			"expected preset restriction error %v, got %v",
-			network.ErrAccessControlDialTargetHostNotAllowed,
-			err,
-		)
+	var called bool
+	client.sessionBuilder = func(host string, port int, key string) (moshSession, error) {
+		called = true
+		if host != "198.51.100.23" {
+			t.Fatalf("expected resolved session host, got %q", host)
+		}
+		return &fakeMoshSession{}, nil
+	}
+
+	if _, err := client.buildRemoteSession("other.example.com:22", nil, 60001, "secret"); err != nil {
+		t.Fatalf("expected session build to skip preset validation after bootstrap, got %v", err)
+	}
+	if !called {
+		t.Fatal("expected session builder to be called")
 	}
 }
 

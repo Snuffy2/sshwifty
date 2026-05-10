@@ -33,6 +33,7 @@ type moshGoSession struct {
 	client            moshGoClient
 	readyRecvBaseline time.Time
 	lastRecv          func() time.Time
+	mu                sync.RWMutex
 	closed            chan struct{}
 	closeOnce         sync.Once
 }
@@ -54,6 +55,9 @@ func newMoshGoSession(host string, port int, key string) (moshSession, error) {
 }
 
 func (m *moshGoSession) Send(payload []byte) error {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
 	select {
 	case <-m.closed:
 		return ErrMoshSessionClosed
@@ -65,6 +69,9 @@ func (m *moshGoSession) Send(payload []byte) error {
 }
 
 func (m *moshGoSession) Recv(timeout time.Duration) ([]byte, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
 	select {
 	case <-m.closed:
 		return nil, ErrMoshSessionClosed
@@ -85,6 +92,15 @@ func (m *moshGoSession) Recv(timeout time.Duration) ([]byte, error) {
 }
 
 func (m *moshGoSession) AwaitReady(ctx context.Context, timeout time.Duration) ([]byte, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	select {
+	case <-m.closed:
+		return nil, ErrMoshSessionClosed
+	default:
+	}
+
 	deadline := time.NewTimer(timeout)
 	defer deadline.Stop()
 
@@ -111,6 +127,9 @@ func (m *moshGoSession) AwaitReady(ctx context.Context, timeout time.Duration) (
 }
 
 func (m *moshGoSession) Resize(cols uint16, rows uint16) error {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
 	select {
 	case <-m.closed:
 		return ErrMoshSessionClosed
@@ -122,12 +141,15 @@ func (m *moshGoSession) Resize(cols uint16, rows uint16) error {
 }
 
 func (m *moshGoSession) Close() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	m.closeOnce.Do(func() {
-		if m.closed != nil {
-			close(m.closed)
-		}
 		if m.client != nil {
 			m.client.Close()
+		}
+		if m.closed != nil {
+			close(m.closed)
 		}
 	})
 	return nil

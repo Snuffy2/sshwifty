@@ -410,6 +410,12 @@ func (d *moshClient) remote(user string, address string, authMethodBuilder sshAu
 		return
 	}
 
+	if err := d.validateMoshRemoteAllowed(address); err != nil {
+		d.sendConnectFailed((*u)[:], err)
+		d.l.Debug("Remote machine is not allowed by preset restriction: %s", err)
+		return
+	}
+
 	bootstrapNetwork, err := moshSSHBootstrapNetwork(address)
 	if err != nil {
 		d.sendConnectFailed((*u)[:], err)
@@ -497,10 +503,6 @@ func (d *moshClient) remote(user string, address string, authMethodBuilder sshAu
 }
 
 func (d *moshClient) buildRemoteSession(address string, peerAddr net.Addr, port int, key string) (moshSession, error) {
-	if err := d.validateMoshRemoteAllowed(address); err != nil {
-		return nil, err
-	}
-
 	host, err := d.resolveMoshSessionHost(address, peerAddr)
 	if err != nil {
 		return nil, err

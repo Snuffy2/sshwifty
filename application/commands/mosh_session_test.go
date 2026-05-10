@@ -57,6 +57,98 @@ func TestMoshSessionReceiveReturnsErrorAfterClose(t *testing.T) {
 	}
 }
 
+func TestMoshSessionCloseWaitsForInFlightSendAndBlocksNewSends(t *testing.T) {
+	sendEntered := make(chan struct{})
+	releaseSend := make(chan struct{})
+	closeEntered := make(chan struct{})
+	var sentCount int
+	session := moshGoSession{
+		client: moshGoClientFunc{
+			send: func([]byte) {
+				sentCount++
+				close(sendEntered)
+				<-releaseSend
+			},
+			close: func() {
+				close(closeEntered)
+			},
+		},
+		closed: make(chan struct{}),
+	}
+
+	sendDone := make(chan error, 1)
+	go func() {
+		sendDone <- session.Send([]byte("first"))
+	}()
+
+	select {
+	case <-sendEntered:
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("expected first send to enter client")
+	}
+
+	closeDone := make(chan error, 1)
+	go func() {
+		closeDone <- session.Close()
+	}()
+
+	select {
+	case err := <-closeDone:
+		t.Fatalf("expected close to wait for in-flight send, returned %v", err)
+	case <-time.After(25 * time.Millisecond):
+	}
+
+	secondSendDone := make(chan error, 1)
+	go func() {
+		secondSendDone <- session.Send([]byte("second"))
+	}()
+
+	select {
+	case err := <-secondSendDone:
+		t.Fatalf("expected second send to wait for close, returned %v", err)
+	case <-time.After(25 * time.Millisecond):
+	}
+
+	close(releaseSend)
+
+	select {
+	case err := <-sendDone:
+		if err != nil {
+			t.Fatalf("expected first send to complete successfully, got %v", err)
+		}
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("expected first send to finish")
+	}
+
+	select {
+	case <-closeEntered:
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("expected client close to run")
+	}
+
+	select {
+	case err := <-closeDone:
+		if err != nil {
+			t.Fatalf("expected close to succeed, got %v", err)
+		}
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("expected close to finish")
+	}
+
+	select {
+	case err := <-secondSendDone:
+		if !errors.Is(err, ErrMoshSessionClosed) {
+			t.Fatalf("expected second send to fail closed, got %v", err)
+		}
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("expected second send to finish")
+	}
+
+	if sentCount != 1 {
+		t.Fatalf("expected only in-flight send to reach client, got %d sends", sentCount)
+	}
+}
+
 func TestMoshSessionAwaitReadyReturnsInitialOutput(t *testing.T) {
 	activityAt := time.Now().Add(25 * time.Millisecond)
 	session := moshGoSession{
