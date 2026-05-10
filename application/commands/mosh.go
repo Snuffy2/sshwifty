@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -56,6 +58,8 @@ var (
 	ErrMoshRemoteSessionUnavailable = errors.New("remote Mosh session is unavailable")
 )
 
+var moshServerDetachedPIDPattern = regexp.MustCompile(`(?m)\[mosh-server detached, pid = ([0-9]+)\]`)
+
 type moshSessionBuilder func(host string, port int, key string) (moshSession, error)
 type moshHostResolver func(ctx context.Context, host string) ([]net.IP, error)
 
@@ -90,6 +94,7 @@ type moshClient struct {
 
 	sessionBuilder moshSessionBuilder
 	hostResolver   moshHostResolver
+	remoteStarter  func(user string, address string, authMethodBuilder sshAuthMethodBuilder)
 }
 
 func newMosh(
@@ -151,6 +156,7 @@ func (d *moshClient) Bootup(
 	if userNameErr != nil {
 		return nil, command.ToFSMError(userNameErr, MoshRequestErrorBadUserName)
 	}
+	userNameStr := string(userName.Data())
 
 	addr, addrErr := ParseAddress(r.Read, (*sBuf)[:moshMaxHostnameLen])
 	if addrErr != nil {
@@ -171,7 +177,6 @@ func (d *moshClient) Bootup(
 	if authMethodBuilderErr != nil {
 		return nil, command.ToFSMError(authMethodBuilderErr, MoshRequestErrorBadAuthMethod)
 	}
-
 	requestMeta, requestMetaErr := parseMoshRequestMeta(r, (*sBuf)[:])
 	if requestMetaErr != nil {
 		return nil, command.ToFSMError(requestMetaErr, MoshRequestErrorBadMetadata)
@@ -179,7 +184,11 @@ func (d *moshClient) Bootup(
 	d.meta = requestMeta
 
 	d.remoteCloseWait.Add(1)
-	go d.remote(string(userName.Data()), addrStr, authMethodBuilder)
+	if d.remoteStarter != nil {
+		go d.remoteStarter(userNameStr, addrStr, authMethodBuilder)
+	} else {
+		go d.remote(userNameStr, addrStr, authMethodBuilder)
+	}
 
 	return d.local, command.NoFSMError()
 }
@@ -401,7 +410,20 @@ func (d *moshClient) remote(user string, address string, authMethodBuilder sshAu
 		return
 	}
 
-	conn, peerAddr, clearConnInitialDeadline, err := d.dialRemote("tcp", address, &ssh.ClientConfig{
+	if err := d.validateMoshRemoteAllowed(address); err != nil {
+		d.sendConnectFailed((*u)[:], err)
+		d.l.Debug("Remote machine is not allowed by preset restriction: %s", err)
+		return
+	}
+
+	bootstrapNetwork, err := moshSSHBootstrapNetwork(address)
+	if err != nil {
+		d.sendConnectFailed((*u)[:], err)
+		d.l.Debug("Unable to prepare Mosh SSH bootstrap network: %s", err)
+		return
+	}
+
+	conn, peerAddr, clearConnInitialDeadline, err := d.dialRemote(bootstrapNetwork, address, &ssh.ClientConfig{
 		User: user,
 		Auth: authMethodBuilder((*u)[:]),
 		HostKeyCallback: func(h string, r net.Addr, k ssh.PublicKey) error {
@@ -439,6 +461,11 @@ func (d *moshClient) remote(user string, address string, authMethodBuilder sshAu
 	}
 
 	d.cacheSession(session)
+	if monitorDone, monitorErr := d.monitorRemoteMoshServer(conn, output); monitorErr != nil {
+		d.l.Debug("Unable to monitor remote mosh-server lifecycle: %s", monitorErr)
+	} else if monitorDone != nil {
+		go d.closeSessionWhenRemoteMoshServerExits(monitorDone)
+	}
 
 	initialOutput, err := d.awaitRemoteSessionReady(session)
 	if err != nil {
@@ -476,16 +503,89 @@ func (d *moshClient) remote(user string, address string, authMethodBuilder sshAu
 }
 
 func (d *moshClient) buildRemoteSession(address string, peerAddr net.Addr, port int, key string) (moshSession, error) {
-	if err := d.validateMoshRemoteAllowed(address); err != nil {
-		return nil, err
-	}
-
 	host, err := d.resolveMoshSessionHost(address, peerAddr)
 	if err != nil {
 		return nil, err
 	}
 
 	return d.sessionBuilder(host, port, key)
+}
+
+func parseMoshServerDetachedPID(output string) (int, bool) {
+	matches := moshServerDetachedPIDPattern.FindAllStringSubmatch(output, -1)
+	if len(matches) == 0 {
+		return 0, false
+	}
+
+	pidText := matches[len(matches)-1][1]
+	pid, err := strconv.Atoi(pidText)
+	if err != nil || pid <= 0 {
+		return 0, false
+	}
+
+	return pid, true
+}
+
+func (d *moshClient) monitorRemoteMoshServer(conn *ssh.Client, output string) (<-chan bool, error) {
+	pid, ok := parseMoshServerDetachedPID(output)
+	if !ok {
+		return nil, nil
+	}
+
+	session, err := conn.NewSession()
+	if err != nil {
+		return nil, err
+	}
+
+	done := make(chan bool, 1)
+	go func() {
+		defer close(done)
+		defer session.Close()
+		commandText := renderMoshServerMonitorCommand(pid)
+		output, err := session.CombinedOutput(commandText)
+		if err != nil {
+			d.l.Debug("Remote mosh-server monitor exited with an error: %s", err)
+			done <- false
+			return
+		}
+		done <- strings.Contains(string(output), "sshwifty-mosh-server-exited")
+	}()
+
+	return done, nil
+}
+
+func renderMoshServerMonitorCommand(pid int) string {
+	script := fmt.Sprintf(
+		`while kill -0 %d 2>/dev/null; do sleep 1; done; printf "%%s\n" sshwifty-mosh-server-exited`,
+		pid,
+	)
+	return fmt.Sprintf("sh -c '%s'", script)
+}
+
+func (d *moshClient) closeSessionWhenRemoteMoshServerExits(monitorDone <-chan bool) {
+	select {
+	case serverExited, ok := <-monitorDone:
+		if !ok || !serverExited {
+			return
+		}
+		d.baseCtxCancel()
+		if err := d.closeSession(); err != nil {
+			d.l.Debug("Failed to close ended remote mosh session: %s", err)
+		}
+	case <-d.baseCtx.Done():
+	}
+}
+
+func moshSSHBootstrapNetwork(address string) (string, error) {
+	host := moshRemoteHost(address)
+	if ip := net.ParseIP(host); ip != nil && ip.To4() == nil {
+		return "", fmt.Errorf(
+			"Mosh v1 requires an IPv4 target because the current mosh-go UDP client is IPv4-only: %q is IPv6",
+			host,
+		)
+	}
+
+	return "tcp4", nil
 }
 
 func (d *moshClient) awaitRemoteSessionReady(session moshSession) ([]byte, error) {

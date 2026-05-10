@@ -6,6 +6,7 @@ package commands
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 )
@@ -33,6 +34,260 @@ func TestMoshSessionReceiveTimeoutIsNonFatal(t *testing.T) {
 
 	if output != nil {
 		t.Fatalf("expected nil output on timeout, got %q", output)
+	}
+}
+
+func TestMoshSessionReceiveReturnsErrorAfterClose(t *testing.T) {
+	session := moshGoSession{
+		client: moshGoClientFunc{},
+		closed: make(chan struct{}),
+	}
+
+	if err := session.Close(); err != nil {
+		t.Fatalf("expected close to succeed, got %v", err)
+	}
+
+	output, err := session.Recv(250 * time.Millisecond)
+	if !errors.Is(err, ErrMoshSessionClosed) {
+		t.Fatalf("expected session closed error, got %v", err)
+	}
+
+	if output != nil {
+		t.Fatalf("expected nil output after close, got %q", output)
+	}
+}
+
+func TestMoshSessionCloseInterruptsBlockedReceive(t *testing.T) {
+	recvEntered := make(chan struct{})
+	releaseRecv := make(chan struct{})
+	closeEntered := make(chan struct{})
+	session := moshGoSession{
+		client: moshGoClientFunc{
+			recv: func(time.Duration) []byte {
+				close(recvEntered)
+				<-releaseRecv
+				return nil
+			},
+			close: func() {
+				close(closeEntered)
+			},
+		},
+		closed: make(chan struct{}),
+	}
+
+	recvDone := make(chan error, 1)
+	go func() {
+		_, err := session.Recv(5 * time.Second)
+		recvDone <- err
+	}()
+
+	select {
+	case <-recvEntered:
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("expected receive to enter client")
+	}
+
+	closeDone := make(chan error, 1)
+	go func() {
+		closeDone <- session.Close()
+	}()
+
+	var closeErr error
+	select {
+	case <-closeEntered:
+	case <-time.After(250 * time.Millisecond):
+		close(releaseRecv)
+		t.Fatal("expected close to interrupt blocked receive promptly")
+	}
+
+	select {
+	case closeErr = <-closeDone:
+	case <-time.After(250 * time.Millisecond):
+		close(releaseRecv)
+		t.Fatal("expected close to finish promptly")
+	}
+	if closeErr != nil {
+		close(releaseRecv)
+		t.Fatalf("expected close to succeed, got %v", closeErr)
+	}
+
+	close(releaseRecv)
+	select {
+	case err := <-recvDone:
+		if !errors.Is(err, ErrMoshSessionClosed) {
+			t.Fatalf("expected blocked receive to observe close, got %v", err)
+		}
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("expected receive to finish after close")
+	}
+}
+
+func TestMoshSessionCloseWaitsForInFlightSendAndBlocksNewSends(t *testing.T) {
+	sendEntered := make(chan struct{})
+	releaseSend := make(chan struct{})
+	closeEntered := make(chan struct{})
+	var sentCount int
+	session := moshGoSession{
+		client: moshGoClientFunc{
+			send: func([]byte) {
+				sentCount++
+				close(sendEntered)
+				<-releaseSend
+			},
+			close: func() {
+				close(closeEntered)
+			},
+		},
+		closed: make(chan struct{}),
+	}
+
+	sendDone := make(chan error, 1)
+	go func() {
+		sendDone <- session.Send([]byte("first"))
+	}()
+
+	select {
+	case <-sendEntered:
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("expected first send to enter client")
+	}
+
+	closeDone := make(chan error, 1)
+	go func() {
+		closeDone <- session.Close()
+	}()
+
+	select {
+	case err := <-closeDone:
+		t.Fatalf("expected close to wait for in-flight send, returned %v", err)
+	case <-time.After(25 * time.Millisecond):
+	}
+
+	secondSendDone := make(chan error, 1)
+	go func() {
+		secondSendDone <- session.Send([]byte("second"))
+	}()
+
+	select {
+	case err := <-secondSendDone:
+		t.Fatalf("expected second send to wait for close, returned %v", err)
+	case <-time.After(25 * time.Millisecond):
+	}
+
+	close(releaseSend)
+
+	select {
+	case err := <-sendDone:
+		if err != nil {
+			t.Fatalf("expected first send to complete successfully, got %v", err)
+		}
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("expected first send to finish")
+	}
+
+	select {
+	case <-closeEntered:
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("expected client close to run")
+	}
+
+	select {
+	case err := <-closeDone:
+		if err != nil {
+			t.Fatalf("expected close to succeed, got %v", err)
+		}
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("expected close to finish")
+	}
+
+	select {
+	case err := <-secondSendDone:
+		if !errors.Is(err, ErrMoshSessionClosed) {
+			t.Fatalf("expected second send to fail closed, got %v", err)
+		}
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("expected second send to finish")
+	}
+
+	if sentCount != 1 {
+		t.Fatalf("expected only in-flight send to reach client, got %d sends", sentCount)
+	}
+}
+
+func TestMoshSessionCloseInterruptsAwaitReady(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	now := time.Now()
+	recvEntered := make(chan struct{})
+	closeEntered := make(chan struct{})
+	session := moshGoSession{
+		client: moshGoClientFunc{
+			recv: func(timeout time.Duration) []byte {
+				if timeout != 0 {
+					t.Fatalf("expected immediate readiness receive, got timeout %s", timeout)
+				}
+				select {
+				case <-recvEntered:
+				default:
+					close(recvEntered)
+				}
+				return nil
+			},
+			close: func() {
+				close(closeEntered)
+			},
+		},
+		readyRecvBaseline: now,
+		lastRecv: func() time.Time {
+			return now
+		},
+		closed: make(chan struct{}),
+	}
+
+	readyDone := make(chan error, 1)
+	go func() {
+		_, err := session.AwaitReady(ctx, 5*time.Second)
+		readyDone <- err
+	}()
+
+	select {
+	case <-recvEntered:
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("expected readiness wait to poll client")
+	}
+
+	closeDone := make(chan error, 1)
+	go func() {
+		closeDone <- session.Close()
+	}()
+
+	select {
+	case <-closeEntered:
+	case <-time.After(250 * time.Millisecond):
+		cancel()
+		t.Fatal("expected close to interrupt readiness wait promptly")
+	}
+
+	select {
+	case err := <-closeDone:
+		if err != nil {
+			cancel()
+			t.Fatalf("expected close to succeed, got %v", err)
+		}
+	case <-time.After(250 * time.Millisecond):
+		cancel()
+		t.Fatal("expected close to finish promptly")
+	}
+
+	select {
+	case err := <-readyDone:
+		if !errors.Is(err, ErrMoshSessionClosed) {
+			t.Fatalf("expected readiness wait to observe close, got %v", err)
+		}
+	case <-time.After(250 * time.Millisecond):
+		cancel()
+		t.Fatal("expected readiness wait to finish after close")
 	}
 }
 

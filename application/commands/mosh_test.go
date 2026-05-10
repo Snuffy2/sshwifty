@@ -172,7 +172,28 @@ func TestMoshBuildRemoteSessionUsesReachedPeerIPv4WithoutResolver(t *testing.T) 
 	}
 }
 
-func TestMoshBuildRemoteSessionHonorsPresetRestriction(t *testing.T) {
+func TestMoshValidateRemoteAllowedHonorsPresetRestriction(t *testing.T) {
+	client := &moshClient{
+		baseCtx: context.Background(),
+		cfg: command.Configuration{
+			OnlyAllowPresetRemotes: true,
+			Presets: []configuration.Preset{
+				{Host: "example.com:22"},
+			},
+		},
+	}
+
+	err := client.validateMoshRemoteAllowed("other.example.com:22")
+	if !errors.Is(err, network.ErrAccessControlDialTargetHostNotAllowed) {
+		t.Fatalf(
+			"expected preset restriction error %v, got %v",
+			network.ErrAccessControlDialTargetHostNotAllowed,
+			err,
+		)
+	}
+}
+
+func TestMoshBuildRemoteSessionDoesNotApplyPresetRestrictionAfterBootstrap(t *testing.T) {
 	client := &moshClient{
 		baseCtx: context.Background(),
 		cfg: command.Configuration{
@@ -182,22 +203,42 @@ func TestMoshBuildRemoteSessionHonorsPresetRestriction(t *testing.T) {
 			},
 		},
 		hostResolver: func(context.Context, string) ([]net.IP, error) {
-			t.Fatal("expected rejected target to fail before DNS resolution")
-			return nil, nil
-		},
-		sessionBuilder: func(string, int, string) (moshSession, error) {
-			t.Fatal("expected rejected target to fail before session dial")
-			return nil, nil
+			return []net.IP{net.ParseIP("198.51.100.23")}, nil
 		},
 	}
 
-	_, err := client.buildRemoteSession("other.example.com:22", nil, 60001, "secret")
-	if !errors.Is(err, network.ErrAccessControlDialTargetHostNotAllowed) {
-		t.Fatalf(
-			"expected preset restriction error %v, got %v",
-			network.ErrAccessControlDialTargetHostNotAllowed,
-			err,
-		)
+	var called bool
+	client.sessionBuilder = func(host string, port int, key string) (moshSession, error) {
+		called = true
+		if host != "198.51.100.23" {
+			t.Fatalf("expected resolved session host, got %q", host)
+		}
+		return &fakeMoshSession{}, nil
+	}
+
+	if _, err := client.buildRemoteSession("other.example.com:22", nil, 60001, "secret"); err != nil {
+		t.Fatalf("expected session build to skip preset validation after bootstrap, got %v", err)
+	}
+	if !called {
+		t.Fatal("expected session builder to be called")
+	}
+}
+
+func TestMoshSSHBootstrapNetworkUsesIPv4DialForHostnames(t *testing.T) {
+	networkName, err := moshSSHBootstrapNetwork("example.com:22")
+	if err != nil {
+		t.Fatalf("expected SSH bootstrap network selection to succeed, got %v", err)
+	}
+
+	if networkName != "tcp4" {
+		t.Fatalf("expected tcp4 bootstrap network, got %q", networkName)
+	}
+}
+
+func TestMoshSSHBootstrapNetworkRejectsIPv6Literal(t *testing.T) {
+	_, err := moshSSHBootstrapNetwork("[2001:db8::1]:22")
+	if err == nil {
+		t.Fatal("expected IPv6 literal bootstrap address to be rejected")
 	}
 }
 
@@ -278,6 +319,92 @@ func TestMoshAwaitRemoteSessionReadyAllowsQuietSession(t *testing.T) {
 	}
 }
 
+func TestParseMoshServerDetachedPID(t *testing.T) {
+	output := `MOSH CONNECT 60002 6HuXgr4e2ThPQW14LBDYCw
+
+mosh-server (mosh 1.4.0)
+[mosh-server detached, pid = 63458]`
+
+	pid, ok := parseMoshServerDetachedPID(output)
+	if !ok {
+		t.Fatal("expected detached mosh-server PID to parse")
+	}
+
+	if pid != 63458 {
+		t.Fatalf("expected PID 63458, got %d", pid)
+	}
+}
+
+func TestParseMoshServerDetachedPIDAllowsMissingPID(t *testing.T) {
+	pid, ok := parseMoshServerDetachedPID("MOSH CONNECT 60002 key")
+	if ok {
+		t.Fatal("expected missing detached PID to be reported")
+	}
+
+	if pid != 0 {
+		t.Fatalf("expected PID 0 when missing, got %d", pid)
+	}
+}
+
+func TestRenderMoshServerMonitorCommandUsesPOSIXShell(t *testing.T) {
+	commandText := renderMoshServerMonitorCommand(63458)
+	want := `sh -c 'while kill -0 63458 2>/dev/null; do sleep 1; done; printf "%s\n" sshwifty-mosh-server-exited'`
+	if commandText != want {
+		t.Fatalf("expected POSIX shell monitor command %q, got %q", want, commandText)
+	}
+}
+
+func TestMoshRemoteMonitorExitClosesSession(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	session := newBlockingFakeMoshSession()
+	client := &moshClient{
+		baseCtx:       ctx,
+		baseCtxCancel: cancel,
+		l:             log.Ditch{},
+		session:       session,
+	}
+	monitorDone := make(chan bool, 1)
+	monitorDone <- true
+
+	client.closeSessionWhenRemoteMoshServerExits(monitorDone)
+
+	if !session.closed {
+		t.Fatal("expected ended remote mosh-server to close the local session")
+	}
+
+	select {
+	case <-ctx.Done():
+	default:
+		t.Fatal("expected ended remote mosh-server to cancel the base context")
+	}
+}
+
+func TestMoshRemoteMonitorFailureKeepsSessionOpen(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	session := newBlockingFakeMoshSession()
+	client := &moshClient{
+		baseCtx:       ctx,
+		baseCtxCancel: cancel,
+		l:             log.Ditch{},
+		session:       session,
+	}
+	monitorDone := make(chan bool, 1)
+	monitorDone <- false
+
+	client.closeSessionWhenRemoteMoshServerExits(monitorDone)
+
+	if session.closed {
+		t.Fatal("expected monitor failure to leave the local session open")
+	}
+
+	select {
+	case <-ctx.Done():
+		t.Fatal("expected monitor failure to leave the base context active")
+	default:
+	}
+}
+
 func TestMoshBootupRejectsSocks5(t *testing.T) {
 	bufferPool := command.NewBufferPool(4096)
 	client := newMosh(
@@ -343,6 +470,47 @@ func TestMoshBootupRejectsMoshServerArguments(t *testing.T) {
 
 	if err.Code() != MoshRequestErrorBadMetadata {
 		t.Fatalf("expected bad metadata code, got %d", err.Code())
+	}
+}
+
+func TestMoshBootupCopiesUsernameBeforeReusingScratchBuffer(t *testing.T) {
+	bufferPool := command.NewBufferPool(4096)
+	machine := newMosh(
+		log.Ditch{},
+		command.NewHooks(configuration.HookSettings{}),
+		command.StreamResponder{},
+		command.Configuration{},
+		&bufferPool,
+	)
+	client, ok := machine.(*moshClient)
+	if !ok {
+		t.Fatal("expected newMosh to return *moshClient")
+	}
+
+	remoteStarted := make(chan string, 1)
+	client.remoteStarter = func(user string, address string, authMethodBuilder sshAuthMethodBuilder) {
+		client.remoteCloseWait.Done()
+		remoteStarted <- user
+	}
+
+	payload := buildMoshBootPayload(t, "pi", "atlantis.home", 22, SSHAuthMethodPrivateKey)
+	payload = appendMoshString(t, payload, "mosh-server")
+
+	state, err := client.Bootup(newLimitedReader(payload), nil)
+	if err != command.NoFSMError() {
+		t.Fatalf("expected bootup to succeed, got %v", err)
+	}
+	if state == nil {
+		t.Fatal("expected bootup state")
+	}
+
+	select {
+	case user := <-remoteStarted:
+		if user != "pi" {
+			t.Fatalf("expected copied username %q, got %q", "pi", user)
+		}
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("expected remote startup")
 	}
 }
 
