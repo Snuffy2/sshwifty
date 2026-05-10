@@ -152,7 +152,9 @@ func (p presetConfig) Put(
 	); err != nil {
 		return NewError(http.StatusInternalServerError, err.Error())
 	}
-	p.commonCfg.PresetRepository.Replace(normalized)
+	if p.commonCfg.PresetRepository != nil {
+		p.commonCfg.PresetRepository.Replace(normalized)
+	}
 	return p.writePresets(w, normalized)
 }
 

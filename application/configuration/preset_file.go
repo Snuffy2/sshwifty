@@ -21,7 +21,11 @@ func PersistPresetIDs(filePath string, presets []Preset) error {
 		return nil
 	}
 
-	doc, err := readCommonInputFileDocument(filePath)
+	resolvedPath, err := resolveConfigFilePath(filePath)
+	if err != nil {
+		return err
+	}
+	doc, err := readCommonInputFileDocument(resolvedPath)
 	if err != nil {
 		return err
 	}
@@ -35,7 +39,7 @@ func PersistPresetIDs(filePath string, presets []Preset) error {
 	for i := range doc.input.Presets {
 		doc.input.Presets[i].ID = presets[i].ID
 	}
-	return writeCommonInputFileDocument(filePath, doc)
+	return writeCommonInputFileDocument(resolvedPath, doc)
 }
 
 // ReplaceFilePresets atomically updates the Presets list in a JSON config file.
@@ -63,7 +67,11 @@ func replaceFilePresets(
 		return fmt.Errorf("preset config updates require a file-backed configuration")
 	}
 
-	doc, err := readCommonInputFileDocument(filePath)
+	resolvedPath, err := resolveConfigFilePath(filePath)
+	if err != nil {
+		return err
+	}
+	doc, err := readCommonInputFileDocument(resolvedPath)
 	if err != nil {
 		return err
 	}
@@ -81,7 +89,7 @@ func replaceFilePresets(
 		presets,
 		runtimePresets,
 	)
-	return writeCommonInputFileDocument(filePath, doc)
+	return writeCommonInputFileDocument(resolvedPath, doc)
 }
 
 // PresetConfigWritable reports whether filePath points to a writable config file.
@@ -89,7 +97,11 @@ func PresetConfigWritable(filePath string) bool {
 	if filePath == "" {
 		return false
 	}
-	f, err := os.OpenFile(filePath, os.O_RDWR, 0)
+	resolvedPath, resolveErr := resolveConfigFilePath(filePath)
+	if resolveErr != nil {
+		return false
+	}
+	f, err := os.OpenFile(resolvedPath, os.O_RDWR, 0)
 	if err != nil {
 		return false
 	}
@@ -97,8 +109,8 @@ func PresetConfigWritable(filePath string) bool {
 		return false
 	}
 	tmp, createErr := os.CreateTemp(
-		filepath.Dir(filePath),
-		filepath.Base(filePath)+".writable.*.tmp",
+		filepath.Dir(resolvedPath),
+		filepath.Base(resolvedPath)+".writable.*.tmp",
 	)
 	if createErr != nil {
 		return false
@@ -109,6 +121,14 @@ func PresetConfigWritable(filePath string) bool {
 		return false
 	}
 	return os.Remove(tmpName) == nil
+}
+
+func resolveConfigFilePath(filePath string) (string, error) {
+	resolvedPath, err := filepath.EvalSymlinks(filePath)
+	if err != nil {
+		return "", err
+	}
+	return resolvedPath, nil
 }
 
 // presetInputsFromPresets converts normalized presets back to file input shape.
@@ -244,9 +264,10 @@ func presetMapByID(presets []Preset) map[string]Preset {
 }
 
 type commonInputFileDocument struct {
-	input commonInput
-	raw   map[string]json.RawMessage
-	mode  os.FileMode
+	input      commonInput
+	raw        map[string]json.RawMessage
+	rawPresets []map[string]json.RawMessage
+	mode       os.FileMode
 }
 
 func readCommonInputFileDocument(filePath string) (commonInputFileDocument, error) {
@@ -268,10 +289,17 @@ func readCommonInputFileDocument(filePath string) (commonInputFileDocument, erro
 	if decodeErr := json.Unmarshal(data, &raw); decodeErr != nil {
 		return commonInputFileDocument{}, decodeErr
 	}
+	var rawPresets []map[string]json.RawMessage
+	if presets, ok := raw["Presets"]; ok {
+		if decodeErr := json.Unmarshal(presets, &rawPresets); decodeErr != nil {
+			return commonInputFileDocument{}, decodeErr
+		}
+	}
 	return commonInputFileDocument{
-		input: cfg,
-		raw:   raw,
-		mode:  info.Mode(),
+		input:      cfg,
+		raw:        raw,
+		rawPresets: rawPresets,
+		mode:       info.Mode(),
 	}, nil
 }
 
@@ -292,12 +320,102 @@ func writeCommonInputFileDocument(
 	if raw == nil {
 		raw = map[string]json.RawMessage{}
 	}
-	presets, marshalErr := json.Marshal(doc.input.Presets)
+	presets, marshalErr := marshalPresetInputsPreservingRaw(
+		doc.input.Presets,
+		doc.rawPresets,
+	)
 	if marshalErr != nil {
 		return marshalErr
 	}
 	raw["Presets"] = presets
 	return writeCommonInputFile(filePath, raw, doc.mode)
+}
+
+func marshalPresetInputsPreservingRaw(
+	inputs presetInputs,
+	rawPresets []map[string]json.RawMessage,
+) (json.RawMessage, error) {
+	rawByID := make(map[string]map[string]json.RawMessage, len(rawPresets))
+	for _, rawPreset := range rawPresets {
+		id := rawPresetString(rawPreset, "ID")
+		if id != "" {
+			rawByID[id] = rawPreset
+		}
+	}
+
+	presets := make([]map[string]json.RawMessage, len(inputs))
+	for i, input := range inputs {
+		id := strings.TrimSpace(input.ID)
+		rawPreset := rawByID[id]
+		if rawPreset == nil && i < len(rawPresets) {
+			rawID := rawPresetString(rawPresets[i], "ID")
+			if rawID == "" || rawID == id {
+				rawPreset = rawPresets[i]
+			}
+		}
+		preset, err := mergePresetInputRaw(input, rawPreset)
+		if err != nil {
+			return nil, err
+		}
+		presets[i] = preset
+	}
+	return json.Marshal(presets)
+}
+
+func rawPresetString(
+	rawPreset map[string]json.RawMessage,
+	key string,
+) string {
+	if rawPreset == nil {
+		return ""
+	}
+	var value string
+	if err := json.Unmarshal(rawPreset[key], &value); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(value)
+}
+
+func mergePresetInputRaw(
+	input presetInput,
+	rawPreset map[string]json.RawMessage,
+) (map[string]json.RawMessage, error) {
+	merged := make(map[string]json.RawMessage, len(rawPreset)+6)
+	for key, value := range rawPreset {
+		merged[key] = value
+	}
+	if err := setPresetRawField(merged, "ID", input.ID); err != nil {
+		return nil, err
+	}
+	if err := setPresetRawField(merged, "Title", input.Title); err != nil {
+		return nil, err
+	}
+	if err := setPresetRawField(merged, "Type", input.Type); err != nil {
+		return nil, err
+	}
+	if err := setPresetRawField(merged, "Host", input.Host); err != nil {
+		return nil, err
+	}
+	if err := setPresetRawField(merged, "TabColor", input.TabColor); err != nil {
+		return nil, err
+	}
+	if err := setPresetRawField(merged, "Meta", input.Meta); err != nil {
+		return nil, err
+	}
+	return merged, nil
+}
+
+func setPresetRawField(
+	rawPreset map[string]json.RawMessage,
+	key string,
+	value any,
+) error {
+	data, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	rawPreset[key] = data
+	return nil
 }
 
 // writeCommonInputFile atomically rewrites filePath with cfg encoded as JSON.

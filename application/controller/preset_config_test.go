@@ -595,7 +595,7 @@ func TestPresetConfigPutSerializesConcurrentFingerprintSaves(t *testing.T) {
 func TestPresetConfigPutRejectsOversizedRequest(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
 	writePresetAPIConfig(t, configPath, nil)
-	controller := newAuthenticatedTestPresetConfig(t, configPath)
+	controller := newAdminTestPresetConfig(t, configPath)
 	body := []byte(`{"presets":[{"id":"preset-atlantis","title":"` +
 		strings.Repeat("a", maxPresetConfigRequestBytes) +
 		`","type":"SSH","host":"atlantis.home"}]}`)
@@ -605,6 +605,7 @@ func TestPresetConfigPutRejectsOversizedRequest(t *testing.T) {
 		bytes.NewReader(body),
 	)
 	authorizePresetConfigRequest(controller, request)
+	authorizePresetAdminRequest(controller, request)
 	recorder := httptest.NewRecorder()
 	writer := newResponseWriter(recorder)
 

@@ -303,14 +303,15 @@ existing preset, or replace the full preset list for add/edit/remove clients.
 Presets without an `id` are assigned one automatically. Duplicate preset IDs are
 rejected.
 
-When `SharedKey` is configured, requests to this endpoint must use the same
-`X-Key` authentication flow as `/sshwifty/socket/verify`. Full preset-list
-replacement also requires `PresetAdminKey` or `SSHWIFTY_PRESET_ADMIN_KEY` via
-the `X-Preset-Admin-Key` header, using the same time-windowed key derivation as
-`X-Key`. Fingerprint saves from the current UI do not require the admin key and
-are limited server-side to changing only the selected preset's `Fingerprint`
-metadata. When the active configuration was loaded from environment variables,
-writes are rejected because there is no JSON file to update.
+`PUT` is disabled unless `SharedKey` is configured, and every `PUT` request must
+use the same `X-Key` authentication flow as `/sshwifty/socket/verify`. Full
+preset-list replacement also requires `PresetAdminKey` or
+`SSHWIFTY_PRESET_ADMIN_KEY` via the `X-Preset-Admin-Key` header, using the same
+time-windowed key derivation as `X-Key`. Fingerprint saves from the current UI
+do not require the admin key and are limited server-side to changing only the
+selected preset's `Fingerprint` metadata. When the active configuration was
+loaded from environment variables, writes are rejected because there is no JSON
+file to update.
 
 ## Environment Variables
 
