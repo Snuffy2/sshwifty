@@ -18,16 +18,10 @@ SPDX-License-Identifier: AGPL-3.0-only
 
       <connect-switch
         v-if="!inputting"
-        :knowns-length="knowns.length"
+        :presets-length="knowns.length + presets.length"
         :tab="tab"
         @switch="switchTab"
       ></connect-switch>
-
-      <connect-new
-        v-if="tab === 'new' && !inputting"
-        :connectors="connectors"
-        @select="selectConnector"
-      ></connect-new>
 
       <connect-known
         v-if="tab === 'known' && !inputting"
@@ -42,6 +36,12 @@ SPDX-License-Identifier: AGPL-3.0-only
         @remove="removeKnown"
         @clear-session="clearSessionKnown"
       ></connect-known>
+
+      <connect-new
+        v-if="tab === 'new' && !inputting"
+        :connectors="connectors"
+        @select="selectConnector"
+      ></connect-new>
 
       <div id="connect-warning">
         <span id="connect-warning-icon" class="icon icon-warning1"></span>
@@ -161,13 +161,13 @@ export default {
   ],
   /**
    * @returns {{tab: string, canSelect: boolean}}
-   *   `tab` — active panel: `"new"` or `"known"`.
+   *   `tab` — active panel: `"known"` or `"new"`.
    *   `canSelect` — reserved flag for future debounce logic.
    *   `sourceURL` — exact source location for the running build.
    */
   data() {
     return {
-      tab: !this.restrictedToPresets ? "new" : "known",
+      tab: "known",
       canSelect: true,
       sourceURL: __SSHWIFTY_SOURCE_URL__,
     };

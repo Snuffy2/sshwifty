@@ -10,7 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-only
       v-if="knownList.length <= 0 && presets <= 0"
       id="connect-known-list-empty"
     >
-      No known remote available
+      No presets or saved remotes available
     </div>
     <div v-else>
       <div v-if="knownList.length > 0" id="connect-known-list-list">
