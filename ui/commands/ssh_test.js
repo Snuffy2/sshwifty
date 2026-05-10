@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import assert from "assert";
+import * as reader from "../stream/reader.js";
 import * as address from "./address.js";
 import * as command from "./commands.js";
 import * as common from "./common.js";
@@ -10,6 +11,16 @@ import * as ssh from "./ssh.js";
 import * as strings from "./string.js";
 
 describe("SSH Command", () => {
+  /**
+   * Build a reader around a single buffer.
+   *
+   * @param {Uint8Array} buffer Source bytes.
+   * @returns {reader.Reader} Reader containing the buffer.
+   */
+  function makeReader(buffer) {
+    return new reader.Buffer(buffer, () => {});
+  }
+
   it("encodes terminal resize dimensions", async () => {
     let commandHandler = null;
     let streamSends = [];
@@ -172,5 +183,46 @@ describe("SSH Command", () => {
     assert.ok(commandHandler);
     assert.strictEqual(initialSends.length, 1);
     assert.deepStrictEqual(initialSends[0], expected);
+  });
+
+  it("auto-accepts the first fingerprint for trusted preset execution", async () => {
+    const sent = [];
+    const wizard = new ssh.Command().execute(
+      new command.Info(new ssh.Command()),
+      {
+        user: "alice",
+        host: "example.com:22",
+        authentication: "Password",
+        charset: "utf-8",
+        fingerprint: "",
+        trustPresetFingerprint: true,
+      },
+      {},
+      [],
+      null,
+      null,
+      {
+        get(type) {
+          assert.strictEqual(type, "SSH");
+
+          return {};
+        },
+      },
+      null,
+    );
+    const step = await wizard.stepFingerprintPrompt(
+      makeReader(new TextEncoder().encode("SHA256:abc")),
+      {
+        send(marker, payload) {
+          sent.push({ marker, payload: Array.from(payload) });
+        },
+      },
+      (fingerprint) => (fingerprint === "SHA256:abc" ? 0x01 : 0x02),
+      () => {},
+      true,
+    );
+
+    assert.strictEqual(step.type(), command.NEXT_WAIT);
+    assert.deepStrictEqual(sent, [{ marker: 0x02, payload: [0] }]);
   });
 });

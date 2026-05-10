@@ -72,12 +72,7 @@ export function buildPresetExecution(preset) {
   const fingerprint = presetData.metaDefault("Fingerprint", "");
   const credential = presetCredential(presetData, authentication);
 
-  if (
-    user.length <= 0 ||
-    authentication.length <= 0 ||
-    fingerprint.length <= 0 ||
-    credential === null
-  ) {
+  if (user.length <= 0 || authentication.length <= 0 || credential === null) {
     return null;
   }
 
@@ -88,6 +83,7 @@ export function buildPresetExecution(preset) {
     charset,
     tabColor,
     fingerprint,
+    trustPresetFingerprint: fingerprint.length <= 0,
   };
 
   if (commandName === "Mosh") {

@@ -796,6 +796,7 @@ class Wizard {
             (newFingerprint) => {
               configInput.fingerprint = newFingerprint;
             },
+            configInput.trustPresetFingerprint === true,
           ),
         );
       },
@@ -915,9 +916,17 @@ class Wizard {
    *   string; returns a `FingerprintPromptVerify*` constant.
    * @param {function(string): void} newFingerprint Called with the accepted
    *   fingerprint string so it can be persisted.
+   * @param {boolean} trustUnrecordedFingerprint Whether to accept and record
+   *   the first observed fingerprint without prompting.
    * @returns {Promise<object>} The next wizard step (wait or prompt).
    */
-  async stepFingerprintPrompt(rd, sd, verify, newFingerprint) {
+  async stepFingerprintPrompt(
+    rd,
+    sd,
+    verify,
+    newFingerprint,
+    trustUnrecordedFingerprint = false,
+  ) {
     const self = this;
 
     let fingerprintData = new TextDecoder("utf-8").decode(
@@ -930,6 +939,17 @@ class Wizard {
         sd.send(CLIENT_CONNECT_RESPOND_FINGERPRINT, new Uint8Array([0]));
 
         return self.stepContinueWaitForEstablishWait();
+
+      case FingerprintPromptVerifyNoRecord:
+        if (trustUnrecordedFingerprint) {
+          newFingerprint(fingerprintData);
+
+          sd.send(CLIENT_CONNECT_RESPOND_FINGERPRINT, new Uint8Array([0]));
+
+          return self.stepContinueWaitForEstablishWait();
+        }
+
+        break;
 
       case FingerprintPromptVerifyMismatch:
         fingerprintChanged = true;
@@ -1138,6 +1158,7 @@ class Executer extends Wizard {
           charset: self.config.charset ? self.config.charset : "utf-8",
           tabColor: self.config.tabColor ? self.config.tabColor : "",
           fingerprint: self.config.fingerprint,
+          trustPresetFingerprint: self.config.trustPresetFingerprint === true,
         },
         self.session,
       );

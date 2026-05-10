@@ -51,6 +51,7 @@ describe("preset execution helpers", () => {
         charset: "utf-8",
         tabColor: "#123",
         fingerprint: "SHA256:abc",
+        trustPresetFingerprint: false,
       },
       session: {
         credential: "secret",
@@ -68,12 +69,38 @@ describe("preset execution helpers", () => {
         meta: {
           User: "alice",
           Authentication: "Password",
-          Password: "secret",
         },
       }),
     );
 
     assert.strictEqual(execution, null);
+  });
+
+  it("builds direct SSH execution for complete credential presets without fingerprints", () => {
+    const execution = buildPresetExecution(
+      mergedPreset("SSH", {
+        title: "Atlantis SSH",
+        type: "SSH",
+        host: "atlantis.home:22",
+        meta: {
+          User: "pi",
+          Authentication: "Private Key",
+          "Private Key": "PRIVATE KEY DATA",
+        },
+      }),
+    );
+
+    assert.deepStrictEqual(execution.config, {
+      user: "pi",
+      authentication: "Private Key",
+      host: "atlantis.home:22",
+      charset: "utf-8",
+      tabColor: "",
+      fingerprint: "",
+      trustPresetFingerprint: true,
+    });
+    assert.strictEqual(execution.session.credential, "PRIVATE KEY DATA");
+    assert.deepStrictEqual(execution.keptSessions, ["credential"]);
   });
 
   it("builds direct Mosh execution with the default mosh-server command", () => {
