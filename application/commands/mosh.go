@@ -173,19 +173,28 @@ func (d *moshClient) Bootup(
 		return nil, command.ToFSMError(rErr, MoshRequestErrorBadAuthMethod)
 	}
 
+	requestMeta, requestMetaErr := parseMoshRequestMeta(r, (*sBuf)[:])
+	if requestMetaErr != nil {
+		return nil, command.ToFSMError(requestMetaErr, MoshRequestErrorBadMetadata)
+	}
+	d.meta = requestMeta
+	presetID, presetIDErr := parseOptionalPresetID(
+		r,
+		(*sBuf)[:sshMaxPresetIDLen],
+	)
+	if presetIDErr != nil {
+		return nil, command.ToFSMError(presetIDErr, MoshRequestErrorBadMetadata)
+	}
+
 	authMethodBuilder, authMethodBuilderErr := d.buildAuthMethod(
 		rData[0],
+		presetID,
 		userNameStr,
 		addrStr,
 	)
 	if authMethodBuilderErr != nil {
 		return nil, command.ToFSMError(authMethodBuilderErr, MoshRequestErrorBadAuthMethod)
 	}
-	requestMeta, requestMetaErr := parseMoshRequestMeta(r, (*sBuf)[:])
-	if requestMetaErr != nil {
-		return nil, command.ToFSMError(requestMetaErr, MoshRequestErrorBadMetadata)
-	}
-	d.meta = requestMeta
 
 	d.remoteCloseWait.Add(1)
 	if d.remoteStarter != nil {
@@ -240,6 +249,7 @@ func validateMoshServerPath(serverPath string) error {
 
 func (d *moshClient) buildAuthMethod(
 	methodType byte,
+	presetID string,
 	user string,
 	host string,
 ) (sshAuthMethodBuilder, error) {
@@ -253,6 +263,7 @@ func (d *moshClient) buildAuthMethod(
 					if credential, ok := presetPasswordCredential(
 						d.cfg,
 						"Mosh",
+						presetID,
 						user,
 						host,
 					); ok {

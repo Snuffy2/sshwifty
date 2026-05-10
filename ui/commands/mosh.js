@@ -109,15 +109,27 @@ export class Mosh {
         common.strToUint8Array(this.config.moshServer || DEFAULT_MOSH_SERVER),
       ),
       moshServerBuf = moshServer.buffer();
+    const presetID = new strings.String(
+        common.strToUint8Array(this.config.presetID || ""),
+      ),
+      presetIDBuf = presetID.buffer();
 
     let data = new Uint8Array(
-      userBuf.length + addrBuf.length + 1 + moshServerBuf.length,
+      userBuf.length +
+        addrBuf.length +
+        1 +
+        moshServerBuf.length +
+        presetIDBuf.length,
     );
 
     data.set(userBuf, 0);
     data.set(addrBuf, userBuf.length);
     data.set(authMethod, userBuf.length + addrBuf.length);
     data.set(moshServerBuf, userBuf.length + addrBuf.length + 1);
+    data.set(
+      presetIDBuf,
+      userBuf.length + addrBuf.length + 1 + moshServerBuf.length,
+    );
 
     initialSender.send(data);
   }
@@ -660,6 +672,7 @@ class Wizard {
       host: address.parseHostPort(configInput.host, DEFAULT_PORT),
       fingerprint: configInput.fingerprint,
       moshServer: configInput.moshServer,
+      presetID: configInput.presetID ? configInput.presetID : "",
     };
 
     // Copy the keptSessions from the record so it will not be overwritten here
@@ -838,6 +851,7 @@ class Wizard {
               fingerprint: self.preset
                 ? self.preset.metaDefault("Fingerprint", "")
                 : "",
+              presetID: self.preset ? self.preset.id() : "",
               saveFingerprint: self.saveFingerprint,
             },
             self.session,
@@ -1106,6 +1120,7 @@ class Executer extends Wizard {
             : "mosh-server",
           tabColor: self.config.tabColor ? self.config.tabColor : "",
           fingerprint: self.config.fingerprint,
+          presetID: self.config.presetID ? self.config.presetID : "",
           saveFingerprint: self.config.saveFingerprint
             ? self.config.saveFingerprint
             : null,

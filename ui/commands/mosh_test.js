@@ -255,6 +255,10 @@ describe("Mosh Command", () => {
       (await strings.String.read(rd)).data(),
       new TextEncoder().encode("/usr/local/bin/mosh-server"),
     );
+    assert.deepStrictEqual(
+      (await strings.String.read(rd)).data(),
+      new TextEncoder().encode(""),
+    );
   });
 
   it("defaults the Mosh Server in the initial payload", async () => {
@@ -286,6 +290,10 @@ describe("Mosh Command", () => {
     assert.deepStrictEqual(
       (await strings.String.read(rd)).data(),
       new TextEncoder().encode("mosh-server"),
+    );
+    assert.deepStrictEqual(
+      (await strings.String.read(rd)).data(),
+      new TextEncoder().encode(""),
     );
   });
 });

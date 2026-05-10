@@ -354,6 +354,7 @@ func TestPresetConfigPutPreservesHiddenPasswordOnFingerprintSave(t *testing.T) {
 	)
 	authorizePresetConfigRequest(controller, request)
 	request.Header.Set(preserveHiddenPresetPasswordsHeader, "yes")
+	request.Header.Set(presetFingerprintIDHeader, "preset-atlantis")
 	recorder := httptest.NewRecorder()
 	writer := newResponseWriter(recorder)
 
@@ -406,12 +407,98 @@ func TestPresetConfigPutRejectsFingerprintSaveChangingHost(t *testing.T) {
 	)
 	authorizePresetConfigRequest(controller, request)
 	request.Header.Set(preserveHiddenPresetPasswordsHeader, "yes")
+	request.Header.Set(presetFingerprintIDHeader, "preset-atlantis")
 	recorder := httptest.NewRecorder()
 	writer := newResponseWriter(recorder)
 
 	err := controller.Put(&writer, request, log.Ditch{})
 	if err == nil {
 		t.Fatal("Put returned nil error, want fingerprint-only validation error")
+	}
+}
+
+func TestPresetConfigPutRejectsFingerprintSaveChangingMultipleFingerprints(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	writePresetAPIConfig(t, configPath, []map[string]any{
+		{
+			"ID":    "preset-atlantis",
+			"Title": "Atlantis",
+			"Type":  "SSH",
+			"Host":  "atlantis.home",
+			"Meta": map[string]string{
+				"User":        "pi",
+				"Fingerprint": "SHA256:old-atlantis",
+			},
+		},
+		{
+			"ID":    "preset-columbia",
+			"Title": "Columbia",
+			"Type":  "SSH",
+			"Host":  "columbia.home",
+			"Meta": map[string]string{
+				"User":        "pi",
+				"Fingerprint": "SHA256:old-columbia",
+			},
+		},
+	})
+	controller := newAuthenticatedTestPresetConfig(t, configPath)
+	body := []byte(`{"presets":[{"id":"preset-atlantis","title":"Atlantis","type":"SSH","host":"atlantis.home:22","meta":{"User":"pi","Fingerprint":"SHA256:new-atlantis"}},{"id":"preset-columbia","title":"Columbia","type":"SSH","host":"columbia.home:22","meta":{"User":"pi","Fingerprint":"SHA256:new-columbia"}}]}`)
+	request := httptest.NewRequest(
+		http.MethodPut,
+		"/sshwifty/config/presets",
+		bytes.NewReader(body),
+	)
+	authorizePresetConfigRequest(controller, request)
+	request.Header.Set(preserveHiddenPresetPasswordsHeader, "yes")
+	request.Header.Set(presetFingerprintIDHeader, "preset-atlantis")
+	recorder := httptest.NewRecorder()
+	writer := newResponseWriter(recorder)
+
+	err := controller.Put(&writer, request, log.Ditch{})
+	if err == nil {
+		t.Fatal("Put returned nil error, want multi-fingerprint validation error")
+	}
+}
+
+func TestPresetConfigPutRejectsStaleFingerprintSaveDeletingAnotherFingerprint(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	writePresetAPIConfig(t, configPath, []map[string]any{
+		{
+			"ID":    "preset-atlantis",
+			"Title": "Atlantis",
+			"Type":  "SSH",
+			"Host":  "atlantis.home",
+			"Meta": map[string]string{
+				"User": "pi",
+			},
+		},
+		{
+			"ID":    "preset-columbia",
+			"Title": "Columbia",
+			"Type":  "SSH",
+			"Host":  "columbia.home",
+			"Meta": map[string]string{
+				"User":        "pi",
+				"Fingerprint": "SHA256:current-columbia",
+			},
+		},
+	})
+	controller := newAuthenticatedTestPresetConfig(t, configPath)
+	body := []byte(`{"presets":[{"id":"preset-atlantis","title":"Atlantis","type":"SSH","host":"atlantis.home:22","meta":{"User":"pi","Fingerprint":"SHA256:new-atlantis"}},{"id":"preset-columbia","title":"Columbia","type":"SSH","host":"columbia.home:22","meta":{"User":"pi"}}]}`)
+	request := httptest.NewRequest(
+		http.MethodPut,
+		"/sshwifty/config/presets",
+		bytes.NewReader(body),
+	)
+	authorizePresetConfigRequest(controller, request)
+	request.Header.Set(preserveHiddenPresetPasswordsHeader, "yes")
+	request.Header.Set(presetFingerprintIDHeader, "preset-atlantis")
+	recorder := httptest.NewRecorder()
+	writer := newResponseWriter(recorder)
+
+	err := controller.Put(&writer, request, log.Ditch{})
+	if err == nil {
+		t.Fatal("Put returned nil error, want stale fingerprint validation error")
 	}
 }
 

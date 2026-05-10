@@ -7,19 +7,38 @@ package commands
 import (
 	"github.com/Snuffy2/sshwifty/application/command"
 	"github.com/Snuffy2/sshwifty/application/configuration"
+	"github.com/Snuffy2/sshwifty/application/rw"
 )
+
+func parseOptionalPresetID(r *rw.LimitedReader, b []byte) (string, error) {
+	if r.Completed() {
+		return "", nil
+	}
+	presetID, err := ParseString(r.Read, b)
+	if err != nil {
+		return "", err
+	}
+	return string(presetID.Data()), nil
+}
 
 func presetPasswordCredential(
 	cfg command.Configuration,
 	presetType string,
+	presetID string,
 	user string,
 	host string,
 ) (string, bool) {
+	if presetID == "" {
+		return "", false
+	}
 	presets := cfg.Presets
 	if cfg.PresetRepository != nil {
 		presets = cfg.PresetRepository.List()
 	}
 	for _, preset := range presets {
+		if preset.ID != presetID {
+			continue
+		}
 		if preset.Type != presetType {
 			continue
 		}

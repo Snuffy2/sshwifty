@@ -154,8 +154,11 @@ describe("SSH Command", () => {
       parsedHost.address,
       parsedHost.port,
     ).buffer();
+    const expectedPresetID = new strings.String(
+      common.strToUint8Array(""),
+    ).buffer();
     const expected = new Uint8Array(
-      expectedUser.length + expectedAddr.length + 1,
+      expectedUser.length + expectedAddr.length + 1 + expectedPresetID.length,
     );
 
     prompt.respond({
@@ -167,7 +170,11 @@ describe("SSH Command", () => {
 
     expected.set(expectedUser, 0);
     expected.set(expectedAddr, expectedUser.length);
-    expected[expected.length - 1] = 0x01;
+    expected[expectedUser.length + expectedAddr.length] = 0x01;
+    expected.set(
+      expectedPresetID,
+      expectedUser.length + expectedAddr.length + 1,
+    );
 
     assert.ok(commandHandler);
     assert.strictEqual(initialSends.length, 1);

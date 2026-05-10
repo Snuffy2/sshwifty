@@ -278,6 +278,7 @@ func parseSSHConfig(p configuration.Preset) (configuration.Preset, error) {
 const (
 	sshMaxUsernameLen = 127
 	sshMaxHostnameLen = 255
+	sshMaxPresetIDLen = 255
 )
 
 func (d *sshClient) Bootup(
@@ -316,8 +317,15 @@ func (d *sshClient) Bootup(
 			rErr, SSHRequestErrorBadAuthMethod)
 	}
 
+	presetID, presetIDErr := parseOptionalPresetID(r, (*sBuf)[:sshMaxPresetIDLen])
+	if presetIDErr != nil {
+		return nil, command.ToFSMError(
+			presetIDErr, SSHRequestErrorBadAuthMethod)
+	}
+
 	authMethodBuilder, authMethodBuilderErr := d.buildAuthMethod(
 		rData[0],
+		presetID,
 		userNameStr,
 		addrStr,
 	)
@@ -337,6 +345,7 @@ func (d *sshClient) Bootup(
 // may block to exchange credentials with the client via the credential channel.
 func (d *sshClient) buildAuthMethod(
 	methodType byte,
+	presetID string,
 	user string,
 	host string,
 ) (sshAuthMethodBuilder, error) {
@@ -353,6 +362,7 @@ func (d *sshClient) buildAuthMethod(
 					if credential, ok := presetPasswordCredential(
 						d.cfg,
 						"SSH",
+						presetID,
 						user,
 						host,
 					); ok {

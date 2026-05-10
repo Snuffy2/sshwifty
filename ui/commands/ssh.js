@@ -111,12 +111,19 @@ class SSH {
       ),
       addrBuf = addr.buffer(),
       authMethod = new Uint8Array([this.config.auth]);
+    const presetID = new strings.String(
+        common.strToUint8Array(this.config.presetID || ""),
+      ),
+      presetIDBuf = presetID.buffer();
 
-    let data = new Uint8Array(userBuf.length + addrBuf.length + 1);
+    let data = new Uint8Array(
+      userBuf.length + addrBuf.length + 1 + presetIDBuf.length,
+    );
 
     data.set(userBuf, 0);
     data.set(addrBuf, userBuf.length);
     data.set(authMethod, userBuf.length + addrBuf.length);
+    data.set(presetIDBuf, userBuf.length + addrBuf.length + 1);
 
     initialSender.send(data);
   }
@@ -691,6 +698,7 @@ class Wizard {
       credential: sessionData.credential,
       host: address.parseHostPort(configInput.host, DEFAULT_PORT),
       fingerprint: configInput.fingerprint,
+      presetID: configInput.presetID ? configInput.presetID : "",
     };
 
     // Copy the keptSessions from the record so it will not be overwritten here
@@ -857,6 +865,7 @@ class Wizard {
               fingerprint: self.preset
                 ? self.preset.metaDefault("Fingerprint", "")
                 : "",
+              presetID: self.preset ? self.preset.id() : "",
               saveFingerprint: self.saveFingerprint,
             },
             self.session,
@@ -1168,6 +1177,7 @@ class Executer extends Wizard {
           charset: self.config.charset ? self.config.charset : "utf-8",
           tabColor: self.config.tabColor ? self.config.tabColor : "",
           fingerprint: self.config.fingerprint,
+          presetID: self.config.presetID ? self.config.presetID : "",
           saveFingerprint: self.config.saveFingerprint
             ? self.config.saveFingerprint
             : null,

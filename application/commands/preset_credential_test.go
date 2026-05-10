@@ -16,6 +16,7 @@ func TestPresetPasswordCredentialMatchesHostUserAndPasswordAuth(t *testing.T) {
 		command.Configuration{
 			Presets: []configuration.Preset{
 				{
+					ID:   "preset-atlantis",
 					Type: "SSH",
 					Host: "atlantis.home:22",
 					Meta: map[string]string{
@@ -29,6 +30,7 @@ func TestPresetPasswordCredentialMatchesHostUserAndPasswordAuth(t *testing.T) {
 			},
 		},
 		"SSH",
+		"preset-atlantis",
 		"pi",
 		"atlantis.home:22",
 	)
@@ -44,6 +46,7 @@ func TestPresetPasswordCredentialMatchesHostUserAndPasswordAuth(t *testing.T) {
 func TestPresetPasswordCredentialUsesLivePresetRepository(t *testing.T) {
 	repo := configuration.NewPresetRepository([]configuration.Preset{
 		{
+			ID:   "preset-atlantis",
 			Type: "SSH",
 			Host: "atlantis.home:22",
 			Meta: map[string]string{
@@ -55,6 +58,7 @@ func TestPresetPasswordCredentialUsesLivePresetRepository(t *testing.T) {
 	})
 	repo.Replace([]configuration.Preset{
 		{
+			ID:   "preset-atlantis",
 			Type: "SSH",
 			Host: "atlantis.home:22",
 			Meta: map[string]string{
@@ -70,6 +74,7 @@ func TestPresetPasswordCredentialUsesLivePresetRepository(t *testing.T) {
 			PresetRepository: repo,
 			Presets: []configuration.Preset{
 				{
+					ID:   "preset-atlantis",
 					Type: "SSH",
 					Host: "atlantis.home:22",
 					Meta: map[string]string{
@@ -81,6 +86,7 @@ func TestPresetPasswordCredentialUsesLivePresetRepository(t *testing.T) {
 			},
 		},
 		"SSH",
+		"preset-atlantis",
 		"pi",
 		"atlantis.home:22",
 	)
@@ -98,6 +104,7 @@ func TestPresetPasswordCredentialMatchesCommandType(t *testing.T) {
 		command.Configuration{
 			Presets: []configuration.Preset{
 				{
+					ID:   "preset-mosh",
 					Type: "Mosh",
 					Host: "atlantis.home:22",
 					Meta: map[string]string{
@@ -107,6 +114,7 @@ func TestPresetPasswordCredentialMatchesCommandType(t *testing.T) {
 					},
 				},
 				{
+					ID:   "preset-ssh",
 					Type: "SSH",
 					Host: "atlantis.home:22",
 					Meta: map[string]string{
@@ -118,6 +126,7 @@ func TestPresetPasswordCredentialMatchesCommandType(t *testing.T) {
 			},
 		},
 		"SSH",
+		"preset-ssh",
 		"pi",
 		"atlantis.home:22",
 	)
@@ -127,5 +136,72 @@ func TestPresetPasswordCredentialMatchesCommandType(t *testing.T) {
 	}
 	if credential != "sshpassword" {
 		t.Fatalf("credential = %q, want sshpassword", credential)
+	}
+}
+
+func TestPresetPasswordCredentialRequiresPresetID(t *testing.T) {
+	_, ok := presetPasswordCredential(
+		command.Configuration{
+			Presets: []configuration.Preset{
+				{
+					ID:   "preset-atlantis",
+					Type: "SSH",
+					Host: "atlantis.home:22",
+					Meta: map[string]string{
+						"Authentication": "Password",
+						"User":           "pi",
+						"Password":       "mypassword",
+					},
+				},
+			},
+		},
+		"SSH",
+		"",
+		"pi",
+		"atlantis.home:22",
+	)
+
+	if ok {
+		t.Fatal("presetPasswordCredential ok = true without preset ID, want false")
+	}
+}
+
+func TestPresetPasswordCredentialMatchesPresetID(t *testing.T) {
+	credential, ok := presetPasswordCredential(
+		command.Configuration{
+			Presets: []configuration.Preset{
+				{
+					ID:   "preset-atlantis",
+					Type: "SSH",
+					Host: "shared.home:22",
+					Meta: map[string]string{
+						"Authentication": "Password",
+						"User":           "pi",
+						"Password":       "atlantis-password",
+					},
+				},
+				{
+					ID:   "preset-columbia",
+					Type: "SSH",
+					Host: "shared.home:22",
+					Meta: map[string]string{
+						"Authentication": "Password",
+						"User":           "pi",
+						"Password":       "columbia-password",
+					},
+				},
+			},
+		},
+		"SSH",
+		"preset-columbia",
+		"pi",
+		"shared.home:22",
+	)
+
+	if !ok {
+		t.Fatal("presetPasswordCredential ok = false, want true")
+	}
+	if credential != "columbia-password" {
+		t.Fatalf("credential = %q, want columbia-password", credential)
 	}
 }

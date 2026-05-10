@@ -21,6 +21,7 @@ import (
 
 const (
 	preserveHiddenPresetPasswordsHeader = "X-Preserve-Hidden-Preset-Passwords"
+	presetFingerprintIDHeader           = "X-Preset-Fingerprint-ID"
 	presetAdminKeyHeader                = "X-Preset-Admin-Key"
 )
 
@@ -111,6 +112,7 @@ func (p presetConfig) Put(
 		if err := validateFingerprintOnlyPresetUpdate(
 			presets,
 			currentPresets,
+			strings.TrimSpace(r.Header.Get(presetFingerprintIDHeader)),
 		); err != nil {
 			return NewError(http.StatusBadRequest, err.Error())
 		}
@@ -143,7 +145,11 @@ func (p presetConfig) Put(
 func validateFingerprintOnlyPresetUpdate(
 	presets []configuration.Preset,
 	current []configuration.Preset,
+	targetPresetID string,
 ) error {
+	if targetPresetID == "" {
+		return fmt.Errorf("fingerprint save requires a preset ID")
+	}
 	if len(presets) != len(current) {
 		return fmt.Errorf("fingerprint save cannot add or remove presets")
 	}
@@ -151,6 +157,7 @@ func validateFingerprintOnlyPresetUpdate(
 	for _, preset := range current {
 		currentByID[preset.ID] = preset
 	}
+	changedFingerprint := false
 	for _, preset := range presets {
 		currentPreset, ok := currentByID[preset.ID]
 		if !ok {
@@ -168,6 +175,22 @@ func validateFingerprintOnlyPresetUpdate(
 				preset.ID,
 			)
 		}
+		if preset.Meta["Fingerprint"] == currentPreset.Meta["Fingerprint"] {
+			continue
+		}
+		if preset.ID != targetPresetID {
+			return fmt.Errorf("fingerprint save cannot change preset %q", preset.ID)
+		}
+		if strings.TrimSpace(preset.Meta["Fingerprint"]) == "" {
+			return fmt.Errorf("fingerprint save cannot remove a fingerprint")
+		}
+		if changedFingerprint {
+			return fmt.Errorf("fingerprint save can only change one preset")
+		}
+		changedFingerprint = true
+	}
+	if !changedFingerprint {
+		return fmt.Errorf("fingerprint save did not change preset %q", targetPresetID)
 	}
 	return nil
 }
