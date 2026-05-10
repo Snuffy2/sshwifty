@@ -711,8 +711,8 @@ class Builder {
     this.represeter = (n) => {
       return command.represet(n);
     };
-    this.wizarder = (n, i, r, u, y, x, l, p) => {
-      return command.wizard(n, i, r, u, y, x, l, p);
+    this.wizarder = (n, i, r, u, y, x, l, p, s) => {
+      return command.wizard(n, i, r, u, y, x, l, p, s);
     };
     this.executer = (n, i, r, u, y, x, l, p) => {
       return command.execute(n, i, r, u, y, x, l, p);

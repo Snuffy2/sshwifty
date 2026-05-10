@@ -621,7 +621,11 @@ func (d *moshClient) validateMoshRemoteAllowed(address string) error {
 		return nil
 	}
 
-	for _, preset := range d.cfg.Presets {
+	presets := d.cfg.Presets
+	if d.cfg.PresetRepository != nil {
+		presets = d.cfg.PresetRepository.List()
+	}
+	for _, preset := range presets {
 		if preset.Host == address {
 			return nil
 		}

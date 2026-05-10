@@ -33,4 +33,64 @@ describe("Command prompts", () => {
     ]);
     assert.strictEqual(prompt.data().actions[0].respond(), "saved");
   });
+
+  it("forwards fingerprint saver callbacks to interactive command wizards", () => {
+    const saveFingerprint = () => {};
+    let receivedSaveFingerprint = null;
+    const commands = new command.Commands([
+      {
+        id() {
+          return 0;
+        },
+        name() {
+          return "Fake";
+        },
+        description() {
+          return "Fake command";
+        },
+        color() {
+          return "#000";
+        },
+        wizard(
+          _info,
+          _preset,
+          _session,
+          _kept,
+          _streams,
+          _subs,
+          _controls,
+          _history,
+          saver,
+        ) {
+          receivedSaveFingerprint = saver;
+          return {
+            run() {},
+            started() {
+              return false;
+            },
+            control() {
+              return {
+                ui() {
+                  return "Fake";
+                },
+              };
+            },
+            close() {},
+          };
+        },
+        execute() {},
+        launch() {},
+        launcher() {},
+        represet(preset) {
+          return preset;
+        },
+      },
+    ]);
+
+    commands
+      .all()[0]
+      .wizard(null, null, null, null, null, null, () => {}, saveFingerprint);
+
+    assert.strictEqual(receivedSaveFingerprint, saveFingerprint);
+  });
 });

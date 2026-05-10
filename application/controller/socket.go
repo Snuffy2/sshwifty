@@ -345,6 +345,7 @@ func (s socket) Get(
 			DialTimeout:            s.commonCfg.DecideDialTimeout(s.serverCfg.ReadTimeout),
 			Socks5Configured:       s.commonCfg.Socks5Configured,
 			Presets:                s.commonCfg.CurrentPresets(),
+			PresetRepository:       s.commonCfg.PresetRepository,
 			OnlyAllowPresetRemotes: s.commonCfg.OnlyAllowPresetRemotes,
 		},
 		rw.NewFetchReader(func() ([]byte, error) {

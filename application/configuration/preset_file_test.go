@@ -73,3 +73,81 @@ func TestPersistPresetIDsAddsMissingIDsToConfigFile(t *testing.T) {
 		t.Fatal("reloaded preset ID is empty")
 	}
 }
+
+func TestReplaceFilePresetsPreservesRawMetaValues(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	keyPath := filepath.Join(t.TempDir(), "id_ed25519")
+	if err := os.WriteFile(keyPath, []byte("PRIVATE KEY DATA"), 0o600); err != nil {
+		t.Fatalf("os.WriteFile key returned error: %v", err)
+	}
+	writePresetConfig(t, configPath, []map[string]any{
+		{
+			"ID":    "preset-atlantis",
+			"Title": "Atlantis",
+			"Type":  "SSH",
+			"Host":  "atlantis.home:22",
+			"Meta": map[string]any{
+				"User":           "pi",
+				"Authentication": "Private Key",
+				"Private Key":    "file://" + keyPath,
+			},
+		},
+	})
+
+	_, cfg, err := loadFile(configPath)
+	if err != nil {
+		t.Fatalf("loadFile returned error: %v", err)
+	}
+	preset := cfg.Presets[0]
+	preset.Meta["Fingerprint"] = "SHA256:abc"
+	if err := ReplaceFilePresets(configPath, []Preset{preset}); err != nil {
+		t.Fatalf("ReplaceFilePresets returned error: %v", err)
+	}
+
+	raw, _, err := readCommonInputFile(configPath)
+	if err != nil {
+		t.Fatalf("readCommonInputFile returned error: %v", err)
+	}
+	if raw.Presets[0].Meta["Private Key"] != String("file://"+keyPath) {
+		t.Fatalf(
+			"raw private key = %q, want file URI",
+			raw.Presets[0].Meta["Private Key"],
+		)
+	}
+	if raw.Presets[0].Meta["Fingerprint"] != "SHA256:abc" {
+		t.Fatal("raw fingerprint was not updated")
+	}
+}
+
+func TestReplaceFilePresetsPreservesUnsupportedRawPresets(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	writePresetConfig(t, configPath, []map[string]any{
+		{"ID": "preset-atlantis", "Title": "Atlantis", "Type": "SSH", "Host": "atlantis.home:22"},
+		{"ID": "preset-future", "Title": "Future", "Type": "Future", "Host": "future.home"},
+	})
+
+	if err := ReplaceFilePresets(configPath, []Preset{
+		{
+			ID:    "preset-atlantis",
+			Title: "Atlantis",
+			Type:  "SSH",
+			Host:  "atlantis.home:22",
+			Meta: map[string]string{
+				"Fingerprint": "SHA256:abc",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("ReplaceFilePresets returned error: %v", err)
+	}
+
+	raw, _, err := readCommonInputFile(configPath)
+	if err != nil {
+		t.Fatalf("readCommonInputFile returned error: %v", err)
+	}
+	if len(raw.Presets) != 2 {
+		t.Fatalf("raw preset count = %d, want 2", len(raw.Presets))
+	}
+	if raw.Presets[1].ID != "preset-future" {
+		t.Fatalf("second raw preset ID = %q, want preset-future", raw.Presets[1].ID)
+	}
+}

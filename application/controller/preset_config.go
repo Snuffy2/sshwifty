@@ -9,6 +9,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/Snuffy2/sshwifty/application/command"
 	"github.com/Snuffy2/sshwifty/application/configuration"
@@ -80,7 +82,7 @@ func (p presetConfig) Put(
 	presets := make([]configuration.Preset, len(request.Presets))
 	for i, preset := range request.Presets {
 		presets[i] = configuration.Preset{
-			ID:       preset.ID,
+			ID:       strings.TrimSpace(preset.ID),
 			Title:    preset.Title,
 			Type:     preset.Type,
 			Host:     preset.Host,
@@ -101,9 +103,10 @@ func (p presetConfig) Put(
 	if err != nil {
 		return NewError(http.StatusBadRequest, err.Error())
 	}
-	if err := configuration.ReplaceFilePresets(
+	if err := configuration.ReplaceFilePresetsWithRuntime(
 		p.commonCfg.SourceFile,
 		normalized,
+		p.commonCfg.CurrentPresets(),
 	); err != nil {
 		return NewError(http.StatusInternalServerError, err.Error())
 	}
@@ -120,6 +123,7 @@ func (p presetConfig) requireAuth(r *http.Request) error {
 	if len(key) <= 0 || len(key) > 64 {
 		return ErrSocketInvalidAuthKey
 	}
+	time.Sleep(500 * time.Millisecond)
 	decodedKey, decodedKeyErr := base64.StdEncoding.DecodeString(key)
 	if decodedKeyErr != nil {
 		return NewError(http.StatusBadRequest, decodedKeyErr.Error())

@@ -124,12 +124,71 @@ func TestPresetConfigPutAddsMissingIDsAndPersists(t *testing.T) {
 	}
 }
 
+func TestPresetConfigPutRemovesSupportedPresetsAndPreservesRawUnsupported(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	writePresetAPIConfig(t, configPath, []map[string]any{
+		{"ID": "preset-atlantis", "Title": "Atlantis", "Type": "SSH", "Host": "atlantis.home"},
+		{"ID": "preset-future", "Title": "Future", "Type": "Future", "Host": "future.home"},
+	})
+	controller := newTestPresetConfig(t, configPath)
+	body := []byte(`{"presets":[{"id":"preset-columbia","title":"Columbia","type":"SSH","host":"columbia.home","meta":{"User":"pi"}}]}`)
+	request := httptest.NewRequest(http.MethodPut, "/sshwifty/config/presets", bytes.NewReader(body))
+	recorder := httptest.NewRecorder()
+	writer := newResponseWriter(recorder)
+
+	if err := controller.Put(&writer, request, log.Ditch{}); err != nil {
+		t.Fatalf("Put returned error: %v", err)
+	}
+
+	var raw struct {
+		Presets []struct {
+			ID string
+		}
+	}
+	f, err := os.Open(configPath)
+	if err != nil {
+		t.Fatalf("os.Open returned error: %v", err)
+	}
+	defer f.Close()
+	if err := json.NewDecoder(f).Decode(&raw); err != nil {
+		t.Fatalf("json Decode returned error: %v", err)
+	}
+	if len(raw.Presets) != 2 {
+		t.Fatalf("raw preset count = %d, want 2", len(raw.Presets))
+	}
+	if raw.Presets[0].ID != "preset-columbia" {
+		t.Fatalf("first raw preset ID = %q, want preset-columbia", raw.Presets[0].ID)
+	}
+	if raw.Presets[1].ID != "preset-future" {
+		t.Fatalf("second raw preset ID = %q, want preset-future", raw.Presets[1].ID)
+	}
+}
+
 func TestPresetConfigPutRejectsDuplicateIDs(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
 	writePresetAPIConfig(t, configPath, nil)
 	controller := newTestPresetConfig(t, configPath)
 	body := []byte(`{"presets":[{"id":"dup","title":"A","type":"SSH","host":"a.home"},{"id":"dup","title":"B","type":"SSH","host":"b.home"}]}`)
 	request := httptest.NewRequest(http.MethodPut, "/sshwifty/config/presets", bytes.NewReader(body))
+	recorder := httptest.NewRecorder()
+	writer := newResponseWriter(recorder)
+
+	err := controller.Put(&writer, request, log.Ditch{})
+	if err == nil {
+		t.Fatal("Put returned nil error, want duplicate ID error")
+	}
+}
+
+func TestPresetConfigPutRejectsIDsDuplicatedAfterTrimming(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	writePresetAPIConfig(t, configPath, nil)
+	controller := newTestPresetConfig(t, configPath)
+	body := []byte(`{"presets":[{"id":" dup ","title":"A","type":"SSH","host":"a.home"},{"id":"dup","title":"B","type":"SSH","host":"b.home"}]}`)
+	request := httptest.NewRequest(
+		http.MethodPut,
+		"/sshwifty/config/presets",
+		bytes.NewReader(body),
+	)
 	recorder := httptest.NewRecorder()
 	writer := newResponseWriter(recorder)
 

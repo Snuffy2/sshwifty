@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // PersistPresetIDs writes generated preset IDs back to a JSON configuration file.
@@ -37,8 +38,27 @@ func PersistPresetIDs(filePath string, presets []Preset) error {
 	return writeCommonInputFile(filePath, raw, mode)
 }
 
-// ReplaceFilePresets atomically replaces the Presets list in a JSON config file.
+// ReplaceFilePresets atomically updates the Presets list in a JSON config file.
 func ReplaceFilePresets(filePath string, presets []Preset) error {
+	return replaceFilePresets(filePath, presets, nil)
+}
+
+// ReplaceFilePresetsWithRuntime atomically updates a JSON config file using
+// runtimePresets to distinguish deleted presets from raw entries the runtime
+// did not understand.
+func ReplaceFilePresetsWithRuntime(
+	filePath string,
+	presets []Preset,
+	runtimePresets []Preset,
+) error {
+	return replaceFilePresets(filePath, presets, runtimePresets)
+}
+
+func replaceFilePresets(
+	filePath string,
+	presets []Preset,
+	runtimePresets []Preset,
+) error {
 	if filePath == "" {
 		return fmt.Errorf("preset config updates require a file-backed configuration")
 	}
@@ -47,7 +67,11 @@ func ReplaceFilePresets(filePath string, presets []Preset) error {
 	if err != nil {
 		return err
 	}
-	raw.Presets = presetInputsFromPresets(presets)
+	concrete, concreteErr := raw.Presets.concretize()
+	if concreteErr != nil {
+		return concreteErr
+	}
+	raw.Presets = mergePresetInputs(raw.Presets, concrete, presets, runtimePresets)
 	return writeCommonInputFile(filePath, raw, mode)
 }
 
@@ -82,20 +106,127 @@ func PresetConfigWritable(filePath string) bool {
 func presetInputsFromPresets(presets []Preset) presetInputs {
 	inputs := make(presetInputs, len(presets))
 	for i, preset := range presets {
-		meta := make(Meta, len(preset.Meta))
-		for key, value := range preset.Meta {
-			meta[key] = String(value)
-		}
-		inputs[i] = presetInput{
-			ID:       preset.ID,
-			Title:    preset.Title,
-			Type:     preset.Type,
-			Host:     preset.Host,
-			TabColor: preset.TabColor,
-			Meta:     meta,
-		}
+		inputs[i] = presetInputFromPreset(preset)
 	}
 	return inputs
+}
+
+func presetInputFromPreset(preset Preset) presetInput {
+	return presetInput{
+		ID:       preset.ID,
+		Title:    preset.Title,
+		Type:     preset.Type,
+		Host:     preset.Host,
+		TabColor: preset.TabColor,
+		Meta:     metaInputFromPreset(preset.Meta),
+	}
+}
+
+func mergePresetInputs(
+	raw presetInputs,
+	concrete []Preset,
+	presets []Preset,
+	runtimePresets []Preset,
+) presetInputs {
+	rawByID := presetInputIndexByID(raw)
+	concreteByID := presetMapByID(concrete)
+	runtimeByID := presetMapByID(runtimePresets)
+	merged := make(presetInputs, 0, len(raw)+len(presets))
+	touched := make(map[string]struct{}, len(presets))
+
+	for _, preset := range presets {
+		id := strings.TrimSpace(preset.ID)
+		touched[id] = struct{}{}
+		rawIndex, rawOK := rawByID[id]
+		current, currentOK := concreteByID[id]
+		if rawOK && currentOK {
+			merged = append(merged, mergePresetInput(raw[rawIndex], current, preset))
+			continue
+		}
+		merged = append(merged, presetInputFromPreset(preset))
+	}
+
+	for _, input := range raw {
+		id := strings.TrimSpace(input.ID)
+		if _, ok := touched[id]; ok {
+			continue
+		}
+		if len(runtimeByID) > 0 {
+			if _, ok := runtimeByID[id]; ok {
+				continue
+			}
+		}
+		merged = append(merged, input)
+	}
+
+	return merged
+}
+
+func mergePresetInput(raw presetInput, current Preset, preset Preset) presetInput {
+	merged := raw
+	merged.ID = preset.ID
+	merged.Title = preserveRawString(raw.Title, current.Title, preset.Title)
+	merged.Type = preserveRawString(raw.Type, current.Type, preset.Type)
+	merged.Host = preserveRawString(raw.Host, current.Host, preset.Host)
+	merged.TabColor = preserveRawString(raw.TabColor, current.TabColor, preset.TabColor)
+	merged.Meta = mergePresetMeta(raw.Meta, current.Meta, preset.Meta)
+	return merged
+}
+
+func preserveRawString(raw string, current string, next string) string {
+	if next == current {
+		return raw
+	}
+	return next
+}
+
+func mergePresetMeta(raw Meta, current map[string]string, next map[string]string) Meta {
+	merged := copyMeta(raw)
+	for key, value := range next {
+		if currentValue, ok := current[key]; ok && value == currentValue {
+			continue
+		}
+		merged[key] = String(value)
+	}
+	if _, ok := next[PresetMetaEncryptedPassword]; ok {
+		delete(merged, PresetMetaPassword)
+	}
+	return merged
+}
+
+func copyMeta(meta Meta) Meta {
+	if meta == nil {
+		return Meta{}
+	}
+	copied := make(Meta, len(meta))
+	for key, value := range meta {
+		copied[key] = value
+	}
+	return copied
+}
+
+func metaInputFromPreset(meta map[string]string) Meta {
+	input := make(Meta, len(meta))
+	for key, value := range meta {
+		input[key] = String(value)
+	}
+	return input
+}
+
+func presetInputIndexByID(inputs presetInputs) map[string]int {
+	byID := make(map[string]int, len(inputs))
+	for i, input := range inputs {
+		byID[strings.TrimSpace(input.ID)] = i
+	}
+	return byID
+}
+
+func presetMapByID(presets []Preset) map[string]Preset {
+	byID := make(map[string]Preset, len(presets))
+	for _, preset := range presets {
+		byID[strings.TrimSpace(preset.ID)] = preset
+	}
+	return byID
 }
 
 // readCommonInputFile decodes filePath and returns its file mode for rewrites.
