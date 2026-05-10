@@ -579,6 +579,9 @@ export default {
           preset.preset.id(),
           fingerprint,
         );
+        if (!Array.isArray(updatedPresets)) {
+          throw new Error("savePresetFingerprint must resolve to an array");
+        }
 
         this.presets = markRaw(
           this.commands.mergePresets(new presets.Presets(updatedPresets)),

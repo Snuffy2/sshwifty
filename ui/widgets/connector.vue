@@ -1130,16 +1130,19 @@ export default {
         return;
       }
 
-      this.current.submitting = true;
+      const current = this.current;
+      current.submitting = true;
 
       try {
         await action.respond(this.getFieldValues());
       } catch (e) {
-        this.current.submitting = false;
-
         alert("Action has failed: " + e);
 
         process.env.NODE_ENV === "development" && console.trace(e);
+      } finally {
+        if (this.current === current && !this.disabled) {
+          current.submitting = false;
+        }
       }
     },
     /**

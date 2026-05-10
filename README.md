@@ -78,7 +78,10 @@ openssl rand -base64 32
 
 ```powershell
 # Windows PowerShell
-$bytes = New-Object byte[] 32; [Security.Cryptography.RandomNumberGenerator]::Fill($bytes); [Convert]::ToBase64String($bytes)
+$rng = [Security.Cryptography.RandomNumberGenerator]::Create()
+$bytes = New-Object byte[] 32
+$rng.GetBytes($bytes)
+[Convert]::ToBase64String($bytes)
 ```
 
 Mosh support is available in v1 with SSH used for bootstrap only. The browser

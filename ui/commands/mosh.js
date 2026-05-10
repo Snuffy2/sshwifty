@@ -927,7 +927,13 @@ class Wizard {
       actions.push({
         text: "Save",
         async respond() {
-          await saveFingerprint(fingerprintData);
+          try {
+            await saveFingerprint(fingerprintData);
+          } catch (e) {
+            throw new Error("Unable to save fingerprint: " + e, {
+              cause: e,
+            });
+          }
           acceptFingerprint();
         },
       });
