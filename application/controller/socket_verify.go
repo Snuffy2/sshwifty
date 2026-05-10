@@ -74,7 +74,7 @@ func newSocketAccessConfiguration(
 			Type:     remotes[i].Type,
 			Host:     remotes[i].Host,
 			TabColor: remotes[i].TabColor,
-			Meta:     remotes[i].Meta,
+			Meta:     sanitizeSocketPresetMeta(remotes[i].Meta),
 		}
 	}
 	return socketAccessConfiguration{
@@ -82,6 +82,17 @@ func newSocketAccessConfiguration(
 		ServerMessage:        parseServerMessage(html.EscapeString(serverMessage)),
 		PresetConfigWritable: presetConfigWritable,
 	}
+}
+
+func sanitizeSocketPresetMeta(meta map[string]string) map[string]string {
+	sanitized := make(map[string]string, len(meta))
+	for key, value := range meta {
+		if key == configuration.PresetMetaPassword {
+			continue
+		}
+		sanitized[key] = value
+	}
+	return sanitized
 }
 
 // buildAccessConfigRespondBody serializes accessCfg to JSON. It panics if

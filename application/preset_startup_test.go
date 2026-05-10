@@ -5,6 +5,7 @@
 package application
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -53,6 +54,62 @@ func TestNormalizeStartupPresetIDsPersistsFileBackedIDs(t *testing.T) {
 			reloaded.Presets[0].ID,
 			normalized.Presets[0].ID,
 		)
+	}
+}
+
+func TestNormalizeStartupPresetIDsMigratesPlaintextPresetPassword(t *testing.T) {
+	t.Setenv(
+		configuration.PresetSecretKeyEnv,
+		base64.StdEncoding.EncodeToString(
+			[]byte("0123456789abcdef0123456789abcdef"),
+		),
+	)
+	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configData := map[string]any{
+		"Servers": []map[string]any{
+			{"ListenInterface": "127.0.0.1", "ListenPort": 8182},
+		},
+		"Presets": []map[string]any{
+			{
+				"Title": "Atlantis",
+				"Type":  "SSH",
+				"Host":  "atlantis.home",
+				"Meta": map[string]string{
+					"Authentication": "Password",
+					"Password":       "mypassword",
+				},
+			},
+		},
+	}
+	content, err := json.MarshalIndent(configData, "", "  ")
+	if err != nil {
+		t.Fatalf("json.MarshalIndent returned error: %v", err)
+	}
+	if err := os.WriteFile(configPath, content, 0o600); err != nil {
+		t.Fatalf("os.WriteFile returned error: %v", err)
+	}
+
+	_, cfg, err := configuration.CustomFile(configPath)(log.Ditch{})
+	if err != nil {
+		t.Fatalf("CustomFile returned error: %v", err)
+	}
+	normalized, err := normalizeStartupPresetIDs(cfg)
+	if err != nil {
+		t.Fatalf("normalizeStartupPresetIDs returned error: %v", err)
+	}
+	if normalized.Presets[0].SecretMeta["Password"] != "mypassword" {
+		t.Fatal("normalized preset did not keep decrypted password in SecretMeta")
+	}
+
+	_, reloaded, err := configuration.CustomFile(configPath)(log.Ditch{})
+	if err != nil {
+		t.Fatalf("second CustomFile returned error: %v", err)
+	}
+	if _, ok := reloaded.Presets[0].Meta["Password"]; ok {
+		t.Fatal("persisted config still contains plaintext Password")
+	}
+	if reloaded.Presets[0].Meta["Encrypted Password"] == "" {
+		t.Fatal("persisted config is missing Encrypted Password")
 	}
 }
 

@@ -173,7 +173,11 @@ func (d *moshClient) Bootup(
 		return nil, command.ToFSMError(rErr, MoshRequestErrorBadAuthMethod)
 	}
 
-	authMethodBuilder, authMethodBuilderErr := d.buildAuthMethod(rData[0])
+	authMethodBuilder, authMethodBuilderErr := d.buildAuthMethod(
+		rData[0],
+		userNameStr,
+		addrStr,
+	)
 	if authMethodBuilderErr != nil {
 		return nil, command.ToFSMError(authMethodBuilderErr, MoshRequestErrorBadAuthMethod)
 	}
@@ -234,7 +238,11 @@ func validateMoshServerPath(serverPath string) error {
 	return nil
 }
 
-func (d *moshClient) buildAuthMethod(methodType byte) (sshAuthMethodBuilder, error) {
+func (d *moshClient) buildAuthMethod(
+	methodType byte,
+	user string,
+	host string,
+) (sshAuthMethodBuilder, error) {
 	switch methodType {
 	case SSHAuthMethodNone:
 		return func(b []byte) []ssh.AuthMethod { return nil }, nil
@@ -242,6 +250,14 @@ func (d *moshClient) buildAuthMethod(methodType byte) (sshAuthMethodBuilder, err
 		return func(b []byte) []ssh.AuthMethod {
 			return []ssh.AuthMethod{
 				ssh.PasswordCallback(func() (string, error) {
+					if credential, ok := presetPasswordCredential(
+						d.cfg,
+						user,
+						host,
+					); ok {
+						return credential, nil
+					}
+
 					d.enableRemoteReadTimeoutRetry()
 					defer d.disableRemoteReadTimeoutRetry()
 

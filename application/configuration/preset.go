@@ -26,6 +26,9 @@ type Preset struct {
 	TabColor string
 	// Meta holds command-specific key/value options (e.g. SSH username).
 	Meta map[string]string
+	// SecretMeta holds decrypted server-only preset options that must not be
+	// sent to the browser or written back to the config file.
+	SecretMeta map[string]string
 }
 
 // EnsurePresetIDs returns a copy of presets with every missing ID filled.

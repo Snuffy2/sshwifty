@@ -93,6 +93,10 @@ func (p presetConfig) Put(
 	if err != nil {
 		return NewError(http.StatusBadRequest, err.Error())
 	}
+	normalized, _, err = configuration.ApplyPresetSecrets(normalized)
+	if err != nil {
+		return NewError(http.StatusBadRequest, err.Error())
+	}
 	normalized, err = p.commands.Reconfigure(normalized)
 	if err != nil {
 		return NewError(http.StatusBadRequest, err.Error())

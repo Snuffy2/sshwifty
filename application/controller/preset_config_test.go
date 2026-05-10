@@ -6,6 +6,7 @@ package controller
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -138,10 +139,77 @@ func TestPresetConfigPutRejectsDuplicateIDs(t *testing.T) {
 	}
 }
 
+func TestPresetConfigPutEncryptsPlaintextPasswordsWhenKeyIsSet(t *testing.T) {
+	t.Setenv(
+		configuration.PresetSecretKeyEnv,
+		base64.StdEncoding.EncodeToString(
+			[]byte("0123456789abcdef0123456789abcdef"),
+		),
+	)
+	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	writePresetAPIConfig(t, configPath, nil)
+	controller := newTestPresetConfig(t, configPath)
+	body := []byte(`{"presets":[{"id":"preset-atlantis","title":"Atlantis","type":"SSH","host":"atlantis.home","meta":{"User":"pi","Authentication":"Password","Password":"mypassword"}}]}`)
+	request := httptest.NewRequest(
+		http.MethodPut,
+		"/sshwifty/config/presets",
+		bytes.NewReader(body),
+	)
+	recorder := httptest.NewRecorder()
+	writer := newResponseWriter(recorder)
+
+	if err := controller.Put(&writer, request, log.Ditch{}); err != nil {
+		t.Fatalf("Put returned error: %v", err)
+	}
+
+	var response presetConfigResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&response); err != nil {
+		t.Fatalf("json Decode returned error: %v", err)
+	}
+	if _, ok := response.Presets[0].Meta[configuration.PresetMetaPassword]; ok {
+		t.Fatal("response still contains plaintext Password")
+	}
+	if response.Presets[0].Meta[configuration.PresetMetaEncryptedPassword] == "" {
+		t.Fatal("response missing Encrypted Password")
+	}
+
+	_, reloaded, err := configuration.CustomFile(configPath)(log.Ditch{})
+	if err != nil {
+		t.Fatalf("CustomFile returned error: %v", err)
+	}
+	if _, ok := reloaded.Presets[0].Meta[configuration.PresetMetaPassword]; ok {
+		t.Fatal("persisted config still contains plaintext Password")
+	}
+	if reloaded.Presets[0].Meta[configuration.PresetMetaEncryptedPassword] == "" {
+		t.Fatal("persisted config missing Encrypted Password")
+	}
+}
+
 func TestSocketAccessConfigurationIncludesPresetConfigWritable(t *testing.T) {
 	accessConfig := newSocketAccessConfiguration(nil, "", true)
 
 	if !accessConfig.PresetConfigWritable {
 		t.Fatal("PresetConfigWritable = false, want true")
+	}
+}
+
+func TestSocketAccessConfigurationDoesNotExposePlaintextPasswords(t *testing.T) {
+	accessConfig := newSocketAccessConfiguration([]configuration.Preset{
+		{
+			Title: "Atlantis",
+			Type:  "SSH",
+			Host:  "atlantis.home:22",
+			Meta: map[string]string{
+				configuration.PresetMetaPassword:          "mypassword",
+				configuration.PresetMetaEncryptedPassword: "encrypted",
+			},
+		},
+	}, "", true)
+
+	if _, ok := accessConfig.Presets[0].Meta[configuration.PresetMetaPassword]; ok {
+		t.Fatal("socket access configuration exposed plaintext Password")
+	}
+	if accessConfig.Presets[0].Meta[configuration.PresetMetaEncryptedPassword] != "encrypted" {
+		t.Fatal("socket access configuration removed encrypted password")
 	}
 }
