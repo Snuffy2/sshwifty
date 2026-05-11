@@ -42,24 +42,6 @@ func PersistPresetIDs(filePath string, presets []Preset) error {
 	return writeCommonInputFileDocument(resolvedPath, doc)
 }
 
-// PersistPresetAdminKey writes key into a JSON configuration file.
-func PersistPresetAdminKey(filePath string, key string) error {
-	if filePath == "" {
-		return nil
-	}
-
-	resolvedPath, err := resolveConfigFilePath(filePath)
-	if err != nil {
-		return err
-	}
-	doc, err := readCommonInputFileDocument(resolvedPath)
-	if err != nil {
-		return err
-	}
-	doc.input.PresetAdminKey = key
-	return writeCommonInputFileDocument(resolvedPath, doc)
-}
-
 // ReplaceFilePresets atomically updates the Presets list in a JSON config file.
 func ReplaceFilePresets(filePath string, presets []Preset) error {
 	return replaceFilePresets(filePath, presets, nil)
@@ -338,14 +320,12 @@ func writeCommonInputFileDocument(
 	if raw == nil {
 		raw = map[string]json.RawMessage{}
 	}
-	if _, ok := raw["PresetAdminKey"]; ok || doc.input.PresetAdminKey != "" {
-		presetAdminKey, marshalPresetAdminKeyErr := json.Marshal(
-			doc.input.PresetAdminKey,
-		)
-		if marshalPresetAdminKeyErr != nil {
-			return marshalPresetAdminKeyErr
+	if _, ok := raw["AdminKey"]; ok || doc.input.AdminKey != "" {
+		adminKey, marshalAdminKeyErr := json.Marshal(doc.input.AdminKey)
+		if marshalAdminKeyErr != nil {
+			return marshalAdminKeyErr
 		}
-		raw["PresetAdminKey"] = presetAdminKey
+		raw["AdminKey"] = adminKey
 	}
 	presets, marshalErr := marshalPresetInputsPreservingRaw(
 		doc.input.Presets,

@@ -5,14 +5,10 @@
 package controller
 
 import (
-	"crypto/hmac"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/Snuffy2/sshwifty/application/command"
 	"github.com/Snuffy2/sshwifty/application/configuration"
@@ -22,7 +18,6 @@ import (
 const (
 	preserveHiddenPresetPasswordsHeader = "X-Preserve-Hidden-Preset-Passwords"
 	presetFingerprintIDHeader           = "X-Preset-Fingerprint-ID"
-	presetAdminKeyHeader                = "X-Preset-Admin-Key"
 	maxPresetConfigRequestBytes         = 256 * 1024
 	maxPresetConfigPresets              = 512
 	maxPresetConfigStringBytes          = 4096
@@ -64,7 +59,7 @@ func (p presetConfig) Get(
 	r *http.Request,
 	l log.Logger,
 ) error {
-	if err := p.requireAuth(r); err != nil {
+	if _, err := p.requireAuth(r); err != nil {
 		return err
 	}
 	return p.writePresets(w, p.commonCfg.CurrentPresets())
@@ -76,13 +71,8 @@ func (p presetConfig) Put(
 	r *http.Request,
 	l log.Logger,
 ) error {
-	if p.commonCfg.SharedKey == "" {
-		return NewError(
-			http.StatusForbidden,
-			"Preset updates require SharedKey authentication",
-		)
-	}
-	if err := p.requireAuth(r); err != nil {
+	role, err := p.requireAuth(r)
+	if err != nil {
 		return err
 	}
 	if !p.commonCfg.PresetConfigWritable() {
@@ -133,8 +123,11 @@ func (p presetConfig) Put(
 		); err != nil {
 			return NewError(http.StatusBadRequest, err.Error())
 		}
-	} else if err := p.requirePresetAdminAuth(r); err != nil {
-		return err
+	} else if role < authRoleAdmin {
+		return NewError(
+			http.StatusForbidden,
+			"Full preset updates require AdminKey authentication",
+		)
 	} else {
 		if err := validatePresetConfigRequest(request); err != nil {
 			return NewError(http.StatusBadRequest, err.Error())
@@ -461,56 +454,21 @@ func copyHiddenPresetPassword(
 	}
 }
 
-// requireAuth applies the same shared-key verification used by socket verify.
-func (p presetConfig) requireAuth(r *http.Request) error {
-	if p.commonCfg.SharedKey == "" {
-		return nil
-	}
-	key := r.Header.Get("X-Key")
-	if len(key) <= 0 || len(key) > 64 {
-		return ErrSocketInvalidAuthKey
-	}
-	time.Sleep(500 * time.Millisecond)
-	decodedKey, decodedKeyErr := base64.StdEncoding.DecodeString(key)
-	if decodedKeyErr != nil {
-		return NewError(http.StatusBadRequest, decodedKeyErr.Error())
-	}
+// requireAuth applies the same credential role matching used by socket verify.
+func (p presetConfig) requireAuth(r *http.Request) (authRole, error) {
 	verifier := newSocketVerification(
 		socket{commonCfg: p.commonCfg},
 		configuration.Server{},
 		p.commonCfg,
 	)
-	if !hmac.Equal(verifier.authKey(r), decodedKey) {
-		return ErrSocketAuthFailed
+	role, err := verifier.requestAuthRole(r)
+	if err != nil {
+		return authRoleNone, err
 	}
-	return nil
-}
-
-func (p presetConfig) requirePresetAdminAuth(r *http.Request) error {
-	if p.commonCfg.PresetAdminKey == "" {
-		return NewError(
-			http.StatusForbidden,
-			"Full preset updates require PresetAdminKey authentication",
-		)
+	if role < authRoleUser {
+		return authRoleNone, ErrSocketInvalidAuthKey
 	}
-	key := r.Header.Get(presetAdminKeyHeader)
-	if len(key) <= 0 || len(key) > 64 {
-		return ErrSocketInvalidAuthKey
-	}
-	time.Sleep(500 * time.Millisecond)
-	decodedKey, decodedKeyErr := base64.StdEncoding.DecodeString(key)
-	if decodedKeyErr != nil {
-		return NewError(http.StatusBadRequest, decodedKeyErr.Error())
-	}
-	if !hmac.Equal(presetAdminAuthKey(p.commonCfg.PresetAdminKey), decodedKey) {
-		return ErrSocketAuthFailed
-	}
-	return nil
-}
-
-func presetAdminAuthKey(key string) []byte {
-	timeMixer := strconv.FormatInt(time.Now().Unix()/100, 10)
-	return hashCombineSocketKeys(timeMixer, key)[:32]
+	return role, nil
 }
 
 // writePresets serializes presets using the same preset shape sent to the UI.

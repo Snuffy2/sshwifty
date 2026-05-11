@@ -33,8 +33,8 @@ services:
       # Optional: base64-encoded 32-byte key for encrypted preset passwords.
       # Generate with: openssl rand -base64 32
       # SSHWIFTY_PRESET_SECRET_KEY: "replace-with-generated-key"
-      # Optional override: otherwise auto-generated into writable JSON config.
-      # SSHWIFTY_PRESET_ADMIN_KEY: "replace-with-admin-key"
+      # Optional admin key. Users enter this in the same prompt as SharedKey.
+      # SSHWIFTY_ADMIN_KEY: "replace-with-admin-key"
 ```
 
 Then open `http://localhost:8182`.
@@ -68,11 +68,13 @@ own configuration.
 Writable file-backed configuration enables preset updates from the UI, such as
 saving SSH/Mosh fingerprints. If `SSHWIFTY_PRESET_SECRET_KEY` is set, plaintext
 preset `Password` values are migrated on startup to `Encrypted Password` and the
-plaintext value is removed from the JSON file. Without that key, plaintext
-password presets continue to work as before. Full preset add/edit/remove API
-writes also require `PresetAdminKey` or `SSHWIFTY_PRESET_ADMIN_KEY`; when
-`SharedKey` is set and a writable JSON config omits `PresetAdminKey`, Sshwifty
-generates one and writes it to the config on startup. Fingerprint saves from the
+plaintext value is removed from the JSON file. That key must be set through the
+environment, not in JSON. Without that key, plaintext password presets continue
+to work as before. Full preset add/edit/remove API writes require admin access.
+Users enter either `SharedKey` or `AdminKey` in the same authentication prompt:
+`SharedKey` grants user access, while `AdminKey` grants admin access. If
+`AdminKey` is blank, `SharedKey` grants admin access. If both keys are blank,
+everyone gets admin access without authentication. Fingerprint saves from the
 current UI remain limited to the selected preset's fingerprint.
 
 Generate a preset secret key with one of these commands:

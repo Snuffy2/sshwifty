@@ -58,7 +58,7 @@ func TestNormalizeStartupPresetIDsPersistsFileBackedIDs(t *testing.T) {
 	}
 }
 
-func TestNormalizeStartupPresetsGeneratesFileBackedPresetAdminKey(t *testing.T) {
+func TestNormalizeStartupPresetsKeepsBlankAdminKeyWhenSharedKeyIsSet(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
 	configData := map[string]any{
 		"SharedKey": "test-shared-key",
@@ -85,26 +85,24 @@ func TestNormalizeStartupPresetsGeneratesFileBackedPresetAdminKey(t *testing.T) 
 	if err != nil {
 		t.Fatalf("normalizeStartupPresets returned error: %v", err)
 	}
-	if normalized.PresetAdminKey == "" {
-		t.Fatal("normalized PresetAdminKey is empty")
+	if normalized.AdminKey != "" {
+		t.Fatalf("normalized AdminKey = %q, want empty", normalized.AdminKey)
 	}
 
 	_, reloaded, err := configuration.CustomFile(configPath)(log.Ditch{})
 	if err != nil {
 		t.Fatalf("second CustomFile returned error: %v", err)
 	}
-	if reloaded.PresetAdminKey != normalized.PresetAdminKey {
-		t.Fatalf(
-			"persisted PresetAdminKey = %q, want %q",
-			reloaded.PresetAdminKey,
-			normalized.PresetAdminKey,
-		)
+	if reloaded.AdminKey != "" {
+		t.Fatalf("persisted AdminKey = %q, want empty", reloaded.AdminKey)
 	}
 }
 
-func TestNormalizeStartupPresetsDoesNotGeneratePresetAdminKeyWithoutSharedKey(t *testing.T) {
+func TestNormalizeStartupPresetsKeepsExplicitAdminKey(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
 	configData := map[string]any{
+		"SharedKey": "test-shared-key",
+		"AdminKey":  "existing-admin-key",
 		"Servers": []map[string]any{
 			{"ListenInterface": "127.0.0.1", "ListenPort": 8182},
 		},
@@ -128,56 +126,15 @@ func TestNormalizeStartupPresetsDoesNotGeneratePresetAdminKeyWithoutSharedKey(t 
 	if err != nil {
 		t.Fatalf("normalizeStartupPresets returned error: %v", err)
 	}
-	if normalized.PresetAdminKey != "" {
-		t.Fatalf("normalized PresetAdminKey = %q, want empty", normalized.PresetAdminKey)
-	}
-
-	_, reloaded, err := configuration.CustomFile(configPath)(log.Ditch{})
-	if err != nil {
-		t.Fatalf("second CustomFile returned error: %v", err)
-	}
-	if reloaded.PresetAdminKey != "" {
-		t.Fatalf("persisted PresetAdminKey = %q, want empty", reloaded.PresetAdminKey)
-	}
-}
-
-func TestNormalizeStartupPresetsKeepsExplicitPresetAdminKey(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
-	configData := map[string]any{
-		"SharedKey":      "test-shared-key",
-		"PresetAdminKey": "existing-admin-key",
-		"Servers": []map[string]any{
-			{"ListenInterface": "127.0.0.1", "ListenPort": 8182},
-		},
-		"Presets": []map[string]any{
-			{"ID": "preset-atlantis", "Title": "Atlantis", "Type": "SSH", "Host": "atlantis.home"},
-		},
-	}
-	content, err := json.MarshalIndent(configData, "", "  ")
-	if err != nil {
-		t.Fatalf("json.MarshalIndent returned error: %v", err)
-	}
-	if err := os.WriteFile(configPath, content, 0o600); err != nil {
-		t.Fatalf("os.WriteFile returned error: %v", err)
-	}
-
-	_, cfg, err := configuration.CustomFile(configPath)(log.Ditch{})
-	if err != nil {
-		t.Fatalf("CustomFile returned error: %v", err)
-	}
-	normalized, err := normalizeStartupPresets(cfg, commands.New())
-	if err != nil {
-		t.Fatalf("normalizeStartupPresets returned error: %v", err)
-	}
-	if normalized.PresetAdminKey != "existing-admin-key" {
+	if normalized.AdminKey != "existing-admin-key" {
 		t.Fatalf(
-			"normalized PresetAdminKey = %q, want existing-admin-key",
-			normalized.PresetAdminKey,
+			"normalized AdminKey = %q, want existing-admin-key",
+			normalized.AdminKey,
 		)
 	}
 }
 
-func TestNormalizeStartupPresetsKeepsEnvPresetAdminKeyOutOfFile(t *testing.T) {
+func TestNormalizeStartupPresetsKeepsEnvAdminKeyOutOfFile(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
 	configData := map[string]any{
 		"SharedKey": "test-shared-key",
@@ -200,15 +157,15 @@ func TestNormalizeStartupPresetsKeepsEnvPresetAdminKeyOutOfFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CustomFile returned error: %v", err)
 	}
-	cfg.PresetAdminKey = "env-admin-key"
+	cfg.AdminKey = "env-admin-key"
 	normalized, err := normalizeStartupPresets(cfg, commands.New())
 	if err != nil {
 		t.Fatalf("normalizeStartupPresets returned error: %v", err)
 	}
-	if normalized.PresetAdminKey != "env-admin-key" {
+	if normalized.AdminKey != "env-admin-key" {
 		t.Fatalf(
-			"normalized PresetAdminKey = %q, want env-admin-key",
-			normalized.PresetAdminKey,
+			"normalized AdminKey = %q, want env-admin-key",
+			normalized.AdminKey,
 		)
 	}
 
@@ -216,8 +173,8 @@ func TestNormalizeStartupPresetsKeepsEnvPresetAdminKeyOutOfFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("second CustomFile returned error: %v", err)
 	}
-	if reloaded.PresetAdminKey != "" {
-		t.Fatalf("persisted PresetAdminKey = %q, want empty", reloaded.PresetAdminKey)
+	if reloaded.AdminKey != "" {
+		t.Fatalf("persisted AdminKey = %q, want empty", reloaded.AdminKey)
 	}
 }
 

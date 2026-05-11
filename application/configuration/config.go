@@ -20,7 +20,7 @@ type Configuration struct {
 	SourceFile             string
 	HostName               string
 	SharedKey              string
-	PresetAdminKey         string
+	AdminKey               string
 	DialTimeout            time.Duration
 	Socks5                 string
 	Socks5User             string
@@ -85,7 +85,7 @@ func (c Configuration) Common() Common {
 		SourceFile:             c.SourceFile,
 		HostName:               c.HostName,
 		SharedKey:              c.SharedKey,
-		PresetAdminKey:         c.PresetAdminKey,
+		AdminKey:               c.AdminKey,
 		Dialer:                 c.dialerWithPresetRepository(presetRepository),
 		DialTimeout:            c.DialTimeout,
 		Socks5Configured:       len(c.Socks5) > 0,

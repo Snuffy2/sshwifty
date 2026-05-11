@@ -165,22 +165,6 @@ func normalizeStartupPresets(
 	c configuration.Configuration,
 	commands command.Commands,
 ) (configuration.Configuration, error) {
-	if c.SharedKey != "" &&
-		c.PresetAdminKey == "" &&
-		configuration.PresetConfigWritable(c.SourceFile) {
-		presetAdminKey, err := configuration.NewPresetAdminKey()
-		if err != nil {
-			return configuration.Configuration{}, err
-		}
-		if err := configuration.PersistPresetAdminKey(
-			c.SourceFile,
-			presetAdminKey,
-		); err != nil {
-			return configuration.Configuration{}, err
-		}
-		c.PresetAdminKey = presetAdminKey
-	}
-
 	presets, changed, err := configuration.EnsurePresetIDs(c.Presets)
 	if err != nil {
 		return configuration.Configuration{}, err

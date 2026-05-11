@@ -82,11 +82,31 @@ func newAdminTestPresetConfig(t *testing.T, configPath string) presetConfig {
 	t.Helper()
 
 	controller := newAuthenticatedTestPresetConfig(t, configPath)
-	controller.commonCfg.PresetAdminKey = "test-preset-admin-key"
+	controller.commonCfg.AdminKey = "test-admin-key"
 	return controller
 }
 
 func authorizePresetConfigRequest(controller presetConfig, request *http.Request) {
+	authorizePresetConfigRequestWithKey(
+		controller,
+		request,
+		controller.commonCfg.SharedKey,
+	)
+}
+
+func authorizeAdminRequest(controller presetConfig, request *http.Request) {
+	authorizePresetConfigRequestWithKey(
+		controller,
+		request,
+		controller.commonCfg.AdminKey,
+	)
+}
+
+func authorizePresetConfigRequestWithKey(
+	controller presetConfig,
+	request *http.Request,
+	key string,
+) {
 	waitForStableSocketAuthWindow()
 	verifier := newSocketVerification(
 		socket{commonCfg: controller.commonCfg},
@@ -95,17 +115,7 @@ func authorizePresetConfigRequest(controller presetConfig, request *http.Request
 	)
 	request.Header.Set(
 		"X-Key",
-		base64.StdEncoding.EncodeToString(verifier.authKey(request)),
-	)
-}
-
-func authorizePresetAdminRequest(controller presetConfig, request *http.Request) {
-	waitForStableSocketAuthWindow()
-	request.Header.Set(
-		presetAdminKeyHeader,
-		base64.StdEncoding.EncodeToString(
-			presetAdminAuthKey(controller.commonCfg.PresetAdminKey),
-		),
+		base64.StdEncoding.EncodeToString(verifier.authKeyForSecret(request, key)),
 	)
 }
 
@@ -159,7 +169,7 @@ func TestPresetConfigPutAddsMissingIDsAndPersists(t *testing.T) {
 	body := []byte(`{"presets":[{"title":"Columbia","type":"SSH","host":"columbia.home","meta":{"User":"pi"}}]}`)
 	request := httptest.NewRequest(http.MethodPut, "/sshwifty/config/presets", bytes.NewReader(body))
 	authorizePresetConfigRequest(controller, request)
-	authorizePresetAdminRequest(controller, request)
+	authorizeAdminRequest(controller, request)
 	recorder := httptest.NewRecorder()
 	writer := newResponseWriter(recorder)
 
@@ -197,7 +207,7 @@ func TestPresetConfigPutRemovesSupportedPresetsAndPreservesRawUnsupported(t *tes
 	body := []byte(`{"presets":[{"id":"preset-columbia","title":"Columbia","type":"SSH","host":"columbia.home","meta":{"User":"pi"}}]}`)
 	request := httptest.NewRequest(http.MethodPut, "/sshwifty/config/presets", bytes.NewReader(body))
 	authorizePresetConfigRequest(controller, request)
-	authorizePresetAdminRequest(controller, request)
+	authorizeAdminRequest(controller, request)
 	recorder := httptest.NewRecorder()
 	writer := newResponseWriter(recorder)
 
@@ -236,7 +246,7 @@ func TestPresetConfigPutRejectsDuplicateIDs(t *testing.T) {
 	body := []byte(`{"presets":[{"id":"dup","title":"A","type":"SSH","host":"a.home"},{"id":"dup","title":"B","type":"SSH","host":"b.home"}]}`)
 	request := httptest.NewRequest(http.MethodPut, "/sshwifty/config/presets", bytes.NewReader(body))
 	authorizePresetConfigRequest(controller, request)
-	authorizePresetAdminRequest(controller, request)
+	authorizeAdminRequest(controller, request)
 	recorder := httptest.NewRecorder()
 	writer := newResponseWriter(recorder)
 
@@ -246,7 +256,7 @@ func TestPresetConfigPutRejectsDuplicateIDs(t *testing.T) {
 	}
 }
 
-func TestPresetConfigPutRequiresSharedKey(t *testing.T) {
+func TestPresetConfigPutAllowsAdminWhenBothKeysAreBlank(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
 	writePresetAPIConfig(t, configPath, nil)
 	controller := newTestPresetConfig(t, configPath)
@@ -256,17 +266,17 @@ func TestPresetConfigPutRequiresSharedKey(t *testing.T) {
 	writer := newResponseWriter(recorder)
 
 	err := controller.Put(&writer, request, log.Ditch{})
-	if err == nil {
-		t.Fatal("Put returned nil error, want authentication requirement")
+	if err != nil {
+		t.Fatalf("Put returned error: %v", err)
 	}
 }
 
-func TestPresetConfigPutRequiresPresetAdminKeyForFullReplacement(t *testing.T) {
+func TestPresetConfigPutRequiresAdminKeyForFullReplacement(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
 	writePresetAPIConfig(t, configPath, []map[string]any{
 		{"ID": "preset-atlantis", "Title": "Atlantis", "Type": "SSH", "Host": "atlantis.home"},
 	})
-	controller := newAuthenticatedTestPresetConfig(t, configPath)
+	controller := newAdminTestPresetConfig(t, configPath)
 	body := []byte(`{"presets":[{"id":"preset-columbia","title":"Columbia","type":"SSH","host":"columbia.home"}]}`)
 	request := httptest.NewRequest(http.MethodPut, "/sshwifty/config/presets", bytes.NewReader(body))
 	authorizePresetConfigRequest(controller, request)
@@ -275,7 +285,47 @@ func TestPresetConfigPutRequiresPresetAdminKeyForFullReplacement(t *testing.T) {
 
 	err := controller.Put(&writer, request, log.Ditch{})
 	if err == nil {
-		t.Fatal("Put returned nil error, want preset admin authentication error")
+		t.Fatal("Put returned nil error, want admin authentication error")
+	}
+}
+
+func TestPresetConfigPutAllowsSharedKeyAdminWhenAdminKeyIsBlank(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	writePresetAPIConfig(t, configPath, nil)
+	controller := newAuthenticatedTestPresetConfig(t, configPath)
+	body := []byte(`{"presets":[{"id":"preset-columbia","title":"Columbia","type":"SSH","host":"columbia.home"}]}`)
+	request := httptest.NewRequest(http.MethodPut, "/sshwifty/config/presets", bytes.NewReader(body))
+	authorizePresetConfigRequest(controller, request)
+	recorder := httptest.NewRecorder()
+	writer := newResponseWriter(recorder)
+
+	if err := controller.Put(&writer, request, log.Ditch{}); err != nil {
+		t.Fatalf("Put returned error: %v", err)
+	}
+}
+
+func TestPresetConfigPutAllowsAnonymousUserButNotAdminWhenSharedKeyBlank(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	writePresetAPIConfig(t, configPath, nil)
+	controller := newTestPresetConfig(t, configPath)
+	controller.commonCfg.AdminKey = "test-admin-key"
+	body := []byte(`{"presets":[{"id":"preset-columbia","title":"Columbia","type":"SSH","host":"columbia.home"}]}`)
+	request := httptest.NewRequest(http.MethodPut, "/sshwifty/config/presets", bytes.NewReader(body))
+	recorder := httptest.NewRecorder()
+	writer := newResponseWriter(recorder)
+
+	err := controller.Put(&writer, request, log.Ditch{})
+	if err == nil {
+		t.Fatal("Put returned nil error, want admin authentication error")
+	}
+
+	request = httptest.NewRequest(http.MethodPut, "/sshwifty/config/presets", bytes.NewReader(body))
+	authorizeAdminRequest(controller, request)
+	recorder = httptest.NewRecorder()
+	writer = newResponseWriter(recorder)
+
+	if err := controller.Put(&writer, request, log.Ditch{}); err != nil {
+		t.Fatalf("Put with AdminKey returned error: %v", err)
 	}
 }
 
@@ -290,7 +340,7 @@ func TestPresetConfigPutRejectsIDsDuplicatedAfterTrimming(t *testing.T) {
 		bytes.NewReader(body),
 	)
 	authorizePresetConfigRequest(controller, request)
-	authorizePresetAdminRequest(controller, request)
+	authorizeAdminRequest(controller, request)
 	recorder := httptest.NewRecorder()
 	writer := newResponseWriter(recorder)
 
@@ -317,7 +367,7 @@ func TestPresetConfigPutEncryptsPlaintextPasswordsWhenKeyIsSet(t *testing.T) {
 		bytes.NewReader(body),
 	)
 	authorizePresetConfigRequest(controller, request)
-	authorizePresetAdminRequest(controller, request)
+	authorizeAdminRequest(controller, request)
 	recorder := httptest.NewRecorder()
 	writer := newResponseWriter(recorder)
 
@@ -692,7 +742,7 @@ func TestPresetConfigPutRejectsOversizedRequest(t *testing.T) {
 		bytes.NewReader(body),
 	)
 	authorizePresetConfigRequest(controller, request)
-	authorizePresetAdminRequest(controller, request)
+	authorizeAdminRequest(controller, request)
 	recorder := httptest.NewRecorder()
 	writer := newResponseWriter(recorder)
 
@@ -715,7 +765,7 @@ func TestPresetConfigPutRejectsOversizedPresetID(t *testing.T) {
 		bytes.NewReader(body),
 	)
 	authorizePresetConfigRequest(controller, request)
-	authorizePresetAdminRequest(controller, request)
+	authorizeAdminRequest(controller, request)
 	recorder := httptest.NewRecorder()
 	writer := newResponseWriter(recorder)
 
@@ -818,7 +868,7 @@ func TestPresetConfigPutCanDeleteHiddenPassword(t *testing.T) {
 		bytes.NewReader(body),
 	)
 	authorizePresetConfigRequest(controller, request)
-	authorizePresetAdminRequest(controller, request)
+	authorizeAdminRequest(controller, request)
 	recorder := httptest.NewRecorder()
 	writer := newResponseWriter(recorder)
 
@@ -858,7 +908,7 @@ func TestPresetConfigPutPreservesPlaintextPasswordWhenEncryptedAlsoPresentWithou
 		bytes.NewReader(body),
 	)
 	authorizePresetConfigRequest(controller, request)
-	authorizePresetAdminRequest(controller, request)
+	authorizeAdminRequest(controller, request)
 	recorder := httptest.NewRecorder()
 	writer := newResponseWriter(recorder)
 
@@ -886,34 +936,52 @@ func TestSocketAccessConfigurationIncludesPresetConfigWritable(t *testing.T) {
 	}
 }
 
-func TestSocketVerificationAdvertisesPresetConfigWritableOnlyWithSharedKey(t *testing.T) {
+func TestSocketVerificationAdvertisesPresetConfigWritableWhenConfigIsWritable(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
 	writePresetAPIConfig(t, configPath, nil)
 
-	withoutKey := newSocketVerification(
+	verification := newSocketVerification(
 		socket{},
 		configuration.Server{},
 		configuration.Common{SourceFile: configPath},
 	)
-	var withoutKeyConfig socketAccessConfiguration
-	if err := json.Unmarshal(withoutKey.configRspBody, &withoutKeyConfig); err != nil {
-		t.Fatalf("json.Unmarshal without key returned error: %v", err)
+	var accessConfig socketAccessConfiguration
+	if err := json.Unmarshal(verification.configRspBody, &accessConfig); err != nil {
+		t.Fatalf("json.Unmarshal returned error: %v", err)
 	}
-	if withoutKeyConfig.PresetConfigWritable {
-		t.Fatal("PresetConfigWritable = true without SharedKey, want false")
+	if !accessConfig.PresetConfigWritable {
+		t.Fatal("PresetConfigWritable = false, want true")
+	}
+}
+
+func TestSocketVerificationTreatsBlankSharedKeyAsAnonymousUser(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	writePresetAPIConfig(t, configPath, nil)
+	verification := newSocketVerification(
+		socket{commonCfg: configuration.Common{
+			SourceFile: configPath,
+			AdminKey:   "test-admin-key",
+		}},
+		configuration.Server{},
+		configuration.Common{
+			SourceFile: configPath,
+			AdminKey:   "test-admin-key",
+		},
+	)
+	request := httptest.NewRequest(http.MethodGet, "/sshwifty/socket/verify", nil)
+	recorder := httptest.NewRecorder()
+	writer := newResponseWriter(recorder)
+
+	if err := verification.Get(&writer, request, log.Ditch{}); err != nil {
+		t.Fatalf("Get returned error: %v", err)
 	}
 
-	withKey := newSocketVerification(
-		socket{},
-		configuration.Server{},
-		configuration.Common{SourceFile: configPath, SharedKey: "secret"},
-	)
-	var withKeyConfig socketAccessConfiguration
-	if err := json.Unmarshal(withKey.configRspBody, &withKeyConfig); err != nil {
-		t.Fatalf("json.Unmarshal with key returned error: %v", err)
+	var accessConfig socketAccessConfiguration
+	if err := json.Unmarshal(recorder.Body.Bytes(), &accessConfig); err != nil {
+		t.Fatalf("json.Unmarshal returned error: %v", err)
 	}
-	if !withKeyConfig.PresetConfigWritable {
-		t.Fatal("PresetConfigWritable = false with SharedKey, want true")
+	if !accessConfig.PresetConfigWritable {
+		t.Fatal("PresetConfigWritable = false, want true")
 	}
 }
 

@@ -27,11 +27,10 @@ as a starting point for your own configuration.
   // web interface (bypass the Authenticate page)
   "SharedKey": "WEB_ACCESS_PASSWORD",
 
-  // Optional admin key for full preset add/edit/remove API writes. When
-  // SharedKey is set and this field is empty in a writable JSON config,
-  // Sshwifty generates one and writes it to the config on startup.
-  // Fingerprint saves from the current UI do not require this key.
-  "PresetAdminKey": "",
+  // Optional admin key for admin-only API writes. Users enter either SharedKey
+  // or AdminKey in the same authentication prompt. SharedKey grants user
+  // access. AdminKey grants admin access.
+  "AdminKey": "",
 
   // Remote dial timeout. This limits how long of time the backend can spend
   // to connect to a remote host. The max timeout will be determined by
@@ -305,17 +304,25 @@ existing preset, or replace the full preset list for add/edit/remove clients.
 Presets without an `id` are assigned one automatically. Duplicate preset IDs are
 rejected.
 
-`PUT` is disabled unless `SharedKey` is configured, and every `PUT` request must
-use the same `X-Key` authentication flow as `/sshwifty/socket/verify`. Full
-preset-list replacement also requires `PresetAdminKey` or
-`SSHWIFTY_PRESET_ADMIN_KEY` via the `X-Preset-Admin-Key` header, using the same
-time-windowed key derivation as `X-Key`. When `SharedKey` is set and a writable
-JSON config omits `PresetAdminKey`, Sshwifty generates one and writes it to the
-config on startup. Fingerprint saves from the current UI do not require the
-admin key and are limited server-side to changing only the selected preset's
-`Fingerprint` metadata. When the active configuration was loaded from
-environment variables, writes are rejected because there is no JSON file to
-update.
+When authentication is required, `PUT` uses the same `X-Key` authentication flow
+as `/sshwifty/socket/verify`. Users enter either `SharedKey` or `AdminKey` in
+the same authentication prompt. `SharedKey` grants user access. `AdminKey`
+grants admin access. Full preset-list replacement requires admin access.
+Fingerprint saves from the current UI require user access and are limited
+server-side to changing only the selected preset's `Fingerprint` metadata. When
+the active configuration was loaded from environment variables, writes are
+rejected because there is no JSON file to update.
+
+Key behavior:
+
+- `SharedKey` and `AdminKey` both set: `SharedKey` is user access, `AdminKey` is
+  admin access.
+- `SharedKey` blank and `AdminKey` set: all visitors are users without
+  authentication; admin actions require entering `AdminKey`.
+- `SharedKey` set and `AdminKey` blank: anyone who authenticates with
+  `SharedKey` has admin access.
+- `SharedKey` and `AdminKey` both blank: all visitors have admin access without
+  authentication.
 
 ## Environment Variables
 
@@ -324,7 +331,7 @@ Valid environment variables are:
 ```text
 SSHWIFTY_HOSTNAME
 SSHWIFTY_SHAREDKEY
-SSHWIFTY_PRESET_ADMIN_KEY
+SSHWIFTY_ADMIN_KEY
 SSHWIFTY_DIALTIMEOUT
 SSHWIFTY_SOCKS5
 SSHWIFTY_SOCKS5_USER
@@ -368,7 +375,8 @@ jq -c . preset.example.json | jq -Rs
 base64-encoded 32-byte key; startup migrates plaintext preset passwords to
 `Encrypted Password`, removes the plaintext values from the JSON config file,
 and decrypts encrypted preset passwords server-side for SSH/Mosh authentication.
-Encrypted preset passwords cannot be used without the same key.
+Encrypted preset passwords cannot be used without the same key. The key must be
+set through the environment and is rejected if placed in the JSON config file.
 
 When using environment variables, only one Sshwifty HTTP server is allowed. Use
 the configuration file if you need to serve on multiple ports.

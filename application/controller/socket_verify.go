@@ -57,6 +57,14 @@ type socketAccessConfiguration struct {
 	PresetConfigWritable bool                 `json:"preset_config_writable"`
 }
 
+type authRole int
+
+const (
+	authRoleNone authRole = iota
+	authRoleUser
+	authRoleAdmin
+)
+
 // newSocketAccessConfiguration builds a socketAccessConfiguration from the
 // given slice of configured presets and a server message. The server message
 // is HTML-escaped and then Markdown-link-converted before being embedded in
@@ -125,35 +133,68 @@ func newSocketVerification(
 			newSocketAccessConfiguration(
 				commCfg.Presets,
 				srvCfg.ServerMessage,
-				commCfg.SharedKey != "" && commCfg.PresetConfigWritable(),
+				commCfg.PresetConfigWritable(),
 			),
 		),
 	}
 }
 
-// authKey derives the expected 32-byte authentication token for this request
-// using a truncated Unix timestamp (100-second window) combined with the
-// configured shared key. When no shared key is set a well-known default string
-// is used, which effectively disables authentication.
-func (s socketVerification) authKey(r *http.Request) []byte {
+// authKeyForSecret derives the expected 32-byte authentication token for this
+// request using a truncated Unix timestamp (100-second window) combined with
+// the configured secret.
+func (s socketVerification) authKeyForSecret(
+	r *http.Request,
+	secret string,
+) []byte {
 	timeMixer := strconv.FormatInt(time.Now().Unix()/100, 10)
-	if len(s.commonCfg.SharedKey) > 0 {
-		return hashCombineSocketKeys(
-			timeMixer,
-			s.commonCfg.SharedKey,
-		)[:32]
-	}
 	return hashCombineSocketKeys(
 		timeMixer,
-		"DEFAULT VERIFY KEY",
+		secret,
 	)[:32]
+}
+
+func (s socketVerification) anonymousAuthRole() authRole {
+	if s.commonCfg.SharedKey == "" {
+		if s.commonCfg.AdminKey == "" {
+			return authRoleAdmin
+		}
+		return authRoleUser
+	}
+	return authRoleNone
+}
+
+func (s socketVerification) requestAuthRole(r *http.Request) (authRole, error) {
+	key := r.Header.Get("X-Key")
+	if len(key) <= 0 {
+		return s.anonymousAuthRole(), nil
+	}
+	if len(key) > 64 {
+		return authRoleNone, ErrSocketInvalidAuthKey
+	}
+	time.Sleep(500 * time.Millisecond)
+	decodedKey, decodedKeyErr := base64.StdEncoding.DecodeString(key)
+	if decodedKeyErr != nil {
+		return authRoleNone, NewError(http.StatusBadRequest, decodedKeyErr.Error())
+	}
+	if s.commonCfg.AdminKey != "" &&
+		hmac.Equal(s.authKeyForSecret(r, s.commonCfg.AdminKey), decodedKey) {
+		return authRoleAdmin, nil
+	}
+	if s.commonCfg.SharedKey != "" &&
+		hmac.Equal(s.authKeyForSecret(r, s.commonCfg.SharedKey), decodedKey) {
+		if s.commonCfg.AdminKey == "" {
+			return authRoleAdmin, nil
+		}
+		return authRoleUser, nil
+	}
+	return authRoleNone, ErrSocketAuthFailed
 }
 
 // setServerConfigRespond appends the X-Heartbeat, X-Timeout, and (when
 // applicable) X-OnlyAllowPresetRemotes headers to hd, sets the Content-Type,
 // and writes the pre-serialized JSON configuration body to w.
 func (s socketVerification) setServerConfigRespond(
-	hd *http.Header, w http.ResponseWriter) {
+	hd *http.Header, w http.ResponseWriter, role authRole) {
 	hd.Add("X-Heartbeat", s.heartbeat)
 	hd.Add("X-Timeout", s.timeout)
 	if s.commonCfg.OnlyAllowPresetRemotes {
@@ -164,7 +205,7 @@ func (s socketVerification) setServerConfigRespond(
 		newSocketAccessConfiguration(
 			s.commonCfg.CurrentPresets(),
 			s.serverCfg.ServerMessage,
-			s.commonCfg.SharedKey != "" && s.commonCfg.PresetConfigWritable(),
+			role >= authRoleUser && s.commonCfg.PresetConfigWritable(),
 		),
 	))
 }
@@ -185,27 +226,18 @@ func (s socketVerification) Get(
 	key := r.Header.Get("X-Key")
 	if len(key) <= 0 {
 		hd.Add("X-Key", base64.StdEncoding.EncodeToString(s.mixerKey(r)))
-		if len(s.commonCfg.SharedKey) <= 0 {
-			s.setServerConfigRespond(&hd, w)
+		role := s.anonymousAuthRole()
+		if role >= authRoleUser {
+			s.setServerConfigRespond(&hd, w, role)
 			return nil
 		}
 		return ErrSocketInvalidAuthKey
 	}
-	if len(key) > 64 {
-		return ErrSocketInvalidAuthKey
-	}
-	// Delay the brute force attack. Use it with connection limits (via
-	// iptables or nginx etc)
-	time.Sleep(500 * time.Millisecond)
-	decodedKey, decodedKeyErr := base64.StdEncoding.DecodeString(key)
-	if decodedKeyErr != nil {
-		return NewError(http.StatusBadRequest, decodedKeyErr.Error())
-	}
-	authKey := s.authKey(r)
-	if !hmac.Equal(authKey, decodedKey) {
-		return ErrSocketAuthFailed
+	role, err := s.requestAuthRole(r)
+	if err != nil {
+		return err
 	}
 	hd.Add("X-Key", base64.StdEncoding.EncodeToString(s.mixerKey(r)))
-	s.setServerConfigRespond(&hd, w)
+	s.setServerConfigRespond(&hd, w, role)
 	return nil
 }
