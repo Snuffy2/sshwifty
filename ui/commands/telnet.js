@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 /**
- * @file Telnet command implementation for the Sshwifty UI.
+ * @file Telnet command implementation for the ShellPort UI.
  *
  * Exposes {@link Command} — the public entry point registered with the command
  * registry — and the private {@link Telnet}, {@link Wizard}, and
@@ -614,7 +614,7 @@ class Executor extends Wizard {
 /**
  * Public Telnet command definition registered with the {@link Commands} registry.
  *
- * Implements the full command contract used by the Sshwifty command registry:
+ * Implements the full command contract used by the ShellPort command registry:
  * `id`, `name`, `description`, `color`, `wizard`, `execute`, `launch`,
  * `launcher`, and `represet`.
  */

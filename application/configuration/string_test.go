@@ -27,7 +27,7 @@ func TestStringString(t *testing.T) {
 }
 
 func TestStringFile(t *testing.T) {
-	const testFilename = "sshwifty.configuration.test.string.file.tmp"
+	const testFilename = "shellport.configuration.test.string.file.tmp"
 	filePath := os.TempDir() + string(os.PathSeparator) + testFilename
 	f, err := os.Create(filePath)
 	if err != nil {

@@ -4,7 +4,7 @@
 
 package commands
 
-import "github.com/Snuffy2/sshwifty/application/command"
+import "github.com/Snuffy2/shellport/application/command"
 
 // New creates and returns the fully populated command.Commands array with
 // Telnet at index 0, SSH at index 1, and Mosh at index 2, ready to be passed

@@ -5,7 +5,7 @@
 package configuration
 
 import (
-	"github.com/Snuffy2/sshwifty/application/log"
+	"github.com/Snuffy2/shellport/application/log"
 )
 
 // PresetReloader reloads preset

@@ -4,7 +4,7 @@
 
 /**
  * @file crypto.js
- * @description Cryptographic helpers used by the Sshwifty session layer.
+ * @description Cryptographic helpers used by the ShellPort session layer.
  * Provides HMAC-SHA-512 key derivation and AES-128-GCM encrypt/decrypt
  * primitives built on the browser Web Crypto API (`window.crypto.subtle`).
  */

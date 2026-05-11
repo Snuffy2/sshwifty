@@ -1,4 +1,4 @@
-// Sshwifty - A Web SSH client
+// ShellPort - browser-based remote shell access
 //
 // Copyright (C) 2019-2026 Ni Rui <ranqus@gmail.com>
 //
@@ -407,7 +407,7 @@ const initialFieldDef = {
       ' font-style: normal;">ssh-keygen -f /path/to/private_key -p</i><br />' +
       "<br />" +
       "It is strongly recommended to use one Private Key per SSH server if " +
-      "the Private Key will be submitted to Sshwifty. To generate a new SSH " +
+      "the Private Key will be submitted to ShellPort. To generate a new SSH " +
       'key pair, use command <i style="color: #fff; font-style: normal;">' +
       "ssh-keygen -o -f /path/to/my_server_key</i> and then deploy the " +
       'generated <i style="color: #fff; font-style: normal;">' +

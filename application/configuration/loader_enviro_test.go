@@ -8,12 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Snuffy2/sshwifty/application/log"
+	"github.com/Snuffy2/shellport/application/log"
 )
 
 func TestEnvironUsesWriteDelayEnvironmentVariable(t *testing.T) {
-	t.Setenv("SSHWIFTY_WRITEDELAY", "25")
-	t.Setenv("SSHWIFTY_WRITEELAY", "99")
+	t.Setenv("SHELLPORT_WRITEDELAY", "25")
+	t.Setenv("SHELLPORT_WRITEELAY", "99")
 
 	name, cfg, err := Environ()(log.NewDitch())
 	if err != nil {
@@ -27,7 +27,7 @@ func TestEnvironUsesWriteDelayEnvironmentVariable(t *testing.T) {
 	}
 	if cfg.Servers[0].WriteDelay != 25*time.Millisecond {
 		t.Fatalf(
-			"Expected WriteDelay to use SSHWIFTY_WRITEDELAY, got %s",
+			"Expected WriteDelay to use SHELLPORT_WRITEDELAY, got %s",
 			cfg.Servers[0].WriteDelay,
 		)
 	}

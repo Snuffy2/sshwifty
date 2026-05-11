@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 /**
- * @file Command wizard framework for the Sshwifty UI.
+ * @file Command wizard framework for the ShellPort UI.
  *
  * Defines the multi-step wizard model used by SSH, Telnet, and any future
  * command types. Key exports:
@@ -690,7 +690,7 @@ export class Info {
 
 /**
  * Wraps a raw command definition and provides the `wizard`, `execute`,
- * `launch`, and `launcher` entry points consumed by the Sshwifty UI.
+ * `launch`, and `launcher` entry points consumed by the ShellPort UI.
  *
  * Each method returns a {@link Wizard} that the UI drives by repeatedly
  * calling {@link Wizard#next}.

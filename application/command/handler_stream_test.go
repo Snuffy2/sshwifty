@@ -11,9 +11,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/Snuffy2/sshwifty/application/configuration"
-	"github.com/Snuffy2/sshwifty/application/log"
-	"github.com/Snuffy2/sshwifty/application/rw"
+	"github.com/Snuffy2/shellport/application/configuration"
+	"github.com/Snuffy2/shellport/application/log"
+	"github.com/Snuffy2/shellport/application/rw"
 )
 
 func testDummyFetchChainGen(dd <-chan []byte) rw.FetchReaderFetcher {

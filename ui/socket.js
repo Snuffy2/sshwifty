@@ -10,7 +10,7 @@ import * as xhr from "./xhr.js";
 
 /**
  * @file socket.js
- * @description Manages the encrypted WebSocket connection to the Sshwifty
+ * @description Manages the encrypted WebSocket connection to the ShellPort
  * backend. Provides the {@link Dial} class that handles low-level WebSocket
  * lifecycle and GCM stream encryption, and the {@link Socket} class that
  * integrates it with the multiplexed stream layer.

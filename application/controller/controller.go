@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Snuffy2/sshwifty/application/command"
-	"github.com/Snuffy2/sshwifty/application/configuration"
-	"github.com/Snuffy2/sshwifty/application/log"
-	"github.com/Snuffy2/sshwifty/application/server"
+	"github.com/Snuffy2/shellport/application/command"
+	"github.com/Snuffy2/shellport/application/configuration"
+	"github.com/Snuffy2/shellport/application/log"
+	"github.com/Snuffy2/shellport/application/server"
 )
 
 // ErrNotFound is returned when a requested URL path does not match any known
@@ -25,7 +25,7 @@ var (
 const (
 	// assetsURLPrefix is the URL path prefix under which all bundled static
 	// assets are served (e.g. JavaScript, CSS, fonts, images).
-	assetsURLPrefix = "/sshwifty/assets/"
+	assetsURLPrefix = "/shellport/assets/"
 
 	// assetsURLPrefixLen is the precomputed byte length of assetsURLPrefix,
 	// used to efficiently strip the prefix when looking up asset names.
@@ -101,11 +101,11 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case "/":
 		err = serveController(h.homeCtl, &ctlResponder, r, clientLogger)
-	case "/sshwifty/socket":
+	case "/shellport/socket":
 		err = serveController(h.socketCtl, &ctlResponder, r, clientLogger)
-	case "/sshwifty/socket/verify":
+	case "/shellport/socket/verify":
 		err = serveController(h.socketVerifyCtl, &ctlResponder, r, clientLogger)
-	case "/sshwifty/config/presets":
+	case "/shellport/config/presets":
 		err = serveController(h.presetConfigCtl, &ctlResponder, r, clientLogger)
 	case "/robots.txt":
 		err = serveStaticCacheData(

@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Snuffy2/sshwifty/application/network"
+	"github.com/Snuffy2/shellport/application/network"
 )
 
 // Configuration is the top-level application configuration produced by a

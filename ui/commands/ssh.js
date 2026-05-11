@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 /**
- * @file SSH command implementation for the Sshwifty UI.
+ * @file SSH command implementation for the ShellPort UI.
  *
  * Exposes {@link Command} — the public entry point registered with the command
  * registry — and the private {@link SSH}, {@link Wizard}, and {@link Executer}
@@ -387,7 +387,7 @@ const initialFieldDef = {
       ' font-style: normal;">ssh-keygen -f /path/to/private_key -p</i><br />' +
       "<br />" +
       "It is strongly recommended to use one Private Key per SSH server if " +
-      "the Private Key will be submitted to Sshwifty. To generate a new SSH " +
+      "the Private Key will be submitted to ShellPort. To generate a new SSH " +
       'key pair, use command <i style="color: #fff; font-style: normal;">' +
       "ssh-keygen -o -f /path/to/my_server_key</i> and then deploy the " +
       'generated <i style="color: #fff; font-style: normal;">' +

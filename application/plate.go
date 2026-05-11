@@ -9,13 +9,13 @@ import "fmt"
 // Plate information contains static identity strings for the application.
 const (
 	// Name is the short application name.
-	Name = "Sshwifty"
+	Name = "ShellPort"
 	// FullName is the human-readable full application name.
-	FullName = "Sshwifty Web SSH Client"
+	FullName = "ShellPort — browser-based remote shell access over SSH, Telnet, and Mosh"
 	// Author identifies the fork maintainer.
 	Author = "Snuffy2"
 	// URL is the canonical project URL.
-	URL = "https://github.com/Snuffy2/sshwifty"
+	URL = "https://github.com/Snuffy2/shellport"
 )
 
 // banner is the startup message template printed to the screen on launch.

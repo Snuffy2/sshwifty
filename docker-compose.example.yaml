@@ -1,20 +1,14 @@
-# Copyright (C) 2019-2026 Ni Rui <ranqus@gmail.com>
-# Copyright (C) 2026 Snuffy2
-# SPDX-License-Identifier: AGPL-3.0-only
-
 services:
-  sshwifty:
-    image: ghcr.io/snuffy2/sshwifty:latest
-    container_name: sshwifty
+  shellport:
+    image: ghcr.io/snuffy2/shellport:latest
+    container_name: shellport
     restart: unless-stopped
     ports:
       - "8182:8182"
     volumes:
-      - ./config:/etc/sshwifty
+      - ./config:/etc/shellport
     environment:
-      SSHWIFTY_CONFIG: /etc/sshwifty/sshwifty.conf.json
+      SHELLPORT_CONFIG: /etc/shellport/shellport.conf.json
       # Optional: base64-encoded 32-byte key for encrypted preset passwords.
       # Generate with: openssl rand -base64 32
-      # SSHWIFTY_PRESET_SECRET_KEY: "replace-with-generated-key"
-      # Optional admin key for preset config API writes.
-      # SSHWIFTY_ADMIN_KEY: "replace-with-admin-key"
+      # SHELLPORT_PRESET_SECRET_KEY: "replace-with-generated-key"

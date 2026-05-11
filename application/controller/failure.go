@@ -7,7 +7,7 @@ package controller
 import (
 	"net/http"
 
-	"github.com/Snuffy2/sshwifty/application/log"
+	"github.com/Snuffy2/shellport/application/log"
 )
 
 // serveFailure writes an HTTP error response by rendering the embedded

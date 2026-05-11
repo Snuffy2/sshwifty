@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Snuffy2
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// Package server provides the HTTP(S) server lifecycle for Sshwifty, including
+// Package server provides the HTTP(S) server lifecycle for ShellPort, including
 // TCP listener setup, TLS configuration, graceful shutdown, and a conn wrapper
 // that prevents clients from extending their connection timeouts beyond the
 // configured limits.
@@ -13,7 +13,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/Snuffy2/sshwifty/application/network"
+	"github.com/Snuffy2/shellport/application/network"
 )
 
 // listener wraps a *net.TCPListener to wrap each accepted connection in a

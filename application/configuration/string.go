@@ -18,12 +18,12 @@ import (
 // remainder as the name of a second variable to look up instead.
 // environRenamePrefixLen caches the length of the prefix.
 const (
-	environRenamePrefix    = "SSHWIFTY_ENV_RENAMED:"
+	environRenamePrefix    = "SHELLPORT_ENV_RENAMED:"
 	environRenamePrefixLen = len(environRenamePrefix)
 )
 
 // GetEnv looks up the environment variable named name. If the variable's value
-// starts with SSHWIFTY_ENV_RENAMED: the remainder is treated as an alias and
+// starts with SHELLPORT_ENV_RENAMED: the remainder is treated as an alias and
 // the alias variable is returned instead, supporting secret injection via
 // environment variable indirection.
 func GetEnv(name string) string {

@@ -5,9 +5,9 @@
 package commands
 
 import (
-	"github.com/Snuffy2/sshwifty/application/command"
-	"github.com/Snuffy2/sshwifty/application/configuration"
-	"github.com/Snuffy2/sshwifty/application/rw"
+	"github.com/Snuffy2/shellport/application/command"
+	"github.com/Snuffy2/shellport/application/configuration"
+	"github.com/Snuffy2/shellport/application/rw"
 )
 
 func parseOptionalPresetID(r *rw.LimitedReader, b []byte) (string, error) {

@@ -1,20 +1,20 @@
-# Sshwifty Configuration
+# ShellPort Configuration
 
-Sshwifty can be configured through either a JSON configuration file or
+ShellPort can be configured through either a JSON configuration file or
 environment variables. By default, the configuration loader tries default file
 paths first, then falls back to environment variables.
 
-Use `SSHWIFTY_CONFIG` to specify a configuration file:
+Use `SHELLPORT_CONFIG` to specify a configuration file:
 
 ```sh
-SSHWIFTY_CONFIG=./sshwifty.conf.json ./sshwifty
+SHELLPORT_CONFIG=./shellport.conf.json ./shellport
 ```
 
-This tells Sshwifty to load configuration from `./sshwifty.conf.json`.
+This tells ShellPort to load configuration from `./shellport.conf.json`.
 
 ## Configuration File
 
-`sshwifty.conf.example.json` is an example of a valid configuration file. Use it
+`shellport.conf.example.json` is an example of a valid configuration file. Use it
 as a starting point for your own configuration.
 
 ```jsonc
@@ -36,7 +36,7 @@ as a starting point for your own configuration.
   // (In Seconds)
   "DialTimeout": 10,
 
-  // Socks5 proxy. When set, Sshwifty backend will try to connect remote through
+  // Socks5 proxy. When set, ShellPort backend will try to connect remote through
   // the given proxy
   "Socks5": "localhost:1080",
 
@@ -54,26 +54,26 @@ as a starting point for your own configuration.
   // a failure for the execution
   //
   // To determine how much time is still left for the execution, a Hook can
-  // fetch the deadline information from the `SSHWIFTY_HOOK_DEADLINE`
+  // fetch the deadline information from the `SHELLPORT_HOOK_DEADLINE`
   // environment variable which is a RFC3339 formatted date string indicating
   // after what time the termination will occur
   //
   // Warning: the process will be launched within the same context and system
-  // permission which Sshwifty is running under, thus is it crucial that the
+  // permission which ShellPort is running under, thus is it crucial that the
   // Hook process is designed and operated in a secure manner, otherwise
   // SECURITY VULNERABILITY (commandline injection, for example) maybe created
   // as result
   //
-  // Warning: all inputs passed by Sshwifty to the hook process must be
+  // Warning: all inputs passed by ShellPort to the hook process must be
   // considered unsanitized, and must be sanitized by each hook themselves
   "Hooks": {
-    // before_connecting is called before Sshwifty starts to connect to a remote
+    // before_connecting is called before ShellPort starts to connect to a remote
     // endpoint. If any of the Hook process exited with a non-zero return code,
     // the connection request is aborted
     //
     // This Hook offers two parameters:
-    // - SSHWIFTY_HOOK_REMOTE_TYPE: Type of the connection (i.e. SSH or Telnet)
-    // - SSHWIFTY_HOOK_REMOTE_ADDRESS: Address of the remote host
+    // - SHELLPORT_HOOK_REMOTE_TYPE: Type of the connection (i.e. SSH or Telnet)
+    // - SHELLPORT_HOOK_REMOTE_ADDRESS: Address of the remote host
     "before_connecting": [
       // Following example command launches a `/bin/sh` to execute a for loop
       // that prints to Stdout as well as to Stderr
@@ -89,11 +89,11 @@ as a starting point for your own configuration.
       [
         "/bin/sh",
         "-c",
-        "for n in $(seq 1 5); do sleep 1 && echo Stdout $SSHWIFTY_HOOK_REMOTE_TYPE $n && echo Stderr $SSHWIFTY_HOOK_REMOTE_TYPE $n 1>&2; done",
+        "for n in $(seq 1 5); do sleep 1 && echo Stdout $SHELLPORT_HOOK_REMOTE_TYPE $n && echo Stderr $SHELLPORT_HOOK_REMOTE_TYPE $n 1>&2; done",
       ],
       // You can add multiple hooks, they're executed in sequence even when the
       // previous one fails
-      ["/bin/sh", "-c", "/etc/sshwifty/before_connecting.sh"],
+      ["/bin/sh", "-c", "/etc/shellport/before_connecting.sh"],
       ["/bin/another-command", "...", "..."],
     ],
   },
@@ -102,7 +102,7 @@ as a starting point for your own configuration.
   // exceeded, the hook will be terminated, and thus cause a failure
   "HookTimeout": 30,
 
-  // Sshwifty HTTP server, you can set multiple ones to serve on different
+  // ShellPort HTTP server, you can set multiple ones to serve on different
   // ports
   "Servers": [
     {
@@ -160,19 +160,19 @@ as a starting point for your own configuration.
   // Remote Presets, the operator can define presets for users so the user
   // won't have to manually fill-in all the form fields
   //
-  // Presets will be displayed in the "Known remotes" tab on the Connector
+  // Presets will be displayed in the "Presets" tab on the Connector
   // window
   //
-  // Notice: You can use the same JSON value for `SSHWIFTY_PRESETS` if you are
-  //         configuring your Sshwifty through environment variables.
+  // Notice: You can use the same JSON value for `SHELLPORT_PRESETS` if you are
+  //         configuring your ShellPort through environment variables.
   //
   // Warning: Most Presets Data will be sent to user client WITHOUT any
   //          protection. DO NOT add secret information into Preset except for
   //          Password values that are migrated to Encrypted Password with
-  //          SSHWIFTY_PRESET_SECRET_KEY.
+  //          SHELLPORT_PRESET_SECRET_KEY.
   "Presets": [
     {
-      // Stable preset ID. Sshwifty will automatically add missing IDs to
+      // Stable preset ID. ShellPort will automatically add missing IDs to
       // file-backed configurations on startup. IDs must be unique.
       "ID": "preset-sdf",
 
@@ -228,13 +228,13 @@ as a starting point for your own configuration.
         "Encoding": "pre-defined-encoding",
 
         // Data for predefined Password field. Use either Password or Encrypted
-        // Password, not both. If SSHWIFTY_PRESET_SECRET_KEY is set, plaintext
+        // Password, not both. If SHELLPORT_PRESET_SECRET_KEY is set, plaintext
         // Password values are encrypted on startup, written back as Encrypted
         // Password, and removed from the JSON file.
         "Password": "pre-defined-password",
 
-        // Encrypted preset password generated by Sshwifty. Do not hand-edit.
-        // Requires SSHWIFTY_PRESET_SECRET_KEY to decrypt at runtime.
+        // Encrypted preset password generated by ShellPort. Do not hand-edit.
+        // Requires SHELLPORT_PRESET_SECRET_KEY to decrypt at runtime.
         // "Encrypted Password": "v1:aes-256-gcm:...",
 
         // Data for predefined Private Key field, should contains the content
@@ -246,7 +246,7 @@ as a starting point for your own configuration.
         "Authentication": "Password",
 
         // Data for server public key fingerprint. You can acquire the value of
-        // the fingerprint by manually connect to a new SSH host with Sshwifty,
+        // the fingerprint by manually connect to a new SSH host with ShellPort,
         // the fingerprint will be displayed on the Fingerprint confirmation
         // page.
         "Fingerprint": "SHA256:bgO....",
@@ -290,11 +290,11 @@ as a starting point for your own configuration.
 
 ### Preset Management API
 
-File-backed configurations can update presets without restarting Sshwifty:
+File-backed configurations can update presets without restarting ShellPort:
 
 ```http
-GET /sshwifty/config/presets
-PUT /sshwifty/config/presets
+GET /shellport/config/presets
+PUT /shellport/config/presets
 ```
 
 `GET` returns the current preset list. `PUT` can save a fingerprint for an
@@ -303,7 +303,7 @@ Presets without an `id` are assigned one automatically. Duplicate preset IDs are
 rejected.
 
 When authentication is required, `PUT` uses the same time-windowed `X-Key`
-authentication format as `/sshwifty/socket/verify`. The current authentication
+authentication format as `/shellport/socket/verify`. The current authentication
 UI accepts `SharedKey` only. `AdminKey` grants admin access for the preset
 config API, but there is not yet a separate UI prompt for entering it. Full
 preset-list replacement requires admin access. Fingerprint saves from the
@@ -330,48 +330,41 @@ Key behavior:
 Valid environment variables are:
 
 ```text
-SSHWIFTY_HOSTNAME
-SSHWIFTY_SHAREDKEY
-SSHWIFTY_ADMIN_KEY
-SSHWIFTY_DIALTIMEOUT
-SSHWIFTY_SOCKS5
-SSHWIFTY_SOCKS5_USER
-SSHWIFTY_SOCKS5_PASSWORD
-SSHWIFTY_HOOK_BEFORE_CONNECTING
-SSHWIFTY_HOOKTIMEOUT
-SSHWIFTY_LISTENPORT
-SSHWIFTY_INITIALTIMEOUT
-SSHWIFTY_READTIMEOUT
-SSHWIFTY_WRITETIMEOUT
-SSHWIFTY_HEARTBEATTIMEOUT
-SSHWIFTY_READDELAY
-SSHWIFTY_WRITEDELAY
-SSHWIFTY_LISTENINTERFACE
-SSHWIFTY_TLSCERTIFICATEFILE
-SSHWIFTY_TLSCERTIFICATEKEYFILE
-SSHWIFTY_SERVERMESSAGE
-SSHWIFTY_PRESETS
-SSHWIFTY_ONLYALLOWPRESETREMOTES
-SSHWIFTY_PRESET_SECRET_KEY
+SHELLPORT_HOSTNAME
+SHELLPORT_SHAREDKEY
+SHELLPORT_ADMIN_KEY
+SHELLPORT_DIALTIMEOUT
+SHELLPORT_SOCKS5
+SHELLPORT_SOCKS5_USER
+SHELLPORT_SOCKS5_PASSWORD
+SHELLPORT_HOOK_BEFORE_CONNECTING
+SHELLPORT_HOOKTIMEOUT
+SHELLPORT_LISTENPORT
+SHELLPORT_INITIALTIMEOUT
+SHELLPORT_READTIMEOUT
+SHELLPORT_WRITETIMEOUT
+SHELLPORT_HEARTBEATTIMEOUT
+SHELLPORT_READDELAY
+SHELLPORT_WRITEDELAY
+SHELLPORT_LISTENINTERFACE
+SHELLPORT_TLSCERTIFICATEFILE
+SHELLPORT_TLSCERTIFICATEKEYFILE
+SHELLPORT_SERVERMESSAGE
+SHELLPORT_PRESETS
+SHELLPORT_ONLYALLOWPRESETREMOTES
+SHELLPORT_PRESET_SECRET_KEY
 ```
 
 These options correspond to their counterparts in the configuration file.
 
-`SSHWIFTY_PRESETS` must contain valid JSON-encoded preset data. Its format is
-shown in [preset.example.json](preset.example.json) and can be loaded with:
+`SHELLPORT_PRESETS` must contain valid JSON-encoded preset data. Its format is
+shown in [shellport.conf.example.json](shellport.conf.example.json) and can be loaded with:
 
 ```sh
-SSHWIFTY_PRESETS="$(cat preset.example.json)" ./sshwifty
+SHELLPORT_PRESETS="$(cat shellport.conf.example.json)" ./shellport
 ```
 
-You can also set `SSHWIFTY_PRESETS` directly as a string. In that case you may
-need to escape the JSON characters. One option is:
-
-```sh
-jq -c . preset.example.json | jq -Rs
-```
-
-`SSHWIFTY_PRESET_SECRET_KEY` is optional. When unset, plaintext preset
+`SHELLPORT_PRESET_SECRET_KEY` is optional. When unset, plaintext preset
 `Password` values continue to work as before. When set, it must be a
 base64-encoded 32-byte key; startup migrates plaintext preset passwords to
 `Encrypted Password`, removes the plaintext values from the JSON config file,
@@ -379,20 +372,20 @@ and decrypts encrypted preset passwords server-side for SSH/Mosh authentication.
 Encrypted preset passwords cannot be used without the same key. The key must be
 set through the environment and is rejected if placed in the JSON config file.
 
-When using environment variables, only one Sshwifty HTTP server is allowed. Use
+When using environment variables, only one ShellPort HTTP server is allowed. Use
 the configuration file if you need to serve on multiple ports.
 
 Invalid values in these environment variables are silently reset to defaults
 during configuration parsing:
 
 ```text
-SSHWIFTY_DIALTIMEOUT
-SSHWIFTY_INITIALTIMEOUT
-SSHWIFTY_READTIMEOUT
-SSHWIFTY_WRITETIMEOUT
-SSHWIFTY_HEARTBEATTIMEOUT
-SSHWIFTY_READDELAY
-SSHWIFTY_WRITEDELAY
+SHELLPORT_DIALTIMEOUT
+SHELLPORT_INITIALTIMEOUT
+SHELLPORT_READTIMEOUT
+SHELLPORT_WRITETIMEOUT
+SHELLPORT_HEARTBEATTIMEOUT
+SHELLPORT_READDELAY
+SHELLPORT_WRITEDELAY
 ```
 
 Verify these values before starting the instance.

@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 /**
- * @file Preset configuration management for the Sshwifty UI.
+ * @file Preset configuration management for the ShellPort UI.
  *
  * Presets are pre-filled connection profiles loaded from server configuration.
  * {@link Preset} wraps a single profile and validates its structure;

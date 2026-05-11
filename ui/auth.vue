@@ -36,7 +36,7 @@ SPDX-License-Identifier: AGPL-3.0-only
                 class="message"
               >
                 The configured SharedKey is required in order to use this
-                <a href="https://github.com/Snuffy2/sshwifty">Sshwifty</a>
+                <a href="https://github.com/Snuffy2/shellport">ShellPort</a>
                 instance
               </div>
               <div v-else class="error">
@@ -60,7 +60,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 /**
  * @file auth.vue
  * @description Authentication wall component. Renders a SharedKey form that
- * is shown when the Sshwifty backend requires a SharedKey before allowing
+ * is shown when the ShellPort backend requires a SharedKey before allowing
  * access. Emits an `"auth"` event with the SharedKey on valid submission and
  * reflects server-returned errors through the `error` prop.
  */

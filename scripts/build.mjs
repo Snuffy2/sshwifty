@@ -10,8 +10,8 @@ import { execFileSync, spawnSync } from "node:child_process";
  * @returns {string} Existing environment version, Git description, or dev.
  */
 function resolveVersion() {
-  if (process.env.SSHWIFTY_VERSION) {
-    return process.env.SSHWIFTY_VERSION;
+  if (process.env.SHELLPORT_VERSION) {
+    return process.env.SHELLPORT_VERSION;
   }
 
   try {
@@ -34,7 +34,7 @@ const result = spawnSync(
   [
     "build",
     "-ldflags",
-    `-s -w -X github.com/Snuffy2/sshwifty/application.version=${version}`,
+    `-s -w -X github.com/Snuffy2/shellport/application.version=${version}`,
   ],
   {
     env: process.env,

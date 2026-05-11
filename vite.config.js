@@ -1,4 +1,3 @@
-// Copyright (C) 2019-2026 Ni Rui <ranqus@gmail.com>
 // Copyright (C) 2026 Snuffy2
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -13,7 +12,7 @@ const uiRoot = path.join(repoRoot, "ui");
 const distDir = path.join(repoRoot, ".tmp", "dist");
 const backendTarget = "http://127.0.0.1:8182";
 const publicDir = path.join(uiRoot, "public");
-const defaultSourceURL = "https://github.com/Snuffy2/sshwifty";
+const defaultSourceURL = "https://github.com/Snuffy2/shellport";
 
 /**
  * Resolve and validate the source URL embedded into the frontend.
@@ -22,25 +21,25 @@ const defaultSourceURL = "https://github.com/Snuffy2/sshwifty";
  * @returns {string} HTTPS source URL to expose in the UI.
  */
 export function resolveSourceURL(env = process.env) {
-  const sourceURL = env.SSHWIFTY_SOURCE_URL ?? defaultSourceURL;
+  const sourceURL = env.SHELLPORT_SOURCE_URL ?? defaultSourceURL;
 
   if (sourceURL.trim() !== sourceURL || sourceURL.length === 0) {
-    throw new Error("SSHWIFTY_SOURCE_URL must be a non-empty URL");
+    throw new Error("SHELLPORT_SOURCE_URL must be a non-empty URL");
   }
 
   let parsedURL;
   try {
     parsedURL = new URL(sourceURL);
   } catch {
-    throw new Error("SSHWIFTY_SOURCE_URL must be a valid URL");
+    throw new Error("SHELLPORT_SOURCE_URL must be a valid URL");
   }
 
   if (parsedURL.protocol !== "https:") {
-    throw new Error("SSHWIFTY_SOURCE_URL must use https:");
+    throw new Error("SHELLPORT_SOURCE_URL must use https:");
   }
 
   if (parsedURL.username !== "" || parsedURL.password !== "") {
-    throw new Error("SSHWIFTY_SOURCE_URL must not include credentials");
+    throw new Error("SHELLPORT_SOURCE_URL must not include credentials");
   }
 
   return sourceURL;
@@ -55,12 +54,12 @@ const copiedRootFiles = [
   "LICENSE.md",
 ];
 const fixedPublicAssets = new Map([
-  ["/sshwifty/assets/site.webmanifest", "site.webmanifest"],
-  ["/sshwifty/assets/sshwifty.svg", "sshwifty.svg"],
-  ["/sshwifty/assets/robots.txt", "robots.txt"],
+  ["/shellport/assets/site.webmanifest", "site.webmanifest"],
+  ["/shellport/assets/shellport.svg", "shellport.svg"],
+  ["/shellport/assets/robots.txt", "robots.txt"],
 ]);
 const fixedRootAssets = new Map(
-  copiedRootFiles.map((fileName) => [`/sshwifty/assets/${fileName}`, fileName]),
+  copiedRootFiles.map((fileName) => [`/shellport/assets/${fileName}`, fileName]),
 );
 const rootCompatibilityAssets = new Map([
   ["/favicon.ico", "favicon.ico"],
@@ -70,7 +69,7 @@ const rootCompatibilityAssets = new Map([
 const publicAssetContentTypes = new Map([
   ["site.webmanifest", "application/manifest+json"],
   ["browserconfig.xml", "application/xml; charset=utf-8"],
-  ["sshwifty.svg", "image/svg+xml"],
+  ["shellport.svg", "image/svg+xml"],
   ["favicon.ico", "image/x-icon"],
 ]);
 const rootAssetContentTypes = new Map([
@@ -171,7 +170,7 @@ export function resolveDevAssetRoute(requestPath) {
  *
  * The source HTML keeps local script paths so Vite can resolve entrypoints
  * during production builds. In development, the shell is served from
- * `/sshwifty/assets/`, so those relative paths must point to Vite's source
+ * `/shellport/assets/`, so those relative paths must point to Vite's source
  * module URLs instead of resolving beside the served shell URL.
  *
  * @param {string} html Transformed development shell HTML.
@@ -191,8 +190,8 @@ export function rewriteDevShellScriptPaths(html) {
  */
 function normalizeDevShellAssetPaths(html) {
   return html.replaceAll(
-    "/sshwifty/assets/sshwifty/assets/",
-    "/sshwifty/assets/",
+    "/shellport/assets/shellport/assets/",
+    "/shellport/assets/",
   );
 }
 
@@ -216,16 +215,16 @@ export async function renderDevShellHtml(server, requestQuery, sourceHtml) {
 }
 
 /**
- * Create a Vite plugin for Sshwifty's fixed public asset routes.
+ * Create a Vite plugin for ShellPort's fixed public asset routes.
  *
  * @returns {import("vite").Plugin} Vite plugin for build and dev asset paths.
  */
-function sshwiftyPublicAssetsPlugin() {
+function shellportPublicAssetsPlugin() {
   return {
-    name: "sshwifty-public-assets",
+    name: "shellport-public-assets",
     enforce: "pre",
     /**
-     * Add development middleware for Sshwifty shell and fixed public assets.
+     * Add development middleware for ShellPort shell and fixed public assets.
      *
      * @param {import("vite").ViteDevServer} server Vite dev server.
      */
@@ -243,8 +242,8 @@ function sshwiftyPublicAssetsPlugin() {
 
         if (
           requestPath === "/" ||
-          requestPath === "/sshwifty/assets" ||
-          requestPath === "/sshwifty/assets/"
+          requestPath === "/shellport/assets" ||
+          requestPath === "/shellport/assets/"
         ) {
           try {
             const transformedHtml = await renderDevShellHtml(
@@ -316,9 +315,9 @@ export default defineConfig(
    * @returns {import("vite").UserConfig} Vite configuration.
    */
   ({ command, mode }) => ({
-    base: "/sshwifty/assets/",
+    base: "/shellport/assets/",
     root: uiRoot,
-    plugins: [vue(), copyRootFilesPlugin(), sshwiftyPublicAssetsPlugin()],
+    plugins: [vue(), copyRootFilesPlugin(), shellportPublicAssetsPlugin()],
     publicDir,
     resolve: {
       alias: [
@@ -352,7 +351,7 @@ export default defineConfig(
       __VUE_OPTIONS_API__: JSON.stringify(true),
       __VUE_PROD_DEVTOOLS__: JSON.stringify(false),
       __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: JSON.stringify(false),
-      __SSHWIFTY_SOURCE_URL__: JSON.stringify(sourceURL),
+      __SHELLPORT_SOURCE_URL__: JSON.stringify(sourceURL),
       "process.env.NODE_ENV": JSON.stringify(mode),
     },
     build: {
@@ -378,7 +377,7 @@ export default defineConfig(
       port: 5173,
       strictPort: true,
       proxy: {
-        "/sshwifty/socket": {
+        "/shellport/socket": {
           target: backendTarget,
           ws: true,
         },

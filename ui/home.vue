@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 <template>
   <div id="home">
     <header id="home-header">
-      <h1 id="home-hd-title">Sshwifty</h1>
+      <h1 id="home-hd-title">ShellPort</h1>
 
       <a id="home-hd-delay" href="javascript:;" @click="showDelayWindow">
         <span
@@ -55,12 +55,9 @@ SPDX-License-Identifier: AGPL-3.0-only
       @updated="tabUpdated"
     >
       <div id="home-content-wrap">
-        <h1>Hi, this is Sshwifty</h1>
+        <h1>Hi, this is ShellPort</h1>
 
-        <p>
-          An Open Source Web SSH Client that enables you to connect to SSH
-          servers without downloading any additional software.
-        </p>
+        <p>Browser-based remote shell access over SSH, Telnet, and Mosh.</p>
 
         <p>
           To get started, click the
@@ -145,12 +142,11 @@ import * as home_socket from "./home_socketctl.js";
 
 import * as presets from "./commands/presets.js";
 import { buildPresetExecution } from "./home_preset_execution.js";
-import { cleanupLegacyConnectionHistory } from "./legacy_connection_history_cleanup.js";
 
-/* global __SSHWIFTY_SOURCE_URL__ */
+/* global __SHELLPORT_SOURCE_URL__ */
 
 const BACKEND_CONNECT_ERROR =
-  "Unable to connect to the Sshwifty backend server: ";
+  "Unable to connect to the ShellPort backend server: ";
 const BACKEND_REQUEST_ERROR = "Unable to perform request: ";
 
 export default {
@@ -291,12 +287,10 @@ export default {
         lastID: 0,
         tabs: [],
       },
-      sourceURL: __SSHWIFTY_SOURCE_URL__,
+      sourceURL: __SHELLPORT_SOURCE_URL__,
     };
   },
   mounted() {
-    cleanupLegacyConnectionHistory();
-
     this.ticker = setInterval(() => {
       this.tick();
     }, 1000);

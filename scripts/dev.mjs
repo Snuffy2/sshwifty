@@ -13,7 +13,7 @@ const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
 );
-const devConfig = path.join(repoRoot, "sshwifty.conf.example.json");
+const devConfig = path.join(repoRoot, "shellport.conf.example.json");
 
 let shuttingDown = false;
 let goProcess = null;
@@ -55,14 +55,14 @@ function forwardOutput(child, label) {
  * Start the Go backend with the example development configuration.
  */
 function startGo() {
-  const child = spawn("go", ["run", "sshwifty.go"], {
+  const child = spawn("go", ["run", "shellport.go"], {
     cwd: repoRoot,
     detached: process.platform !== "win32",
     env: {
       ...process.env,
       CGO_ENABLED: "0",
-      SSHWIFTY_CONFIG: devConfig,
-      SSHWIFTY_DEBUG: "_",
+      SHELLPORT_CONFIG: devConfig,
+      SHELLPORT_DEBUG: "_",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });

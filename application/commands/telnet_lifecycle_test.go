@@ -8,9 +8,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/Snuffy2/sshwifty/application/command"
-	"github.com/Snuffy2/sshwifty/application/configuration"
-	"github.com/Snuffy2/sshwifty/application/log"
+	"github.com/Snuffy2/shellport/application/command"
+	"github.com/Snuffy2/shellport/application/configuration"
+	"github.com/Snuffy2/shellport/application/log"
 )
 
 // TestTelnetCommandKeepsBufferPoolScopedToSession verifies that Telnet clients

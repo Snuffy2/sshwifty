@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Snuffy2/sshwifty/application/log"
+	"github.com/Snuffy2/shellport/application/log"
 )
 
 // static_assets is populated by npm run generate before production builds and

@@ -7,11 +7,11 @@ package main
 import (
 	"os"
 
-	"github.com/Snuffy2/sshwifty/application"
-	"github.com/Snuffy2/sshwifty/application/commands"
-	"github.com/Snuffy2/sshwifty/application/configuration"
-	"github.com/Snuffy2/sshwifty/application/controller"
-	"github.com/Snuffy2/sshwifty/application/log"
+	"github.com/Snuffy2/shellport/application"
+	"github.com/Snuffy2/shellport/application/commands"
+	"github.com/Snuffy2/shellport/application/configuration"
+	"github.com/Snuffy2/shellport/application/controller"
+	"github.com/Snuffy2/shellport/application/log"
 )
 
 func shouldPrintVersion(args []string) bool {
@@ -27,7 +27,7 @@ func main() {
 	}
 
 	configLoaders := make([]configuration.Loader, 0, 2)
-	if cfgFile := configuration.GetEnv("SSHWIFTY_CONFIG"); len(cfgFile) > 0 {
+	if cfgFile := configuration.GetEnv("SHELLPORT_CONFIG"); len(cfgFile) > 0 {
 		configLoaders = append(configLoaders, configuration.CustomFile(cfgFile))
 	} else {
 		configLoaders = append(configLoaders, configuration.DefaultFile())
@@ -35,7 +35,7 @@ func main() {
 	}
 	e := application.
 		New(os.Stderr, log.NewDebugOrNonDebugWriter(
-			len(configuration.GetEnv("SSHWIFTY_DEBUG")) > 0,
+			len(configuration.GetEnv("SHELLPORT_DEBUG")) > 0,
 			application.Name,
 			os.Stderr,
 		)).

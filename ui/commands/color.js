@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 /**
- * @file Tab-color management for Sshwifty command sessions.
+ * @file Tab-color management for ShellPort command sessions.
  *
  * Provides {@link RGB} for raw color values, {@link Color} for a static custom
  * color, {@link DispensedColor} for a randomly allocated color that can be

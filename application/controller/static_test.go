@@ -11,7 +11,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/Snuffy2/sshwifty/application/log"
+	"github.com/Snuffy2/shellport/application/log"
 )
 
 func testStaticPages() map[string]staticData {
@@ -100,7 +100,7 @@ func TestStaticContentType(t *testing.T) {
 func TestServeStaticCacheDataRejectsHTML(t *testing.T) {
 	withStaticPages(t, testStaticPages())
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/sshwifty/assets/index.html", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/shellport/assets/index.html", nil)
 	recorder := httptest.NewRecorder()
 
 	err := serveStaticCacheData("index.html", ".html", recorder, req, log.Ditch{})
@@ -129,7 +129,7 @@ func TestServeStaticPageUsesNoCacheHeader(t *testing.T) {
 func TestServeStaticCachePageUsesCacheAndGzip(t *testing.T) {
 	withStaticPages(t, testStaticPages())
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/sshwifty/assets/README.md", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/shellport/assets/README.md", nil)
 	req.Header.Set("Accept-Encoding", "gzip")
 	recorder := httptest.NewRecorder()
 

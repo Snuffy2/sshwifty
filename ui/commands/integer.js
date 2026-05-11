@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 /**
- * @file Variable-length integer encoding used by the Sshwifty command protocol.
+ * @file Variable-length integer encoding used by the ShellPort command protocol.
  *
  * Encodes integers up to {@link MAX} (0x3FFF) into 1 or 2 bytes using a
  * continuation-bit scheme: if bit 7 of the first byte is set, a second byte

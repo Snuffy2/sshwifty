@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Snuffy2/sshwifty/application/log"
+	"github.com/Snuffy2/shellport/application/log"
 )
 
 // fileTypeName is the loader name reported when configuration is loaded from a
@@ -47,7 +47,7 @@ func loadFile(filePath string) (string, Configuration, error) {
 		return fileTypeName, Configuration{}, err
 	}
 	finalCfg, err := cfg.concretize()
-	if adminKey := GetEnv("SSHWIFTY_ADMIN_KEY"); adminKey != "" {
+	if adminKey := GetEnv("SHELLPORT_ADMIN_KEY"); adminKey != "" {
 		finalCfg.AdminKey = adminKey
 	}
 	finalCfg.SourceFile = filePath
@@ -81,24 +81,24 @@ func DefaultFile() Loader {
 			"configuration files ...")
 		fallbackFileSearchList := make([]string, 0, 3)
 
-		// ~/.config/sshwifty.conf.json
+		// ~/.config/shellport.conf.json
 		if u, userErr := user.Current(); userErr == nil {
 			fallbackFileSearchList = append(
 				fallbackFileSearchList,
-				filepath.Join(u.HomeDir, ".config", "sshwifty.conf.json"))
+				filepath.Join(u.HomeDir, ".config", "shellport.conf.json"))
 		}
 
-		// /etc/sshwifty.conf.json
+		// /etc/shellport.conf.json
 		fallbackFileSearchList = append(
 			fallbackFileSearchList,
-			filepath.Join("/", "etc", "sshwifty.conf.json"),
+			filepath.Join("/", "etc", "shellport.conf.json"),
 		)
 
-		// sshwifty.conf.json located at the same directory as Sshwifty bin
+		// shellport.conf.json located at the same directory as ShellPort bin
 		if ex, exErr := os.Executable(); exErr == nil {
 			fallbackFileSearchList = append(
 				fallbackFileSearchList,
-				filepath.Join(filepath.Dir(ex), "sshwifty.conf.json"))
+				filepath.Join(filepath.Dir(ex), "shellport.conf.json"))
 		}
 
 		// Search given locations to select the config file

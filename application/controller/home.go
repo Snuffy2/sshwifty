@@ -7,7 +7,7 @@ package controller
 import (
 	"net/http"
 
-	"github.com/Snuffy2/sshwifty/application/log"
+	"github.com/Snuffy2/shellport/application/log"
 )
 
 // home is the controller for the root path ("/"). It embeds baseController so

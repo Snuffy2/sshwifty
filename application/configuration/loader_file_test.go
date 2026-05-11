@@ -12,7 +12,7 @@ import (
 )
 
 func TestLoadFileRejectsPresetSecretKey(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	content := []byte(`{
   "HostName": "localhost",
   "PresetSecretKey": "not-allowed",
@@ -34,10 +34,10 @@ func TestLoadFileRejectsPresetSecretKey(t *testing.T) {
 }
 
 func TestLoadFileRejectsPresetSecretKeyEnvName(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	content := []byte(`{
   "HostName": "localhost",
-  "SSHWIFTY_PRESET_SECRET_KEY": "not-allowed",
+  "SHELLPORT_PRESET_SECRET_KEY": "not-allowed",
   "Servers": [
     {"ListenInterface": "127.0.0.1", "ListenPort": 8182}
   ]

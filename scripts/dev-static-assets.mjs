@@ -9,7 +9,7 @@ const shellPage = `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>Sshwifty Development Placeholder</title>
+    <title>ShellPort Development Placeholder</title>
   </head>
   <body>
     Vite development server shell placeholder.

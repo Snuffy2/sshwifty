@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 /**
- * @file Length-prefixed string encoding for the Sshwifty command protocol.
+ * @file Length-prefixed string encoding for the ShellPort command protocol.
  *
  * {@link String} wraps a raw `Uint8Array` and can serialize itself as a
  * variable-length integer length prefix followed by the string bytes

@@ -1,7 +1,7 @@
 {
-  "name": "Sshwifty SSH Client",
-  "short_name": "Sshwifty",
-  "description": "Web SSH Client",
+  "name": "ShellPort",
+  "short_name": "ShellPort",
+  "description": "Browser-based remote shell access over SSH, Telnet, and Mosh",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -9,7 +9,7 @@
   "theme_color": "#333333",
   "icons": [
     {
-      "src": "/sshwifty/assets/sshwifty.svg",
+      "src": "/shellport/assets/shellport.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"

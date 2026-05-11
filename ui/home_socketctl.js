@@ -31,14 +31,14 @@ import { ECHO_FAILED } from "./socket.js";
  *   message: string, status: object }} The socket status controller object.
  */
 export function build(ctx) {
-  const connectionStatusNotConnected = "Sshwifty is ready to connect";
+  const connectionStatusNotConnected = "ShellPort is ready to connect";
   const connectionStatusConnecting =
-    "Connecting to Sshwifty backend server. It should only take " +
+    "Connecting to ShellPort backend server. It should only take " +
     "less than a second, or two";
   const connectionStatusDisconnected =
-    "Sshwifty is disconnected from it's backend server";
+    "ShellPort is disconnected from its backend server";
   const connectionStatusConnected =
-    "Sshwifty is connected to it's backend server, user interface operational";
+    "ShellPort is connected to its backend server, user interface operational";
   const connectionStatusUnmeasurable =
     "Unable to measure connection delay. The connection maybe very " +
     "busy or already lost";

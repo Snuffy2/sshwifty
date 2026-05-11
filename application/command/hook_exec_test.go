@@ -14,7 +14,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Snuffy2/sshwifty/application/log"
+	"github.com/Snuffy2/shellport/application/log"
 )
 
 func TestFilterExecHookEnviron(t *testing.T) {
@@ -36,12 +36,12 @@ func TestFilterExecHookEnviron(t *testing.T) {
 	}
 }
 
-// TestFilterExecHookEnvironDoesNotForwardSshwiftySecrets verifies that hook
-// subprocesses do not inherit sensitive Sshwifty environment variables.
-func TestFilterExecHookEnvironDoesNotForwardSshwiftySecrets(t *testing.T) {
+// TestFilterExecHookEnvironDoesNotForwardShellPortSecrets verifies that hook
+// subprocesses do not inherit sensitive ShellPort environment variables.
+func TestFilterExecHookEnvironDoesNotForwardShellPortSecrets(t *testing.T) {
 	envs := []string{
-		"SSHWIFTY_SHAREDKEY=secret",
-		"SSHWIFTY_DOCKER_TLSCERTKEY=secret",
+		"SHELLPORT_SHAREDKEY=secret",
+		"SHELLPORT_DOCKER_TLSCERTKEY=secret",
 		"PATH=/usr/bin",
 	}
 
@@ -51,12 +51,12 @@ func TestFilterExecHookEnvironDoesNotForwardSshwiftySecrets(t *testing.T) {
 		t.Fatalf("expected PATH to remain in filtered hook environment")
 	}
 
-	if slices.Contains(filtered, "SSHWIFTY_SHAREDKEY=secret") {
-		t.Fatalf("expected SSHWIFTY_SHAREDKEY to be filtered from hook environment")
+	if slices.Contains(filtered, "SHELLPORT_SHAREDKEY=secret") {
+		t.Fatalf("expected SHELLPORT_SHAREDKEY to be filtered from hook environment")
 	}
 
-	if slices.Contains(filtered, "SSHWIFTY_DOCKER_TLSCERTKEY=secret") {
-		t.Fatalf("expected SSHWIFTY_DOCKER_TLSCERTKEY to be filtered from hook environment")
+	if slices.Contains(filtered, "SHELLPORT_DOCKER_TLSCERTKEY=secret") {
+		t.Fatalf("expected SHELLPORT_DOCKER_TLSCERTKEY to be filtered from hook environment")
 	}
 }
 
@@ -134,7 +134,7 @@ func TestExecHookRun(t *testing.T) {
 		"/bin/sh",
 		"-c",
 		"for n in $(seq 1 3); " +
-			"do sleep 1 && echo Stdout $SSHWIFTY_HOOK_COMMAND_PARAMETER_1 $n && echo Stderr $SSHWIFTY_HOOK_COMMAND_PARAMETER_1 $n 1>&2; " +
+			"do sleep 1 && echo Stdout $SHELLPORT_HOOK_COMMAND_PARAMETER_1 $n && echo Stderr $SHELLPORT_HOOK_COMMAND_PARAMETER_1 $n 1>&2; " +
 			"done",
 	})
 	if _, err := os.Stat(h[0]); err != nil {
