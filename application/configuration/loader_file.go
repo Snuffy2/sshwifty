@@ -47,6 +47,9 @@ func loadFile(filePath string) (string, Configuration, error) {
 		return fileTypeName, Configuration{}, err
 	}
 	finalCfg, err := cfg.concretize()
+	if adminKey := GetEnv("SSHWIFTY_ADMIN_KEY"); adminKey != "" {
+		finalCfg.AdminKey = adminKey
+	}
 	finalCfg.SourceFile = filePath
 	return fileTypeName, finalCfg, err
 }

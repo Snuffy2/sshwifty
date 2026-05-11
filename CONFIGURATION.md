@@ -27,9 +27,7 @@ as a starting point for your own configuration.
   // web interface (bypass the Authenticate page)
   "SharedKey": "WEB_ACCESS_PASSWORD",
 
-  // Optional admin key for admin-only API writes. Users enter either SharedKey
-  // or AdminKey in the same authentication prompt. SharedKey grants user
-  // access. AdminKey grants admin access.
+  // Optional admin key for admin-only preset config API writes.
   "AdminKey": "",
 
   // Remote dial timeout. This limits how long of time the backend can spend
@@ -304,19 +302,21 @@ existing preset, or replace the full preset list for add/edit/remove clients.
 Presets without an `id` are assigned one automatically. Duplicate preset IDs are
 rejected.
 
-When authentication is required, `PUT` uses the same `X-Key` authentication flow
-as `/sshwifty/socket/verify`. Users enter either `SharedKey` or `AdminKey` in
-the same authentication prompt. `SharedKey` grants user access. `AdminKey`
-grants admin access. Full preset-list replacement requires admin access.
-Fingerprint saves from the current UI require user access and are limited
-server-side to changing only the selected preset's `Fingerprint` metadata. When
-the active configuration was loaded from environment variables, writes are
-rejected because there is no JSON file to update.
+When authentication is required, `PUT` uses the same time-windowed `X-Key`
+authentication format as `/sshwifty/socket/verify`. `SharedKey` grants normal
+UI access. `AdminKey` grants admin access for the preset config API, but a
+distinct `AdminKey` is not accepted for normal WebSocket bootstrap because the
+encrypted terminal socket is derived from `SharedKey`. Full preset-list
+replacement requires admin access. Fingerprint saves from the current UI
+require user access and are limited server-side to changing only the selected
+preset's `Fingerprint` metadata. When the active configuration was loaded from
+environment variables, writes are rejected because there is no JSON file to
+update.
 
 Key behavior:
 
-- `SharedKey` and `AdminKey` both set: `SharedKey` is user access, `AdminKey` is
-  admin access.
+- `SharedKey` and `AdminKey` both set: `SharedKey` is normal UI access,
+  `AdminKey` is admin access for the preset config API.
 - `SharedKey` blank and `AdminKey` set: all visitors are users without
   authentication; admin actions require entering `AdminKey`.
 - `SharedKey` set and `AdminKey` blank: anyone who authenticates with

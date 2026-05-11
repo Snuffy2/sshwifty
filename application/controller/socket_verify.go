@@ -146,6 +146,10 @@ func (s socketVerification) authKeyForSecret(
 	r *http.Request,
 	secret string,
 ) []byte {
+	return authKeyForSecret(secret)
+}
+
+func authKeyForSecret(secret string) []byte {
 	timeMixer := strconv.FormatInt(time.Now().Unix()/100, 10)
 	return hashCombineSocketKeys(
 		timeMixer,
@@ -154,8 +158,12 @@ func (s socketVerification) authKeyForSecret(
 }
 
 func (s socketVerification) anonymousAuthRole() authRole {
-	if s.commonCfg.SharedKey == "" {
-		if s.commonCfg.AdminKey == "" {
+	return anonymousAuthRole(s.commonCfg)
+}
+
+func anonymousAuthRole(commonCfg configuration.Common) authRole {
+	if commonCfg.SharedKey == "" {
+		if commonCfg.AdminKey == "" {
 			return authRoleAdmin
 		}
 		return authRoleUser
@@ -163,10 +171,14 @@ func (s socketVerification) anonymousAuthRole() authRole {
 	return authRoleNone
 }
 
-func (s socketVerification) requestAuthRole(r *http.Request) (authRole, error) {
+func requestAuthRoleForCommon(
+	commonCfg configuration.Common,
+	r *http.Request,
+	allowAdminKey bool,
+) (authRole, error) {
 	key := r.Header.Get("X-Key")
 	if len(key) <= 0 {
-		return s.anonymousAuthRole(), nil
+		return anonymousAuthRole(commonCfg), nil
 	}
 	if len(key) > 64 {
 		return authRoleNone, ErrSocketInvalidAuthKey
@@ -176,18 +188,23 @@ func (s socketVerification) requestAuthRole(r *http.Request) (authRole, error) {
 	if decodedKeyErr != nil {
 		return authRoleNone, NewError(http.StatusBadRequest, decodedKeyErr.Error())
 	}
-	if s.commonCfg.AdminKey != "" &&
-		hmac.Equal(s.authKeyForSecret(r, s.commonCfg.AdminKey), decodedKey) {
+	if allowAdminKey &&
+		commonCfg.AdminKey != "" &&
+		hmac.Equal(authKeyForSecret(commonCfg.AdminKey), decodedKey) {
 		return authRoleAdmin, nil
 	}
-	if s.commonCfg.SharedKey != "" &&
-		hmac.Equal(s.authKeyForSecret(r, s.commonCfg.SharedKey), decodedKey) {
-		if s.commonCfg.AdminKey == "" {
+	if commonCfg.SharedKey != "" &&
+		hmac.Equal(authKeyForSecret(commonCfg.SharedKey), decodedKey) {
+		if commonCfg.AdminKey == "" {
 			return authRoleAdmin, nil
 		}
 		return authRoleUser, nil
 	}
 	return authRoleNone, ErrSocketAuthFailed
+}
+
+func (s socketVerification) requestAuthRole(r *http.Request) (authRole, error) {
+	return requestAuthRoleForCommon(s.commonCfg, r, false)
 }
 
 // setServerConfigRespond appends the X-Heartbeat, X-Timeout, and (when

@@ -10,6 +10,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/natefinch/atomic"
 )
 
 // PersistPresetIDs writes generated preset IDs back to a JSON configuration file.
@@ -222,10 +224,22 @@ func mergePresetMeta(raw Meta, current map[string]string, next map[string]string
 		}
 		merged[key] = String(value)
 	}
+	for key, value := range raw {
+		if _, ok := merged[key]; !ok {
+			if isPresetPasswordMeta(key) && next["Authentication"] != "Password" {
+				continue
+			}
+			merged[key] = value
+		}
+	}
 	if _, ok := next[PresetMetaEncryptedPassword]; ok {
 		delete(merged, PresetMetaPassword)
 	}
 	return merged
+}
+
+func isPresetPasswordMeta(key string) bool {
+	return key == PresetMetaPassword || key == PresetMetaEncryptedPassword
 }
 
 func copyMeta(meta Meta) Meta {
@@ -445,6 +459,10 @@ func writeCommonInputFile(
 		tmp.Close()
 		return encodeErr
 	}
+	if syncErr := tmp.Sync(); syncErr != nil {
+		tmp.Close()
+		return syncErr
+	}
 	if chmodErr := tmp.Chmod(mode); chmodErr != nil {
 		tmp.Close()
 		return chmodErr
@@ -452,5 +470,5 @@ func writeCommonInputFile(
 	if closeErr := tmp.Close(); closeErr != nil {
 		return closeErr
 	}
-	return os.Rename(tmpName, filePath)
+	return atomic.ReplaceFile(tmpName, filePath)
 }

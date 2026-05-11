@@ -60,6 +60,22 @@ func TestLoadFileRecordsSourceFile(t *testing.T) {
 	}
 }
 
+func TestLoadFileAppliesAdminKeyEnvironmentOverride(t *testing.T) {
+	t.Setenv("SSHWIFTY_ADMIN_KEY", "env-admin-key")
+	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	writePresetConfig(t, configPath, []map[string]any{
+		{"ID": "preset-existing", "Title": "Atlantis", "Type": "SSH", "Host": "atlantis.home"},
+	})
+
+	_, cfg, err := loadFile(configPath)
+	if err != nil {
+		t.Fatalf("loadFile returned error: %v", err)
+	}
+	if cfg.AdminKey != "env-admin-key" {
+		t.Fatalf("AdminKey = %q, want env-admin-key", cfg.AdminKey)
+	}
+}
+
 func TestPersistPresetIDsAddsMissingIDsToConfigFile(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
 	writePresetConfig(t, configPath, []map[string]any{
@@ -362,6 +378,61 @@ func TestReplaceFilePresetsWithRuntimeDoesNotResolveRawMeta(t *testing.T) {
 	}
 }
 
+func TestReplaceFilePresetsWithRuntimePreservesOmittedRawOnlyMeta(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	writePresetConfig(t, configPath, []map[string]any{
+		{
+			"ID":    "preset-atlantis",
+			"Title": "Atlantis",
+			"Type":  "SSH",
+			"Host":  "atlantis.home:22",
+			"Meta": map[string]any{
+				"User":            "pi",
+				"Future Raw Meta": "preserve-me",
+			},
+		},
+	})
+	runtime := []Preset{
+		{
+			ID:    "preset-atlantis",
+			Title: "Atlantis",
+			Type:  "SSH",
+			Host:  "atlantis.home:22",
+			Meta: map[string]string{
+				"User": "pi",
+			},
+		},
+	}
+	next := []Preset{
+		{
+			ID:    "preset-atlantis",
+			Title: "Atlantis",
+			Type:  "SSH",
+			Host:  "atlantis.home:22",
+			Meta: map[string]string{
+				"User":        "pi",
+				"Fingerprint": "SHA256:abc",
+			},
+		},
+	}
+
+	if err := ReplaceFilePresetsWithRuntime(configPath, next, runtime); err != nil {
+		t.Fatalf("ReplaceFilePresetsWithRuntime returned error: %v", err)
+	}
+
+	raw, _, err := readCommonInputFile(configPath)
+	if err != nil {
+		t.Fatalf("readCommonInputFile returned error: %v", err)
+	}
+	requireRawPresetCount(t, raw.Presets, 1)
+	if raw.Presets[0].Meta["Future Raw Meta"] != String("preserve-me") {
+		t.Fatal("raw-only metadata was not preserved")
+	}
+	if raw.Presets[0].Meta["Fingerprint"] != "SHA256:abc" {
+		t.Fatal("raw fingerprint was not updated")
+	}
+}
+
 func TestReplaceFilePresetsUpdatesSymlinkTarget(t *testing.T) {
 	tempDir := t.TempDir()
 	configPath := filepath.Join(tempDir, "sshwifty.conf.json")
@@ -401,7 +472,7 @@ func TestReplaceFilePresetsUpdatesSymlinkTarget(t *testing.T) {
 	}
 }
 
-func TestReplaceFilePresetsDeletesOmittedMetaKeys(t *testing.T) {
+func TestReplaceFilePresetsPreservesOmittedRawMetaKeys(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
 	writePresetConfig(t, configPath, []map[string]any{
 		{
@@ -435,7 +506,7 @@ func TestReplaceFilePresetsDeletesOmittedMetaKeys(t *testing.T) {
 		t.Fatalf("readCommonInputFile returned error: %v", err)
 	}
 	requireRawPresetCount(t, raw.Presets, 1)
-	if _, ok := raw.Presets[0].Meta["Fingerprint"]; ok {
-		t.Fatal("raw fingerprint was not deleted")
+	if raw.Presets[0].Meta["Fingerprint"] != String("SHA256:abc") {
+		t.Fatal("raw fingerprint was not preserved")
 	}
 }

@@ -133,6 +133,7 @@ func (p presetConfig) Put(
 			return NewError(http.StatusBadRequest, err.Error())
 		}
 		presets = presetConfigRequestPresets(request)
+		presets = preserveHiddenPresetPasswords(presets, currentPresets)
 	}
 	normalized, _, err := configuration.EnsurePresetIDs(presets)
 	if err != nil {
@@ -375,7 +376,7 @@ func samePresetMetaExceptFingerprint(
 		if key == "Fingerprint" {
 			continue
 		}
-		if current[key] != value {
+		if currentValue, ok := current[key]; !ok || currentValue != value {
 			return false
 		}
 	}
@@ -383,7 +384,7 @@ func samePresetMetaExceptFingerprint(
 		if key == "Fingerprint" {
 			continue
 		}
-		if next[key] != value {
+		if nextValue, ok := next[key]; !ok || nextValue != value {
 			return false
 		}
 	}
@@ -456,12 +457,7 @@ func copyHiddenPresetPassword(
 
 // requireAuth applies the same credential role matching used by socket verify.
 func (p presetConfig) requireAuth(r *http.Request) (authRole, error) {
-	verifier := newSocketVerification(
-		socket{commonCfg: p.commonCfg},
-		configuration.Server{},
-		p.commonCfg,
-	)
-	role, err := verifier.requestAuthRole(r)
+	role, err := requestAuthRoleForCommon(p.commonCfg, r, true)
 	if err != nil {
 		return authRoleNone, err
 	}

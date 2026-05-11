@@ -8,6 +8,7 @@ go 1.26.2
 
 require (
 	github.com/gorilla/websocket v1.5.3
+	github.com/natefinch/atomic v1.0.1
 	github.com/unixshells/mosh-go v0.5.2
 	golang.org/x/crypto v0.51.0
 	golang.org/x/net v0.54.0

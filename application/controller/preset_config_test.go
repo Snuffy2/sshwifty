@@ -459,6 +459,59 @@ func TestPresetConfigPutPreservesHiddenPasswordOnFingerprintSave(t *testing.T) {
 	}
 }
 
+func TestPresetConfigPutPreservesHiddenPasswordOnFullAdminReplacement(t *testing.T) {
+	t.Setenv(
+		configuration.PresetSecretKeyEnv,
+		base64.StdEncoding.EncodeToString(
+			[]byte("0123456789abcdef0123456789abcdef"),
+		),
+	)
+	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	writePresetAPIConfig(t, configPath, []map[string]any{
+		{
+			"ID":    "preset-atlantis",
+			"Title": "Atlantis",
+			"Type":  "SSH",
+			"Host":  "atlantis.home",
+			"Meta": map[string]string{
+				"User":           "pi",
+				"Authentication": "Password",
+				"Password":       "mypassword",
+			},
+		},
+	})
+	controller := newAdminTestPresetConfig(t, configPath)
+	body := []byte(`{"presets":[{"id":"preset-atlantis","title":"Atlantis Edited","type":"SSH","host":"atlantis.home:22","meta":{"User":"pi","Authentication":"Password"}}]}`)
+	request := httptest.NewRequest(
+		http.MethodPut,
+		"/sshwifty/config/presets",
+		bytes.NewReader(body),
+	)
+	authorizeAdminRequest(controller, request)
+	recorder := httptest.NewRecorder()
+	writer := newResponseWriter(recorder)
+
+	if err := controller.Put(&writer, request, log.Ditch{}); err != nil {
+		t.Fatalf("Put returned error: %v", err)
+	}
+
+	live := controller.commonCfg.CurrentPresets()
+	if live[0].SecretMeta[configuration.PresetMetaPassword] != "mypassword" {
+		t.Fatal("live preset lost hidden password")
+	}
+	if live[0].Title != "Atlantis Edited" {
+		t.Fatalf("live title = %q, want Atlantis Edited", live[0].Title)
+	}
+
+	_, reloaded, err := configuration.CustomFile(configPath)(log.Ditch{})
+	if err != nil {
+		t.Fatalf("CustomFile returned error: %v", err)
+	}
+	if reloaded.Presets[0].Meta[configuration.PresetMetaEncryptedPassword] == "" {
+		t.Fatal("persisted config missing Encrypted Password")
+	}
+}
+
 func TestPresetConfigPutAcceptsCompactFingerprintSaveWithLargeMeta(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
 	largePrivateKey := strings.Repeat("k", maxPresetConfigStringBytes+1)
@@ -662,6 +715,32 @@ func TestPresetConfigPutRejectsStaleFingerprintSaveDeletingAnotherFingerprint(t 
 	}
 }
 
+func TestSamePresetMetaExceptFingerprintRequiresMatchingKeyPresence(t *testing.T) {
+	tests := []struct {
+		name    string
+		next    map[string]string
+		current map[string]string
+	}{
+		{
+			name:    "reject add empty metadata",
+			next:    map[string]string{"User": "pi", "Comment": ""},
+			current: map[string]string{"User": "pi"},
+		},
+		{
+			name:    "reject remove empty metadata",
+			next:    map[string]string{"User": "pi"},
+			current: map[string]string{"User": "pi", "Comment": ""},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if samePresetMetaExceptFingerprint(test.next, test.current) {
+				t.Fatal("samePresetMetaExceptFingerprint returned true, want false")
+			}
+		})
+	}
+}
+
 func TestPresetConfigPutSerializesConcurrentFingerprintSaves(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
 	writePresetAPIConfig(t, configPath, []map[string]any{
@@ -861,7 +940,7 @@ func TestPresetConfigPutCanDeleteHiddenPassword(t *testing.T) {
 		},
 	})
 	controller := newAdminTestPresetConfig(t, configPath)
-	body := []byte(`{"presets":[{"id":"preset-atlantis","title":"Atlantis","type":"SSH","host":"atlantis.home:22","meta":{"User":"pi","Authentication":"Password"}}]}`)
+	body := []byte(`{"presets":[{"id":"preset-atlantis","title":"Atlantis","type":"SSH","host":"atlantis.home:22","meta":{"User":"pi","Authentication":"None"}}]}`)
 	request := httptest.NewRequest(
 		http.MethodPut,
 		"/sshwifty/config/presets",
@@ -982,6 +1061,31 @@ func TestSocketVerificationTreatsBlankSharedKeyAsAnonymousUser(t *testing.T) {
 	}
 	if !accessConfig.PresetConfigWritable {
 		t.Fatal("PresetConfigWritable = false, want true")
+	}
+}
+
+func TestSocketVerificationRejectsAdminKeyForSocketBootstrap(t *testing.T) {
+	commonCfg := configuration.Common{
+		SharedKey: "test-shared-key",
+		AdminKey:  "test-admin-key",
+	}
+	verification := newSocketVerification(
+		socket{commonCfg: commonCfg},
+		configuration.Server{},
+		commonCfg,
+	)
+	request := httptest.NewRequest(http.MethodGet, "/sshwifty/socket/verify", nil)
+	request.Header.Set(
+		"X-Key",
+		base64.StdEncoding.EncodeToString(
+			verification.authKeyForSecret(request, commonCfg.AdminKey),
+		),
+	)
+	recorder := httptest.NewRecorder()
+	writer := newResponseWriter(recorder)
+
+	if err := verification.Get(&writer, request, log.Ditch{}); err == nil {
+		t.Fatal("Get returned nil error, want admin key rejection")
 	}
 }
 
