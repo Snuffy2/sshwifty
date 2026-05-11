@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Snuffy2
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// Package controller implements the HTTP request handlers for the Sshwifty web
+// Package controller implements the HTTP request handlers for the ShellPort web
 // application, including the home page, WebSocket tunnel endpoint, socket
 // verification, and embedded static asset delivery. It defines the controller
 // dispatch model and wires together per-request routing, authentication
@@ -13,7 +13,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Snuffy2/sshwifty/application/log"
+	"github.com/Snuffy2/shellport/application/log"
 )
 
 // ErrControllerNotImplemented is returned by the default baseController

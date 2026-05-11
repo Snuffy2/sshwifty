@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // Package application provides the top-level application lifecycle management
-// for Sshwifty, including startup, signal handling, configuration loading, and
+// for ShellPort, including startup, signal handling, configuration loading, and
 // graceful shutdown with optional restart on SIGHUP.
 package application
 
@@ -17,10 +17,10 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/Snuffy2/sshwifty/application/command"
-	"github.com/Snuffy2/sshwifty/application/configuration"
-	"github.com/Snuffy2/sshwifty/application/log"
-	"github.com/Snuffy2/sshwifty/application/server"
+	"github.com/Snuffy2/shellport/application/command"
+	"github.com/Snuffy2/shellport/application/configuration"
+	"github.com/Snuffy2/shellport/application/log"
+	"github.com/Snuffy2/shellport/application/server"
 )
 
 // ProccessSignaller is a channel used to send OS signals to the running
@@ -43,7 +43,7 @@ var (
 	screenLineWipper = []byte("\r")
 )
 
-// Application holds the dependencies required to run the Sshwifty application,
+// Application holds the dependencies required to run the ShellPort application,
 // including the output writer for banner/status messages and the structured
 // logger used throughout the lifetime of the process.
 type Application struct {

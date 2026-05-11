@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Snuffy2/sshwifty/application/log"
+	"github.com/Snuffy2/shellport/application/log"
 )
 
 // environTypeName is the loader name reported when configuration is loaded from
@@ -58,13 +58,13 @@ func Environ() Loader {
 
 		// Hooks
 		var hooks map[HookType][]HookCommand
-		if h := GetEnv("SSHWIFTY_HOOK_BEFORE_CONNECTING"); len(h) > 0 {
+		if h := GetEnv("SHELLPORT_HOOK_BEFORE_CONNECTING"); len(h) > 0 {
 			hooks = make(map[HookType][]HookCommand)
 			hookBeforeConnecting, err := parseJsonStringArray(h)
 			if err != nil {
 				return "", Configuration{}, fmt.Errorf(
 					"Unable to parse %q: %s",
-					"SSHWIFTY_HOOK_BEFORE_CONNECTING",
+					"SHELLPORT_HOOK_BEFORE_CONNECTING",
 					err,
 				)
 			}
@@ -73,62 +73,62 @@ func Environ() Loader {
 
 		// Server
 		cfgSer := serverInput{
-			ListenInterface: GetEnv("SSHWIFTY_LISTENINTERFACE"),
+			ListenInterface: GetEnv("SHELLPORT_LISTENINTERFACE"),
 			ListenPort: uint16(
-				parseEnvUintDefault("SSHWIFTY_LISTENPORT", 0, 16),
+				parseEnvUintDefault("SHELLPORT_LISTENPORT", 0, 16),
 			),
 			InitialTimeout: castUintToInt(
-				parseEnvUintDefault("SSHWIFTY_INITIALTIMEOUT", 0, 32),
+				parseEnvUintDefault("SHELLPORT_INITIALTIMEOUT", 0, 32),
 			),
 			ReadTimeout: castUintToInt(
-				parseEnvUintDefault("SSHWIFTY_READTIMEOUT", 0, 32),
+				parseEnvUintDefault("SHELLPORT_READTIMEOUT", 0, 32),
 			),
 			WriteTimeout: castUintToInt(
-				parseEnvUintDefault("SSHWIFTY_WRITETIMEOUT", 0, 32),
+				parseEnvUintDefault("SHELLPORT_WRITETIMEOUT", 0, 32),
 			),
 			HeartbeatTimeout: castUintToInt(
-				parseEnvUintDefault("SSHWIFTY_HEARTBEATTIMEOUT", 0, 32),
+				parseEnvUintDefault("SHELLPORT_HEARTBEATTIMEOUT", 0, 32),
 			),
 			ReadDelay: castUintToInt(
-				parseEnvUintDefault("SSHWIFTY_READDELAY", 0, 32),
+				parseEnvUintDefault("SHELLPORT_READDELAY", 0, 32),
 			),
 			WriteDelay: castUintToInt(
-				parseEnvUintDefault("SSHWIFTY_WRITEDELAY", 0, 32),
+				parseEnvUintDefault("SHELLPORT_WRITEDELAY", 0, 32),
 			),
-			TLSCertificateFile:    GetEnv("SSHWIFTY_TLSCERTIFICATEFILE"),
-			TLSCertificateKeyFile: GetEnv("SSHWIFTY_TLSCERTIFICATEKEYFILE"),
-			ServerMessage:         GetEnv("SSHWIFTY_SERVERMESSAGE"),
+			TLSCertificateFile:    GetEnv("SHELLPORT_TLSCERTIFICATEFILE"),
+			TLSCertificateKeyFile: GetEnv("SHELLPORT_TLSCERTIFICATEKEYFILE"),
+			ServerMessage:         GetEnv("SHELLPORT_SERVERMESSAGE"),
 		}
 
 		// Preset
 		var presets presetInputs
-		presetStr := strings.TrimSpace(GetEnv("SSHWIFTY_PRESETS"))
+		presetStr := strings.TrimSpace(GetEnv("SHELLPORT_PRESETS"))
 		if len(presetStr) > 0 {
 			presets = make(presetInputs, 0, 16)
 			if e := json.Unmarshal([]byte(presetStr), &presets); e != nil {
 				return environTypeName, Configuration{}, fmt.Errorf(
-					"invalid \"SSHWIFTY_PRESETS\": %s", e)
+					"invalid \"SHELLPORT_PRESETS\": %s", e)
 			}
 		}
 
 		cfg, err := commonInput{
-			HostName:  GetEnv("SSHWIFTY_HOSTNAME"),
-			SharedKey: GetEnv("SSHWIFTY_SHAREDKEY"),
-			AdminKey:  GetEnv("SSHWIFTY_ADMIN_KEY"),
+			HostName:  GetEnv("SHELLPORT_HOSTNAME"),
+			SharedKey: GetEnv("SHELLPORT_SHAREDKEY"),
+			AdminKey:  GetEnv("SHELLPORT_ADMIN_KEY"),
 			DialTimeout: castUintToInt(
-				parseEnvUintDefault("SSHWIFTY_DIALTIMEOUT", 0, 32),
+				parseEnvUintDefault("SHELLPORT_DIALTIMEOUT", 0, 32),
 			),
-			Socks5:         GetEnv("SSHWIFTY_SOCKS5"),
-			Socks5User:     GetEnv("SSHWIFTY_SOCKS5_USER"),
-			Socks5Password: GetEnv("SSHWIFTY_SOCKS5_PASSWORD"),
+			Socks5:         GetEnv("SHELLPORT_SOCKS5"),
+			Socks5User:     GetEnv("SHELLPORT_SOCKS5_USER"),
+			Socks5Password: GetEnv("SHELLPORT_SOCKS5_PASSWORD"),
 			Hooks:          hooks,
 			HookTimeout: castUintToInt(
-				parseEnvUintDefault("SSHWIFTY_HOOKTIMEOUT", 0, 32),
+				parseEnvUintDefault("SHELLPORT_HOOKTIMEOUT", 0, 32),
 			),
 			Servers: serverInputs{cfgSer},
 			Presets: presets,
 			OnlyAllowPresetRemotes: len(
-				GetEnv("SSHWIFTY_ONLYALLOWPRESETREMOTES"),
+				GetEnv("SHELLPORT_ONLYALLOWPRESETREMOTES"),
 			) > 0,
 		}.concretize()
 		return environTypeName, cfg, err

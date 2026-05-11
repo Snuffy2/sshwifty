@@ -14,11 +14,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Snuffy2/sshwifty/application/command"
-	"github.com/Snuffy2/sshwifty/application/configuration"
-	"github.com/Snuffy2/sshwifty/application/log"
-	"github.com/Snuffy2/sshwifty/application/network"
-	"github.com/Snuffy2/sshwifty/application/rw"
+	"github.com/Snuffy2/shellport/application/command"
+	"github.com/Snuffy2/shellport/application/configuration"
+	"github.com/Snuffy2/shellport/application/log"
+	"github.com/Snuffy2/shellport/application/network"
+	"github.com/Snuffy2/shellport/application/rw"
 )
 
 func TestCommandsIncludesMosh(t *testing.T) {
@@ -371,7 +371,7 @@ func TestParseMoshServerDetachedPIDAllowsMissingPID(t *testing.T) {
 
 func TestRenderMoshServerMonitorCommandUsesPOSIXShell(t *testing.T) {
 	commandText := renderMoshServerMonitorCommand(63458)
-	want := `sh -c 'while kill -0 63458 2>/dev/null; do sleep 1; done; printf "%s\n" sshwifty-mosh-server-exited'`
+	want := `sh -c 'while kill -0 63458 2>/dev/null; do sleep 1; done; printf "%s\n" shellport-mosh-server-exited'`
 	if commandText != want {
 		t.Fatalf("expected POSIX shell monitor command %q, got %q", want, commandText)
 	}

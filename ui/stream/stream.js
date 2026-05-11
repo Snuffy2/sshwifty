@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 /**
- * @file Per-stream state machine and sender wrappers for the Sshwifty
+ * @file Per-stream state machine and sender wrappers for the ShellPort
  * multiplexed stream protocol.
  *
  * A {@link Stream} owns a command slot identified by a numeric ID. It

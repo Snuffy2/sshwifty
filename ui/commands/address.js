@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 /**
- * @file Network address encoding/decoding for the Sshwifty command protocol.
+ * @file Network address encoding/decoding for the ShellPort command protocol.
  *
  * Defines the {@link Address} class that marshals IPv4, IPv6, hostname, and
  * loopback addresses into the wire format expected by the backend, plus helper

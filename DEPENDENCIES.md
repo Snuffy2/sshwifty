@@ -1,11 +1,11 @@
-# Dependencies used by Sshwifty
+# Dependencies used by ShellPort
 
-Sshwifty uses many third-party components. Those components is required in order
-for Sshwifty to function.
+ShellPort uses many third-party components. Those components are required in order
+for ShellPort to function.
 
 A list of used components can be found inside `package.json` and `go.mod` file.
 
-Major dependencies includes:
+Major dependencies include:
 
 ## For front-end application
 

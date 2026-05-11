@@ -18,11 +18,11 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
-	"github.com/Snuffy2/sshwifty/application/command"
-	"github.com/Snuffy2/sshwifty/application/configuration"
-	"github.com/Snuffy2/sshwifty/application/log"
-	"github.com/Snuffy2/sshwifty/application/network"
-	"github.com/Snuffy2/sshwifty/application/rw"
+	"github.com/Snuffy2/shellport/application/command"
+	"github.com/Snuffy2/shellport/application/configuration"
+	"github.com/Snuffy2/shellport/application/log"
+	"github.com/Snuffy2/shellport/application/network"
+	"github.com/Snuffy2/shellport/application/rw"
 )
 
 const (
@@ -576,7 +576,7 @@ func (d *moshClient) monitorRemoteMoshServer(conn *ssh.Client, output string) (<
 			done <- false
 			return
 		}
-		done <- strings.Contains(string(output), "sshwifty-mosh-server-exited")
+		done <- strings.Contains(string(output), "shellport-mosh-server-exited")
 	}()
 
 	return done, nil
@@ -584,7 +584,7 @@ func (d *moshClient) monitorRemoteMoshServer(conn *ssh.Client, output string) (<
 
 func renderMoshServerMonitorCommand(pid int) string {
 	script := fmt.Sprintf(
-		`while kill -0 %d 2>/dev/null; do sleep 1; done; printf "%%s\n" sshwifty-mosh-server-exited`,
+		`while kill -0 %d 2>/dev/null; do sleep 1; done; printf "%%s\n" shellport-mosh-server-exited`,
 		pid,
 	)
 	return fmt.Sprintf("sh -c '%s'", script)

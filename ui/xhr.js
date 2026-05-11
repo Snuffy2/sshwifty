@@ -4,7 +4,7 @@
 
 /**
  * @file xhr.js
- * @description Minimal XHR helpers for HTTP requests used by the Sshwifty
+ * @description Minimal XHR helpers for HTTP requests used by the ShellPort
  * authentication and keep-alive flows. Wraps XMLHttpRequest in Promises and
  * exposes `get` and `options` convenience exports.
  */

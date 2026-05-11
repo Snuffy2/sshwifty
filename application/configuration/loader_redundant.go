@@ -7,7 +7,7 @@ package configuration
 import (
 	"fmt"
 
-	"github.com/Snuffy2/sshwifty/application/log"
+	"github.com/Snuffy2/shellport/application/log"
 )
 
 const (

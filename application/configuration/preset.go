@@ -15,7 +15,7 @@ const (
 	MaxPresetIDLength = 255
 )
 
-// Preset describes a pre-configured remote endpoint displayed in the Sshwifty
+// Preset describes a pre-configured remote endpoint displayed in the ShellPort
 // UI. Each Preset is associated with a command type (e.g. "SSH" or "Telnet")
 // and may carry command-specific metadata in the Meta map.
 type Preset struct {

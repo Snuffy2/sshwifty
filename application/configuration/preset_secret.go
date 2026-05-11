@@ -18,7 +18,7 @@ import (
 const (
 	// PresetSecretKeyEnv is the environment variable containing the preset
 	// encryption key as base64-encoded 32-byte data.
-	PresetSecretKeyEnv = "SSHWIFTY_PRESET_SECRET_KEY"
+	PresetSecretKeyEnv = "SHELLPORT_PRESET_SECRET_KEY"
 	// PresetMetaPassword is the legacy plaintext preset password metadata key.
 	PresetMetaPassword = "Password"
 	// PresetMetaEncryptedPassword is the encrypted preset password metadata key.

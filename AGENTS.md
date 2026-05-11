@@ -2,15 +2,16 @@
 
 ## Project Overview
 
-Sshwifty is a web-based SSH and Telnet client. The repository combines:
+ShellPort is browser-based remote shell access over SSH, Telnet, and Mosh. The
+repository combines:
 
-- A Go backend in `sshwifty.go` and `application/`.
+- A Go backend in `shellport.go` and `application/`.
 - A Vue 3 frontend in `ui/`.
 - A Vite build pipeline in `vite.config.js`.
 - Docker packaging in `Dockerfile` and `docker-compose.example.yaml`.
 - GitHub Actions automation under `.github/`.
 
-The module path is `github.com/Snuffy2/sshwifty`. The project is licensed under
+The module path is `github.com/Snuffy2/shellport`. The project is licensed under
 AGPL-3.0-only; preserve existing license headers when editing source files.
 
 ## Source Layout
@@ -52,10 +53,10 @@ Important behavior:
 
 - `npm run generate` cleans `.tmp/`, builds frontend assets with Vite, and
   runs Go static page generation.
-- `npm run build` runs generation and then builds the `sshwifty` binary.
+- `npm run build` runs generation and then builds the `shellport` binary.
 - `npm run testonly` runs Vitest frontend tests and `go test ./... -race`.
 - `npm test` runs generation first, then `testonly`.
-- `npm run dev` starts the Go backend with `sshwifty.conf.example.json` and
+- `npm run dev` starts the Go backend with `shellport.conf.example.json` and
   runs a Vite dev server with HMR and backend proxying.
 
 For Go-only checks, use:
@@ -94,9 +95,8 @@ requests, and manual dispatch.
 ## Coding Conventions
 
 - Keep imports at the top of files and preserve existing comments.
-- New source and comment-capable config files should use the concise AGPL SPDX
-  header style at the top of the file: `Copyright (C) 2019-2026 Ni Rui
-  <ranqus@gmail.com>`, `Copyright (C) 2026 Snuffy2`, then
+- New source files under `application/`, `scripts/`, and `ui/` should use the concise AGPL SPDX
+  header style at the top of the file: `Copyright (C) 2026 Snuffy2`, then
   `SPDX-License-Identifier: AGPL-3.0-only`, using the file's native comment
   syntax. Do not add the full AGPL boilerplate to new files.
 - Prefer small, root-cause fixes over broad rewrites.
@@ -143,7 +143,7 @@ application in Debian-based stages, then copies the final binary into an Alpine
 runtime image.
 
 GitHub release publishing is configured in `.github/workflows/release.yml` for
-GHCR image `ghcr.io/snuffy2/sshwifty`.
+GHCR image `ghcr.io/snuffy2/shellport`.
 
 Do not push branches, publish images, or open pull requests unless the user
 explicitly asks.

@@ -1,4 +1,4 @@
-// Sshwifty - A Web SSH client
+// ShellPort - browser-based remote shell access
 //
 // Copyright (C) 2019-2026 Ni Rui <ranqus@gmail.com>
 //

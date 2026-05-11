@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Snuffy2
 // SPDX-License-Identifier: AGPL-3.0-only
 
-module github.com/Snuffy2/sshwifty
+module github.com/Snuffy2/shellport
 
 go 1.26.2
 

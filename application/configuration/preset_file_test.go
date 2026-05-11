@@ -46,7 +46,7 @@ func requireRawPresetCount(t *testing.T, presets presetInputs, want int) {
 }
 
 func TestLoadFileRecordsSourceFile(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	writePresetConfig(t, configPath, []map[string]any{
 		{"ID": "preset-existing", "Title": "Atlantis", "Type": "SSH", "Host": "atlantis.home"},
 	})
@@ -61,8 +61,8 @@ func TestLoadFileRecordsSourceFile(t *testing.T) {
 }
 
 func TestLoadFileAppliesAdminKeyEnvironmentOverride(t *testing.T) {
-	t.Setenv("SSHWIFTY_ADMIN_KEY", "env-admin-key")
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	t.Setenv("SHELLPORT_ADMIN_KEY", "env-admin-key")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	writePresetConfig(t, configPath, []map[string]any{
 		{"ID": "preset-existing", "Title": "Atlantis", "Type": "SSH", "Host": "atlantis.home"},
 	})
@@ -77,7 +77,7 @@ func TestLoadFileAppliesAdminKeyEnvironmentOverride(t *testing.T) {
 }
 
 func TestPersistPresetIDsAddsMissingIDsToConfigFile(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	writePresetConfig(t, configPath, []map[string]any{
 		{"Title": "Atlantis", "Type": "SSH", "Host": "atlantis.home"},
 	})
@@ -108,7 +108,7 @@ func TestPersistPresetIDsAddsMissingIDsToConfigFile(t *testing.T) {
 }
 
 func TestPersistPresetIDsPreservesUnknownTopLevelFields(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	content := []byte(`{
   "Servers": [
     {"ListenInterface": "127.0.0.1", "ListenPort": 8182}
@@ -148,7 +148,7 @@ func TestPersistPresetIDsPreservesUnknownTopLevelFields(t *testing.T) {
 }
 
 func TestReplaceFilePresetsPreservesRawMetaValues(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	keyPath := filepath.Join(t.TempDir(), "id_ed25519")
 	if err := os.WriteFile(keyPath, []byte("PRIVATE KEY DATA"), 0o600); err != nil {
 		t.Fatalf("os.WriteFile key returned error: %v", err)
@@ -195,7 +195,7 @@ func TestReplaceFilePresetsPreservesRawMetaValues(t *testing.T) {
 }
 
 func TestReplaceFilePresetsPreservesUnsupportedRawPresets(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	writePresetConfig(t, configPath, []map[string]any{
 		{"ID": "preset-atlantis", "Title": "Atlantis", "Type": "SSH", "Host": "atlantis.home:22"},
 		{"ID": "preset-future", "Title": "Future", "Type": "Future", "Host": "future.home"},
@@ -226,7 +226,7 @@ func TestReplaceFilePresetsPreservesUnsupportedRawPresets(t *testing.T) {
 }
 
 func TestReplaceFilePresetsPreservesUnknownPresetFields(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	content := []byte(`{
   "Servers": [
     {"ListenInterface": "127.0.0.1", "ListenPort": 8182}
@@ -278,7 +278,7 @@ func TestReplaceFilePresetsPreservesUnknownPresetFields(t *testing.T) {
 }
 
 func TestReplaceFilePresetsPreservesUnknownTopLevelFields(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	content := []byte(`{
   "Servers": [
     {"ListenInterface": "127.0.0.1", "ListenPort": 8182}
@@ -320,7 +320,7 @@ func TestReplaceFilePresetsPreservesUnknownTopLevelFields(t *testing.T) {
 }
 
 func TestReplaceFilePresetsWithRuntimeDoesNotResolveRawMeta(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	keyPath := filepath.Join(t.TempDir(), "id_ed25519")
 	writePresetConfig(t, configPath, []map[string]any{
 		{
@@ -379,7 +379,7 @@ func TestReplaceFilePresetsWithRuntimeDoesNotResolveRawMeta(t *testing.T) {
 }
 
 func TestReplaceFilePresetsWithRuntimePreservesOmittedRawOnlyMeta(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	writePresetConfig(t, configPath, []map[string]any{
 		{
 			"ID":    "preset-atlantis",
@@ -435,7 +435,7 @@ func TestReplaceFilePresetsWithRuntimePreservesOmittedRawOnlyMeta(t *testing.T) 
 
 func TestReplaceFilePresetsUpdatesSymlinkTarget(t *testing.T) {
 	tempDir := t.TempDir()
-	configPath := filepath.Join(tempDir, "sshwifty.conf.json")
+	configPath := filepath.Join(tempDir, "shellport.conf.json")
 	linkPath := filepath.Join(tempDir, "linked.conf.json")
 	writePresetConfig(t, configPath, []map[string]any{
 		{"ID": "preset-atlantis", "Title": "Atlantis", "Type": "SSH", "Host": "atlantis.home:22"},
@@ -473,7 +473,7 @@ func TestReplaceFilePresetsUpdatesSymlinkTarget(t *testing.T) {
 }
 
 func TestReplaceFilePresetsPreservesOmittedRawMetaKeys(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	writePresetConfig(t, configPath, []map[string]any{
 		{
 			"ID":    "preset-atlantis",

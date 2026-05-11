@@ -18,9 +18,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Snuffy2/sshwifty/application/commands"
-	"github.com/Snuffy2/sshwifty/application/configuration"
-	"github.com/Snuffy2/sshwifty/application/log"
+	"github.com/Snuffy2/shellport/application/commands"
+	"github.com/Snuffy2/shellport/application/configuration"
+	"github.com/Snuffy2/shellport/application/log"
 )
 
 func writePresetAPIConfig(t *testing.T, path string, presets []map[string]any) {
@@ -138,12 +138,12 @@ func normalizeStartupPresetIDsForTest(
 }
 
 func TestPresetConfigGetReturnsPresetIDs(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	writePresetAPIConfig(t, configPath, []map[string]any{
 		{"ID": "preset-atlantis", "Title": "Atlantis", "Type": "SSH", "Host": "atlantis.home"},
 	})
 	controller := newTestPresetConfig(t, configPath)
-	request := httptest.NewRequest(http.MethodGet, "/sshwifty/config/presets", nil)
+	request := httptest.NewRequest(http.MethodGet, "/shellport/config/presets", nil)
 	recorder := httptest.NewRecorder()
 	writer := newResponseWriter(recorder)
 
@@ -161,13 +161,13 @@ func TestPresetConfigGetReturnsPresetIDs(t *testing.T) {
 }
 
 func TestPresetConfigPutAddsMissingIDsAndPersists(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	writePresetAPIConfig(t, configPath, []map[string]any{
 		{"ID": "preset-atlantis", "Title": "Atlantis", "Type": "SSH", "Host": "atlantis.home"},
 	})
 	controller := newAdminTestPresetConfig(t, configPath)
 	body := []byte(`{"presets":[{"title":"Columbia","type":"SSH","host":"columbia.home","meta":{"User":"pi"}}]}`)
-	request := httptest.NewRequest(http.MethodPut, "/sshwifty/config/presets", bytes.NewReader(body))
+	request := httptest.NewRequest(http.MethodPut, "/shellport/config/presets", bytes.NewReader(body))
 	authorizePresetConfigRequest(controller, request)
 	authorizeAdminRequest(controller, request)
 	recorder := httptest.NewRecorder()
@@ -198,14 +198,14 @@ func TestPresetConfigPutAddsMissingIDsAndPersists(t *testing.T) {
 }
 
 func TestPresetConfigPutRemovesSupportedPresetsAndPreservesRawUnsupported(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	writePresetAPIConfig(t, configPath, []map[string]any{
 		{"ID": "preset-atlantis", "Title": "Atlantis", "Type": "SSH", "Host": "atlantis.home"},
 		{"ID": "preset-future", "Title": "Future", "Type": "Future", "Host": "future.home"},
 	})
 	controller := newAdminTestPresetConfig(t, configPath)
 	body := []byte(`{"presets":[{"id":"preset-columbia","title":"Columbia","type":"SSH","host":"columbia.home","meta":{"User":"pi"}}]}`)
-	request := httptest.NewRequest(http.MethodPut, "/sshwifty/config/presets", bytes.NewReader(body))
+	request := httptest.NewRequest(http.MethodPut, "/shellport/config/presets", bytes.NewReader(body))
 	authorizePresetConfigRequest(controller, request)
 	authorizeAdminRequest(controller, request)
 	recorder := httptest.NewRecorder()
@@ -240,11 +240,11 @@ func TestPresetConfigPutRemovesSupportedPresetsAndPreservesRawUnsupported(t *tes
 }
 
 func TestPresetConfigPutRejectsDuplicateIDs(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	writePresetAPIConfig(t, configPath, nil)
 	controller := newAdminTestPresetConfig(t, configPath)
 	body := []byte(`{"presets":[{"id":"dup","title":"A","type":"SSH","host":"a.home"},{"id":"dup","title":"B","type":"SSH","host":"b.home"}]}`)
-	request := httptest.NewRequest(http.MethodPut, "/sshwifty/config/presets", bytes.NewReader(body))
+	request := httptest.NewRequest(http.MethodPut, "/shellport/config/presets", bytes.NewReader(body))
 	authorizePresetConfigRequest(controller, request)
 	authorizeAdminRequest(controller, request)
 	recorder := httptest.NewRecorder()
@@ -257,11 +257,11 @@ func TestPresetConfigPutRejectsDuplicateIDs(t *testing.T) {
 }
 
 func TestPresetConfigPutAllowsAdminWhenBothKeysAreBlank(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	writePresetAPIConfig(t, configPath, nil)
 	controller := newTestPresetConfig(t, configPath)
 	body := []byte(`{"presets":[{"id":"preset-atlantis","title":"Atlantis","type":"SSH","host":"atlantis.home"}]}`)
-	request := httptest.NewRequest(http.MethodPut, "/sshwifty/config/presets", bytes.NewReader(body))
+	request := httptest.NewRequest(http.MethodPut, "/shellport/config/presets", bytes.NewReader(body))
 	recorder := httptest.NewRecorder()
 	writer := newResponseWriter(recorder)
 
@@ -272,13 +272,13 @@ func TestPresetConfigPutAllowsAdminWhenBothKeysAreBlank(t *testing.T) {
 }
 
 func TestPresetConfigPutRequiresAdminKeyForFullReplacement(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	writePresetAPIConfig(t, configPath, []map[string]any{
 		{"ID": "preset-atlantis", "Title": "Atlantis", "Type": "SSH", "Host": "atlantis.home"},
 	})
 	controller := newAdminTestPresetConfig(t, configPath)
 	body := []byte(`{"presets":[{"id":"preset-columbia","title":"Columbia","type":"SSH","host":"columbia.home"}]}`)
-	request := httptest.NewRequest(http.MethodPut, "/sshwifty/config/presets", bytes.NewReader(body))
+	request := httptest.NewRequest(http.MethodPut, "/shellport/config/presets", bytes.NewReader(body))
 	authorizePresetConfigRequest(controller, request)
 	recorder := httptest.NewRecorder()
 	writer := newResponseWriter(recorder)
@@ -290,11 +290,11 @@ func TestPresetConfigPutRequiresAdminKeyForFullReplacement(t *testing.T) {
 }
 
 func TestPresetConfigPutAllowsSharedKeyAdminWhenAdminKeyIsBlank(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	writePresetAPIConfig(t, configPath, nil)
 	controller := newAuthenticatedTestPresetConfig(t, configPath)
 	body := []byte(`{"presets":[{"id":"preset-columbia","title":"Columbia","type":"SSH","host":"columbia.home"}]}`)
-	request := httptest.NewRequest(http.MethodPut, "/sshwifty/config/presets", bytes.NewReader(body))
+	request := httptest.NewRequest(http.MethodPut, "/shellport/config/presets", bytes.NewReader(body))
 	authorizePresetConfigRequest(controller, request)
 	recorder := httptest.NewRecorder()
 	writer := newResponseWriter(recorder)
@@ -305,12 +305,12 @@ func TestPresetConfigPutAllowsSharedKeyAdminWhenAdminKeyIsBlank(t *testing.T) {
 }
 
 func TestPresetConfigPutAllowsAnonymousUserButNotAdminWhenSharedKeyBlank(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	writePresetAPIConfig(t, configPath, nil)
 	controller := newTestPresetConfig(t, configPath)
 	controller.commonCfg.AdminKey = "test-admin-key"
 	body := []byte(`{"presets":[{"id":"preset-columbia","title":"Columbia","type":"SSH","host":"columbia.home"}]}`)
-	request := httptest.NewRequest(http.MethodPut, "/sshwifty/config/presets", bytes.NewReader(body))
+	request := httptest.NewRequest(http.MethodPut, "/shellport/config/presets", bytes.NewReader(body))
 	recorder := httptest.NewRecorder()
 	writer := newResponseWriter(recorder)
 
@@ -319,7 +319,7 @@ func TestPresetConfigPutAllowsAnonymousUserButNotAdminWhenSharedKeyBlank(t *test
 		t.Fatal("Put returned nil error, want admin authentication error")
 	}
 
-	request = httptest.NewRequest(http.MethodPut, "/sshwifty/config/presets", bytes.NewReader(body))
+	request = httptest.NewRequest(http.MethodPut, "/shellport/config/presets", bytes.NewReader(body))
 	authorizeAdminRequest(controller, request)
 	recorder = httptest.NewRecorder()
 	writer = newResponseWriter(recorder)
@@ -330,13 +330,13 @@ func TestPresetConfigPutAllowsAnonymousUserButNotAdminWhenSharedKeyBlank(t *test
 }
 
 func TestPresetConfigPutRejectsIDsDuplicatedAfterTrimming(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	writePresetAPIConfig(t, configPath, nil)
 	controller := newAdminTestPresetConfig(t, configPath)
 	body := []byte(`{"presets":[{"id":" dup ","title":"A","type":"SSH","host":"a.home"},{"id":"dup","title":"B","type":"SSH","host":"b.home"}]}`)
 	request := httptest.NewRequest(
 		http.MethodPut,
-		"/sshwifty/config/presets",
+		"/shellport/config/presets",
 		bytes.NewReader(body),
 	)
 	authorizePresetConfigRequest(controller, request)
@@ -357,13 +357,13 @@ func TestPresetConfigPutEncryptsPlaintextPasswordsWhenKeyIsSet(t *testing.T) {
 			[]byte("0123456789abcdef0123456789abcdef"),
 		),
 	)
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	writePresetAPIConfig(t, configPath, nil)
 	controller := newAdminTestPresetConfig(t, configPath)
 	body := []byte(`{"presets":[{"id":"preset-atlantis","title":"Atlantis","type":"SSH","host":"atlantis.home","meta":{"User":"pi","Authentication":"Password","Password":"mypassword"}}]}`)
 	request := httptest.NewRequest(
 		http.MethodPut,
-		"/sshwifty/config/presets",
+		"/shellport/config/presets",
 		bytes.NewReader(body),
 	)
 	authorizePresetConfigRequest(controller, request)
@@ -405,7 +405,7 @@ func TestPresetConfigPutPreservesHiddenPasswordOnFingerprintSave(t *testing.T) {
 			[]byte("0123456789abcdef0123456789abcdef"),
 		),
 	)
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	writePresetAPIConfig(t, configPath, []map[string]any{
 		{
 			"ID":    "preset-atlantis",
@@ -423,7 +423,7 @@ func TestPresetConfigPutPreservesHiddenPasswordOnFingerprintSave(t *testing.T) {
 	body := []byte(`{"presets":[{"id":"preset-atlantis","title":"Atlantis","type":"SSH","host":"atlantis.home:22","meta":{"User":"pi","Authentication":"Password","Fingerprint":"SHA256:abc"}}]}`)
 	request := httptest.NewRequest(
 		http.MethodPut,
-		"/sshwifty/config/presets",
+		"/shellport/config/presets",
 		bytes.NewReader(body),
 	)
 	authorizePresetConfigRequest(controller, request)
@@ -466,7 +466,7 @@ func TestPresetConfigPutPreservesHiddenPasswordOnFullAdminReplacement(t *testing
 			[]byte("0123456789abcdef0123456789abcdef"),
 		),
 	)
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	writePresetAPIConfig(t, configPath, []map[string]any{
 		{
 			"ID":    "preset-atlantis",
@@ -484,7 +484,7 @@ func TestPresetConfigPutPreservesHiddenPasswordOnFullAdminReplacement(t *testing
 	body := []byte(`{"presets":[{"id":"preset-atlantis","title":"Atlantis Edited","type":"SSH","host":"atlantis.home:22","meta":{"User":"pi","Authentication":"Password"}}]}`)
 	request := httptest.NewRequest(
 		http.MethodPut,
-		"/sshwifty/config/presets",
+		"/shellport/config/presets",
 		bytes.NewReader(body),
 	)
 	authorizeAdminRequest(controller, request)
@@ -513,7 +513,7 @@ func TestPresetConfigPutPreservesHiddenPasswordOnFullAdminReplacement(t *testing
 }
 
 func TestPresetConfigPutAcceptsCompactFingerprintSaveWithLargeMeta(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	largePrivateKey := strings.Repeat("k", maxPresetConfigStringBytes+1)
 	writePresetAPIConfig(t, configPath, []map[string]any{
 		{
@@ -532,7 +532,7 @@ func TestPresetConfigPutAcceptsCompactFingerprintSaveWithLargeMeta(t *testing.T)
 	body := []byte(`{"presets":[{"id":"preset-atlantis","meta":{"Fingerprint":"SHA256:abc"}}]}`)
 	request := httptest.NewRequest(
 		http.MethodPut,
-		"/sshwifty/config/presets",
+		"/shellport/config/presets",
 		bytes.NewReader(body),
 	)
 	authorizePresetConfigRequest(controller, request)
@@ -558,7 +558,7 @@ func TestPresetConfigPutAcceptsCompactFingerprintSaveWithLargeMeta(t *testing.T)
 }
 
 func TestPresetConfigPutAcceptsCompactFingerprintSaveForLargePresetList(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	rawPresets := make([]map[string]any, maxPresetConfigPresets+1)
 	for i := range rawPresets {
 		rawPresets[i] = map[string]any{
@@ -573,7 +573,7 @@ func TestPresetConfigPutAcceptsCompactFingerprintSaveForLargePresetList(t *testi
 	body := []byte(`{"presets":[{"id":"preset-000","meta":{"Fingerprint":"SHA256:abc"}}]}`)
 	request := httptest.NewRequest(
 		http.MethodPut,
-		"/sshwifty/config/presets",
+		"/shellport/config/presets",
 		bytes.NewReader(body),
 	)
 	authorizePresetConfigRequest(controller, request)
@@ -599,7 +599,7 @@ func TestPresetConfigPutAcceptsCompactFingerprintSaveForLargePresetList(t *testi
 }
 
 func TestPresetConfigPutRejectsFingerprintSaveChangingHost(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	writePresetAPIConfig(t, configPath, []map[string]any{
 		{
 			"ID":    "preset-atlantis",
@@ -615,7 +615,7 @@ func TestPresetConfigPutRejectsFingerprintSaveChangingHost(t *testing.T) {
 	body := []byte(`{"presets":[{"id":"preset-atlantis","title":"Atlantis","type":"SSH","host":"evil.home:22","meta":{"User":"pi","Fingerprint":"SHA256:abc"}}]}`)
 	request := httptest.NewRequest(
 		http.MethodPut,
-		"/sshwifty/config/presets",
+		"/shellport/config/presets",
 		bytes.NewReader(body),
 	)
 	authorizePresetConfigRequest(controller, request)
@@ -631,7 +631,7 @@ func TestPresetConfigPutRejectsFingerprintSaveChangingHost(t *testing.T) {
 }
 
 func TestPresetConfigPutRejectsFingerprintSaveChangingMultipleFingerprints(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	writePresetAPIConfig(t, configPath, []map[string]any{
 		{
 			"ID":    "preset-atlantis",
@@ -658,7 +658,7 @@ func TestPresetConfigPutRejectsFingerprintSaveChangingMultipleFingerprints(t *te
 	body := []byte(`{"presets":[{"id":"preset-atlantis","title":"Atlantis","type":"SSH","host":"atlantis.home:22","meta":{"User":"pi","Fingerprint":"SHA256:new-atlantis"}},{"id":"preset-columbia","title":"Columbia","type":"SSH","host":"columbia.home:22","meta":{"User":"pi","Fingerprint":"SHA256:new-columbia"}}]}`)
 	request := httptest.NewRequest(
 		http.MethodPut,
-		"/sshwifty/config/presets",
+		"/shellport/config/presets",
 		bytes.NewReader(body),
 	)
 	authorizePresetConfigRequest(controller, request)
@@ -674,7 +674,7 @@ func TestPresetConfigPutRejectsFingerprintSaveChangingMultipleFingerprints(t *te
 }
 
 func TestPresetConfigPutRejectsStaleFingerprintSaveDeletingAnotherFingerprint(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	writePresetAPIConfig(t, configPath, []map[string]any{
 		{
 			"ID":    "preset-atlantis",
@@ -700,7 +700,7 @@ func TestPresetConfigPutRejectsStaleFingerprintSaveDeletingAnotherFingerprint(t 
 	body := []byte(`{"presets":[{"id":"preset-atlantis","title":"Atlantis","type":"SSH","host":"atlantis.home:22","meta":{"User":"pi","Fingerprint":"SHA256:new-atlantis"}},{"id":"preset-columbia","title":"Columbia","type":"SSH","host":"columbia.home:22","meta":{"User":"pi"}}]}`)
 	request := httptest.NewRequest(
 		http.MethodPut,
-		"/sshwifty/config/presets",
+		"/shellport/config/presets",
 		bytes.NewReader(body),
 	)
 	authorizePresetConfigRequest(controller, request)
@@ -742,7 +742,7 @@ func TestSamePresetMetaExceptFingerprintRequiresMatchingKeyPresence(t *testing.T
 }
 
 func TestPresetConfigPutSerializesConcurrentFingerprintSaves(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	writePresetAPIConfig(t, configPath, []map[string]any{
 		{
 			"ID":    "preset-atlantis",
@@ -780,7 +780,7 @@ func TestPresetConfigPutSerializesConcurrentFingerprintSaves(t *testing.T) {
 			defer wg.Done()
 			request := httptest.NewRequest(
 				http.MethodPut,
-				"/sshwifty/config/presets",
+				"/shellport/config/presets",
 				bytes.NewReader(bodies[i]),
 			)
 			controller := controllers[i]
@@ -809,7 +809,7 @@ func TestPresetConfigPutSerializesConcurrentFingerprintSaves(t *testing.T) {
 }
 
 func TestPresetConfigPutRejectsOversizedRequest(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	writePresetAPIConfig(t, configPath, nil)
 	controller := newAdminTestPresetConfig(t, configPath)
 	body := []byte(`{"presets":[{"id":"preset-atlantis","title":"` +
@@ -817,7 +817,7 @@ func TestPresetConfigPutRejectsOversizedRequest(t *testing.T) {
 		`","type":"SSH","host":"atlantis.home"}]}`)
 	request := httptest.NewRequest(
 		http.MethodPut,
-		"/sshwifty/config/presets",
+		"/shellport/config/presets",
 		bytes.NewReader(body),
 	)
 	authorizePresetConfigRequest(controller, request)
@@ -832,7 +832,7 @@ func TestPresetConfigPutRejectsOversizedRequest(t *testing.T) {
 }
 
 func TestPresetConfigPutRejectsOversizedPresetID(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	writePresetAPIConfig(t, configPath, nil)
 	controller := newAdminTestPresetConfig(t, configPath)
 	body := []byte(`{"presets":[{"id":"` +
@@ -840,7 +840,7 @@ func TestPresetConfigPutRejectsOversizedPresetID(t *testing.T) {
 		`","title":"Atlantis","type":"SSH","host":"atlantis.home"}]}`)
 	request := httptest.NewRequest(
 		http.MethodPut,
-		"/sshwifty/config/presets",
+		"/shellport/config/presets",
 		bytes.NewReader(body),
 	)
 	authorizePresetConfigRequest(controller, request)
@@ -855,7 +855,7 @@ func TestPresetConfigPutRejectsOversizedPresetID(t *testing.T) {
 }
 
 func TestPresetConfigPutRejectsInvalidFingerprintFormat(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	writePresetAPIConfig(t, configPath, []map[string]any{
 		{
 			"ID":    "preset-atlantis",
@@ -871,7 +871,7 @@ func TestPresetConfigPutRejectsInvalidFingerprintFormat(t *testing.T) {
 	body := []byte(`{"presets":[{"id":"preset-atlantis","title":"Atlantis","type":"SSH","host":"atlantis.home:22","meta":{"User":"pi","Fingerprint":"not-a-fingerprint"}}]}`)
 	request := httptest.NewRequest(
 		http.MethodPut,
-		"/sshwifty/config/presets",
+		"/shellport/config/presets",
 		bytes.NewReader(body),
 	)
 	authorizePresetConfigRequest(controller, request)
@@ -887,7 +887,7 @@ func TestPresetConfigPutRejectsInvalidFingerprintFormat(t *testing.T) {
 }
 
 func TestPresetConfigPutRejectsOversizedFingerprint(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	writePresetAPIConfig(t, configPath, []map[string]any{
 		{
 			"ID":    "preset-atlantis",
@@ -903,7 +903,7 @@ func TestPresetConfigPutRejectsOversizedFingerprint(t *testing.T) {
 	body := []byte(`{"presets":[{"id":"preset-atlantis","title":"Atlantis","type":"SSH","host":"atlantis.home:22","meta":{"User":"pi","Fingerprint":"SHA256:` + strings.Repeat("a", maxPresetFingerprintBytes) + `"}}]}`)
 	request := httptest.NewRequest(
 		http.MethodPut,
-		"/sshwifty/config/presets",
+		"/shellport/config/presets",
 		bytes.NewReader(body),
 	)
 	authorizePresetConfigRequest(controller, request)
@@ -925,7 +925,7 @@ func TestPresetConfigPutCanDeleteHiddenPassword(t *testing.T) {
 			[]byte("0123456789abcdef0123456789abcdef"),
 		),
 	)
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	writePresetAPIConfig(t, configPath, []map[string]any{
 		{
 			"ID":    "preset-atlantis",
@@ -943,7 +943,7 @@ func TestPresetConfigPutCanDeleteHiddenPassword(t *testing.T) {
 	body := []byte(`{"presets":[{"id":"preset-atlantis","title":"Atlantis","type":"SSH","host":"atlantis.home:22","meta":{"User":"pi","Authentication":"None"}}]}`)
 	request := httptest.NewRequest(
 		http.MethodPut,
-		"/sshwifty/config/presets",
+		"/shellport/config/presets",
 		bytes.NewReader(body),
 	)
 	authorizePresetConfigRequest(controller, request)
@@ -977,13 +977,13 @@ func TestPresetConfigPutCanDeleteHiddenPassword(t *testing.T) {
 
 func TestPresetConfigPutPreservesPlaintextPasswordWhenEncryptedAlsoPresentWithoutKey(t *testing.T) {
 	t.Setenv(configuration.PresetSecretKeyEnv, "")
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	writePresetAPIConfig(t, configPath, nil)
 	controller := newAdminTestPresetConfig(t, configPath)
 	body := []byte(`{"presets":[{"id":"preset-atlantis","title":"Atlantis","type":"SSH","host":"atlantis.home","meta":{"User":"pi","Authentication":"Password","Password":"mypassword","Encrypted Password":"v1:aes-256-gcm:nonce:ciphertext"}}]}`)
 	request := httptest.NewRequest(
 		http.MethodPut,
-		"/sshwifty/config/presets",
+		"/shellport/config/presets",
 		bytes.NewReader(body),
 	)
 	authorizePresetConfigRequest(controller, request)
@@ -1016,7 +1016,7 @@ func TestSocketAccessConfigurationIncludesPresetConfigWritable(t *testing.T) {
 }
 
 func TestSocketVerificationAdvertisesPresetConfigWritableWhenConfigIsWritable(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	writePresetAPIConfig(t, configPath, nil)
 
 	verification := newSocketVerification(
@@ -1034,7 +1034,7 @@ func TestSocketVerificationAdvertisesPresetConfigWritableWhenConfigIsWritable(t 
 }
 
 func TestSocketVerificationTreatsBlankSharedKeyAsAnonymousUser(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	writePresetAPIConfig(t, configPath, nil)
 	verification := newSocketVerification(
 		socket{commonCfg: configuration.Common{
@@ -1047,7 +1047,7 @@ func TestSocketVerificationTreatsBlankSharedKeyAsAnonymousUser(t *testing.T) {
 			AdminKey:   "test-admin-key",
 		},
 	)
-	request := httptest.NewRequest(http.MethodGet, "/sshwifty/socket/verify", nil)
+	request := httptest.NewRequest(http.MethodGet, "/shellport/socket/verify", nil)
 	recorder := httptest.NewRecorder()
 	writer := newResponseWriter(recorder)
 
@@ -1074,7 +1074,7 @@ func TestSocketVerificationRejectsAdminKeyForSocketBootstrap(t *testing.T) {
 		configuration.Server{},
 		commonCfg,
 	)
-	request := httptest.NewRequest(http.MethodGet, "/sshwifty/socket/verify", nil)
+	request := httptest.NewRequest(http.MethodGet, "/shellport/socket/verify", nil)
 	request.Header.Set(
 		"X-Key",
 		base64.StdEncoding.EncodeToString(

@@ -19,10 +19,10 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/Snuffy2/sshwifty/application/command"
-	"github.com/Snuffy2/sshwifty/application/configuration"
-	"github.com/Snuffy2/sshwifty/application/log"
-	"github.com/Snuffy2/sshwifty/application/rw"
+	"github.com/Snuffy2/shellport/application/command"
+	"github.com/Snuffy2/shellport/application/configuration"
+	"github.com/Snuffy2/shellport/application/log"
+	"github.com/Snuffy2/shellport/application/rw"
 )
 
 // Errors returned by the socket controller during WebSocket upgrade and
@@ -59,7 +59,7 @@ const (
 	socketGCMStandardNonceSize = 12
 )
 
-// socket is the controller for the "/sshwifty/socket" WebSocket endpoint. It
+// socket is the controller for the "/shellport/socket" WebSocket endpoint. It
 // upgrades HTTP connections to WebSocket, performs AES-GCM-based handshake
 // authentication, and then hands the framed connection to the command layer for
 // proxying SSH and other protocol traffic.

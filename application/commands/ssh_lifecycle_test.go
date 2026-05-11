@@ -7,9 +7,9 @@ package commands
 import (
 	"testing"
 
-	"github.com/Snuffy2/sshwifty/application/command"
-	"github.com/Snuffy2/sshwifty/application/configuration"
-	"github.com/Snuffy2/sshwifty/application/log"
+	"github.com/Snuffy2/shellport/application/command"
+	"github.com/Snuffy2/shellport/application/configuration"
+	"github.com/Snuffy2/shellport/application/log"
 )
 
 // TestSSHCommandKeepsBufferPoolScopedToSession verifies that SSH clients retain

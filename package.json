@@ -1,7 +1,7 @@
 {
-  "name": "sshwifty-ui",
+  "name": "shellport-ui",
   "version": "0.0.0",
-  "description": "Sshwifty Web Front-end Project",
+  "description": "ShellPort browser-based remote shell access frontend",
   "private": true,
   "main": "",
   "type": "module",

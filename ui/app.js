@@ -26,7 +26,7 @@ import * as xhr from "./xhr.js";
 
 /**
  * @file app.js
- * @description Entry point for the Sshwifty Vue application. Bootstraps the
+ * @description Entry point for the ShellPort Vue application. Bootstraps the
  * root Vue instance, handles initial authentication, socket setup, viewport
  * tracking, and page/tab state transitions.
  */
@@ -36,7 +36,7 @@ const backendQueryRetryDelay = 2000;
 
 /**
  * @type {number} Maximum acceptable clock difference (ms) between the browser
- * and the Sshwifty server before showing a time-sync error.
+ * and the ShellPort server before showing a time-sync error.
  */
 const maxTimeDiff = 30000;
 
@@ -71,11 +71,11 @@ const mainTemplate = `
 `.trim();
 
 /** @type {string} WebSocket backend path. */
-const socksInterface = "/sshwifty/socket";
+const socksInterface = "/shellport/socket";
 /** @type {string} HTTP verification endpoint used to obtain a session key. */
 const socksVerificationInterface = socksInterface + "/verify";
 /** @type {string} HTTP preset configuration endpoint. */
-const presetConfigInterface = "/sshwifty/config/presets";
+const presetConfigInterface = "/shellport/config/presets";
 /**
  * @type {number} Time bucket size (ms) used to truncate the current timestamp
  * before mixing it into the socket key, limiting key reuse windows.
@@ -499,7 +499,7 @@ function startApp(rootEl) {
             if (timeDiff > maxTimeDiff) {
               this.loadErr =
                 "The datetime difference between current client " +
-                "and the Sshwifty server is beyond the operational tolerance." +
+                "and the ShellPort server is beyond the operational tolerance." +
                 "\r\n\r\n" +
                 "The server time was " +
                 serverRespondTime +
@@ -689,7 +689,7 @@ function startApp(rootEl) {
 }
 
 /**
- * Bootstraps the Sshwifty client application.
+ * Bootstraps the ShellPort client application.
  *
  * Locates the `#landing` placeholder element, removes it, injects the Vue
  * mount point with the root template, and calls {@link startApp}.  Also

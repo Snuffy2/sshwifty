@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 /**
- * @file Buffered async sender for the Sshwifty stream layer.
+ * @file Buffered async sender for the ShellPort stream layer.
  *
  * {@link Sender} coalesces outgoing writes into segments up to `maxSegSize`
  * bytes and flushes them either when the internal buffer is full, after a

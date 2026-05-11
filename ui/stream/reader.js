@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 /**
- * @file Buffered async reader abstractions for the Sshwifty stream layer.
+ * @file Buffered async reader abstractions for the ShellPort stream layer.
  *
  * Provides {@link Buffer} (a single in-memory read buffer), {@link Multiple}
  * (a chain of Buffers fed asynchronously), {@link Reader} (a renewable source

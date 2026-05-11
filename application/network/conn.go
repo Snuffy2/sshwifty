@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Snuffy2
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// Package network provides network connection utilities for Sshwifty, including
+// Package network provides network connection utilities for ShellPort, including
 // timeout-enforcing net.Conn wrappers, TCP and SOCKS5 dialers, and an
 // access-control dialer that restricts outbound connections to an allow-list.
 package network

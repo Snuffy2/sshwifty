@@ -14,8 +14,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Snuffy2/sshwifty/application/configuration"
-	"github.com/Snuffy2/sshwifty/application/log"
+	"github.com/Snuffy2/shellport/application/configuration"
+	"github.com/Snuffy2/shellport/application/log"
 )
 
 // HookParameters is a string-to-string map of named values passed to a hook

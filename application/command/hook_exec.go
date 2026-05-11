@@ -4,7 +4,7 @@
 
 // hook_exec.go implements ExecHook, which satisfies the Hook interface by
 // launching an external OS process. Hook parameters are injected as environment
-// variables prefixed with SSHWIFTY_HOOK_, while all existing SSHWIFTY_*
+// variables prefixed with SHELLPORT_HOOK_, while all existing SHELLPORT_*
 // variables are stripped to prevent credential leakage.
 package command
 
@@ -19,13 +19,13 @@ import (
 
 // EXECHOOK_ENV_EXCLUDE_PREFIX is the prefix used to identify environment
 // variables that must not be forwarded to hook processes, preventing
-// accidental exposure of Sshwifty internal secrets.
+// accidental exposure of ShellPort internal secrets.
 // EXECHOOK_ENV_PARAMETER_PREFIX is prepended to each hook parameter name when
 // injecting it as an environment variable, e.g. "Remote Address" becomes
-// "SSHWIFTY_HOOK_REMOTE_ADDRESS".
+// "SHELLPORT_HOOK_REMOTE_ADDRESS".
 const (
-	EXECHOOK_ENV_EXCLUDE_PREFIX   = "SSHWIFTY"
-	EXECHOOK_ENV_PARAMETER_PREFIX = "SSHWIFTY_HOOK_"
+	EXECHOOK_ENV_EXCLUDE_PREFIX   = "SHELLPORT"
+	EXECHOOK_ENV_PARAMETER_PREFIX = "SHELLPORT_HOOK_"
 )
 
 // isAllowedExecHookEnv returns true when the given key=value environment entry
@@ -41,7 +41,7 @@ func isAllowedExecHookEnv(env string) bool {
 	return !strings.HasPrefix(
 		envName,
 		EXECHOOK_ENV_EXCLUDE_PREFIX,
-	) // Don't leak SSHWIFTY envs
+	) // Don't leak SHELLPORT envs
 }
 
 // filterExecHookEnviron compacts envs in-place, keeping only entries that pass
@@ -60,7 +60,7 @@ func filterExecHookEnviron(envs []string) (c int) {
 }
 
 // buildInitialExecHookEnvirons captures the current process environment at
-// startup and removes any SSHWIFTY_* variables, producing the filtered base
+// startup and removes any SHELLPORT_* variables, producing the filtered base
 // environment that all ExecHook instances will inherit.
 func buildInitialExecHookEnvirons() []string {
 	envs := os.Environ()
@@ -76,7 +76,7 @@ var (
 
 // ExecHook is a Hook implementation that executes an external OS command. The
 // slice elements are the command path followed by its arguments. Hook
-// parameters are passed as SSHWIFTY_HOOK_* environment variables. Standard
+// parameters are passed as SHELLPORT_HOOK_* environment variables. Standard
 // output is forwarded to HookOutput.Out and standard error to HookOutput.Err.
 type ExecHook []string
 
@@ -103,7 +103,7 @@ func (e ExecHook) getWorkDir() (string, error) {
 
 // mergeParametersWithEnvirons returns a new environment slice that contains
 // all entries from environs followed by each param in params encoded as
-// SSHWIFTY_HOOK_<NAME>=<value> (spaces in the name are replaced with
+// SHELLPORT_HOOK_<NAME>=<value> (spaces in the name are replaced with
 // underscores and the name is upper-cased).
 func (e ExecHook) mergeParametersWithEnvirons(
 	params HookParameters,

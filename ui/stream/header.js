@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 /**
- * @file Binary protocol header definitions for the Sshwifty stream layer.
+ * @file Binary protocol header definitions for the ShellPort stream layer.
  *
  * Provides constants for header types (CONTROL, STREAM, CLOSE, COMPLETED) and
  * the {@link Header}, {@link Stream}, and {@link InitialStream} classes that

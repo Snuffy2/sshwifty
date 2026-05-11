@@ -11,7 +11,7 @@ import { prepareDevStaticAssets } from "../../scripts/dev-static-assets.mjs";
 let testRoot = null;
 
 function createTestRoot() {
-  testRoot = fs.mkdtempSync(path.join(os.tmpdir(), "sshwifty-dev-assets-"));
+  testRoot = fs.mkdtempSync(path.join(os.tmpdir(), "shellport-dev-assets-"));
   return testRoot;
 }
 

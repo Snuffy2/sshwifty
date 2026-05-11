@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 /**
- * @file Top-level stream multiplexer for the Sshwifty WebSocket connection.
+ * @file Top-level stream multiplexer for the ShellPort WebSocket connection.
  *
  * {@link Streams} manages the full set of stream slots, dispatches incoming
  * frames to the correct {@link stream.Stream}, drives the echo/ping heartbeat,

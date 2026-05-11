@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // Package configuration defines the data types and loader infrastructure used
-// to supply runtime settings to the Sshwifty application. It supports multiple
+// to supply runtime settings to the ShellPort application. It supports multiple
 // configuration sources (environment variables, JSON files, direct injection)
 // through the Loader function type and a Redundant combinator.
 package configuration
@@ -11,7 +11,7 @@ package configuration
 import (
 	"time"
 
-	"github.com/Snuffy2/sshwifty/application/network"
+	"github.com/Snuffy2/shellport/application/network"
 )
 
 // Common holds the configuration settings that are shared across all server

@@ -7,8 +7,8 @@ package commands
 import (
 	"testing"
 
-	"github.com/Snuffy2/sshwifty/application/command"
-	"github.com/Snuffy2/sshwifty/application/configuration"
+	"github.com/Snuffy2/shellport/application/command"
+	"github.com/Snuffy2/shellport/application/configuration"
 )
 
 func TestPresetPasswordCredentialMatchesHostUserAndPasswordAuth(t *testing.T) {

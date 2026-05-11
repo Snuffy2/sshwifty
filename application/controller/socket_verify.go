@@ -14,11 +14,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Snuffy2/sshwifty/application/configuration"
-	"github.com/Snuffy2/sshwifty/application/log"
+	"github.com/Snuffy2/shellport/application/configuration"
+	"github.com/Snuffy2/shellport/application/log"
 )
 
-// socketVerification is the controller for the "/sshwifty/socket/verify"
+// socketVerification is the controller for the "/shellport/socket/verify"
 // endpoint. It handles client authentication via a time-windowed HMAC token
 // and returns server configuration (heartbeat interval, timeout, and preset
 // remote list) as JSON to authenticated clients.

@@ -11,13 +11,13 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Snuffy2/sshwifty/application/commands"
-	"github.com/Snuffy2/sshwifty/application/configuration"
-	"github.com/Snuffy2/sshwifty/application/log"
+	"github.com/Snuffy2/shellport/application/commands"
+	"github.com/Snuffy2/shellport/application/configuration"
+	"github.com/Snuffy2/shellport/application/log"
 )
 
 func TestNormalizeStartupPresetIDsPersistsFileBackedIDs(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	configData := map[string]any{
 		"Servers": []map[string]any{
 			{"ListenInterface": "127.0.0.1", "ListenPort": 8182},
@@ -59,7 +59,7 @@ func TestNormalizeStartupPresetIDsPersistsFileBackedIDs(t *testing.T) {
 }
 
 func TestNormalizeStartupPresetsKeepsBlankAdminKeyWhenSharedKeyIsSet(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	configData := map[string]any{
 		"SharedKey": "test-shared-key",
 		"Servers": []map[string]any{
@@ -99,7 +99,7 @@ func TestNormalizeStartupPresetsKeepsBlankAdminKeyWhenSharedKeyIsSet(t *testing.
 }
 
 func TestNormalizeStartupPresetsKeepsExplicitAdminKey(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	configData := map[string]any{
 		"SharedKey": "test-shared-key",
 		"AdminKey":  "existing-admin-key",
@@ -135,7 +135,7 @@ func TestNormalizeStartupPresetsKeepsExplicitAdminKey(t *testing.T) {
 }
 
 func TestNormalizeStartupPresetsKeepsEnvAdminKeyOutOfFile(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	configData := map[string]any{
 		"SharedKey": "test-shared-key",
 		"Servers": []map[string]any{
@@ -185,7 +185,7 @@ func TestNormalizeStartupPresetIDsMigratesPlaintextPresetPassword(t *testing.T) 
 			[]byte("0123456789abcdef0123456789abcdef"),
 		),
 	)
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	configData := map[string]any{
 		"Servers": []map[string]any{
 			{"ListenInterface": "127.0.0.1", "ListenPort": 8182},
@@ -274,7 +274,7 @@ func TestNormalizeStartupPresetIDsAllowsEnvPlaintextPresetPassword(t *testing.T)
 }
 
 func TestNormalizeStartupPresetsIgnoresUnsupportedEncryptedPassword(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	configData := map[string]any{
 		"Servers": []map[string]any{
 			{"ListenInterface": "127.0.0.1", "ListenPort": 8182},
@@ -320,7 +320,7 @@ func TestNormalizeStartupPresetIDsAllowsReadOnlyFileBackedIDs(t *testing.T) {
 	if err := os.Mkdir(configDir, 0o700); err != nil {
 		t.Fatalf("os.Mkdir returned error: %v", err)
 	}
-	configPath := filepath.Join(configDir, "sshwifty.conf.json")
+	configPath := filepath.Join(configDir, "shellport.conf.json")
 	configData := map[string]any{
 		"Servers": []map[string]any{
 			{"ListenInterface": "127.0.0.1", "ListenPort": 8182},

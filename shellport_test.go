@@ -8,8 +8,8 @@ import "testing"
 
 func TestShouldPrintVersionAcceptsVersionFlags(t *testing.T) {
 	for _, args := range [][]string{
-		{"sshwifty", "-V"},
-		{"sshwifty", "--version"},
+		{"shellport", "-V"},
+		{"shellport", "--version"},
 	} {
 		if !shouldPrintVersion(args) {
 			t.Fatalf("shouldPrintVersion(%v) = false, want true", args)
@@ -19,9 +19,9 @@ func TestShouldPrintVersionAcceptsVersionFlags(t *testing.T) {
 
 func TestShouldPrintVersionRejectsOtherArgs(t *testing.T) {
 	for _, args := range [][]string{
-		{"sshwifty"},
-		{"sshwifty", "--help"},
-		{"sshwifty", "--version", "--help"},
+		{"shellport"},
+		{"shellport", "--help"},
+		{"shellport", "--version", "--help"},
 	} {
 		if shouldPrintVersion(args) {
 			t.Fatalf("shouldPrintVersion(%v) = true, want false", args)

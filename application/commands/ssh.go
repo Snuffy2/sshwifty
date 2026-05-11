@@ -14,11 +14,11 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
-	"github.com/Snuffy2/sshwifty/application/command"
-	"github.com/Snuffy2/sshwifty/application/configuration"
-	"github.com/Snuffy2/sshwifty/application/log"
-	"github.com/Snuffy2/sshwifty/application/network"
-	"github.com/Snuffy2/sshwifty/application/rw"
+	"github.com/Snuffy2/shellport/application/command"
+	"github.com/Snuffy2/shellport/application/configuration"
+	"github.com/Snuffy2/shellport/application/log"
+	"github.com/Snuffy2/shellport/application/network"
+	"github.com/Snuffy2/shellport/application/rw"
 )
 
 // Server-to-client stream marker constants.

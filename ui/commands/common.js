@@ -86,7 +86,7 @@ export function isHex(d) {
 }
 
 /**
- * Test whether or not given string is a valid hostname as far as the Sshwifty
+ * Test whether or not given string is a valid hostname as far as the ShellPort
  * client consider. This function will return true if the string contains only
  * printable charactors (Latin-1 printable range with a few gaps excluded).
  *

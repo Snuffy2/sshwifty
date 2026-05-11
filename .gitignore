@@ -44,6 +44,6 @@ application/controller/static_pages.go
 application/controller/static_assets/**
 !application/controller/static_assets/
 !application/controller/static_assets/.gitkeep
-sshwifty
+shellport
 .worktrees/
 docs/

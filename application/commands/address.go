@@ -10,7 +10,7 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/Snuffy2/sshwifty/application/rw"
+	"github.com/Snuffy2/shellport/application/rw"
 )
 
 // Errors

@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Snuffy2/sshwifty/application/log"
-	"github.com/Snuffy2/sshwifty/application/rw"
+	"github.com/Snuffy2/shellport/application/log"
+	"github.com/Snuffy2/shellport/application/rw"
 )
 
 // ErrHandlerUnknownHeaderType is returned by Handle when a frame arrives with

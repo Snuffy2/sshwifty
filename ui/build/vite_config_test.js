@@ -30,7 +30,7 @@ const legacyHelperNames = [
 ].map((parts) => parts.join(""));
 const legacyPolyfillNames = [
   ["stream", "-browserify"],
-  ["virtual:", "sshwifty-node-globals"],
+  ["virtual:", "shellport-node-globals"],
   ["browser", "NodePolyfillsPlugin"],
 ].map((parts) => parts.join(""));
 
@@ -64,22 +64,22 @@ describe("vite config cleanup guards", () => {
   });
 
   test("source URL defaults to the repository and rejects invalid values", () => {
-    expect(resolveSourceURL({})).toBe("https://github.com/Snuffy2/sshwifty");
+    expect(resolveSourceURL({})).toBe("https://github.com/Snuffy2/shellport");
     expect(
       resolveSourceURL({
-        SSHWIFTY_SOURCE_URL:
-          "https://github.com/Snuffy2/sshwifty/archive/abc123.tar.gz",
+        SHELLPORT_SOURCE_URL:
+          "https://github.com/Snuffy2/shellport/archive/abc123.tar.gz",
       }),
-    ).toBe("https://github.com/Snuffy2/sshwifty/archive/abc123.tar.gz");
-    expect(() => resolveSourceURL({ SSHWIFTY_SOURCE_URL: "" })).toThrow(
+    ).toBe("https://github.com/Snuffy2/shellport/archive/abc123.tar.gz");
+    expect(() => resolveSourceURL({ SHELLPORT_SOURCE_URL: "" })).toThrow(
       "non-empty",
     );
     expect(() =>
-      resolveSourceURL({ SSHWIFTY_SOURCE_URL: "git://example.test/repo" }),
+      resolveSourceURL({ SHELLPORT_SOURCE_URL: "git://example.test/repo" }),
     ).toThrow("https:");
     expect(() =>
       resolveSourceURL({
-        SSHWIFTY_SOURCE_URL: "https://token@example.test/repo.tar.gz",
+        SHELLPORT_SOURCE_URL: "https://token@example.test/repo.tar.gz",
       }),
     ).toThrow("credentials");
   });
@@ -87,7 +87,7 @@ describe("vite config cleanup guards", () => {
   test("vite config exposes the validated source URL to the frontend", () => {
     const config = viteConfig({ command: "build", mode: "test" });
 
-    expect(config.define.__SSHWIFTY_SOURCE_URL__).toBe(
+    expect(config.define.__SHELLPORT_SOURCE_URL__).toBe(
       JSON.stringify(resolveSourceURL()),
     );
   });
@@ -98,19 +98,19 @@ describe("vite config cleanup guards", () => {
 
     expect(homeVue).toContain(':href="sourceURL"');
     expect(homeVue).toContain('rel="noopener noreferrer"');
-    expect(homeVue).toContain("sourceURL: __SSHWIFTY_SOURCE_URL__");
+    expect(homeVue).toContain("sourceURL: __SHELLPORT_SOURCE_URL__");
     expect(connectVue).not.toContain("connect-warning");
     expect(connectVue).not.toContain(
-      'href="https://github.com/Snuffy2/sshwifty"',
+      'href="https://github.com/Snuffy2/shellport"',
     );
   });
 
   test("ui/index.html uses BASE_URL asset links and local scripts", () => {
     const indexHtml = readSource(indexHtmlPath);
 
-    expect(indexHtml).not.toContain('href="/sshwifty/assets/');
+    expect(indexHtml).not.toContain('href="/shellport/assets/');
     expect(indexHtml).not.toContain('src="/ui/');
-    expect(indexHtml).toContain("%BASE_URL%sshwifty.svg");
+    expect(indexHtml).toContain("%BASE_URL%shellport.svg");
     expect(indexHtml).toContain("%BASE_URL%site.webmanifest");
     expect(indexHtml).toContain("%BASE_URL%DEPENDENCIES.md");
     expect(indexHtml).toContain("%BASE_URL%README.md");
@@ -129,10 +129,10 @@ describe("vite config cleanup guards", () => {
   });
 
   test("development asset routes include root documentation links", () => {
-    const readmeAsset = resolveDevAssetRoute("/sshwifty/assets/README.md");
-    const licenseAsset = resolveDevAssetRoute("/sshwifty/assets/LICENSE.md");
+    const readmeAsset = resolveDevAssetRoute("/shellport/assets/README.md");
+    const licenseAsset = resolveDevAssetRoute("/shellport/assets/LICENSE.md");
     const manifestAsset = resolveDevAssetRoute(
-      "/sshwifty/assets/site.webmanifest",
+      "/shellport/assets/site.webmanifest",
     );
     const faviconAsset = resolveDevAssetRoute("/favicon.ico");
 
@@ -152,19 +152,19 @@ describe("vite config cleanup guards", () => {
       filePath: path.join(repoRoot, "ui", "public", "favicon.ico"),
       contentType: "image/x-icon",
     });
-    expect(resolveDevAssetRoute("/sshwifty/assets/missing.md")).toBeNull();
+    expect(resolveDevAssetRoute("/shellport/assets/missing.md")).toBeNull();
   });
 
   test("development shell script paths resolve from Vite module root", () => {
     const html = [
-      '<script type="module" src="/sshwifty/assets/@vite/client"></script>',
+      '<script type="module" src="/shellport/assets/@vite/client"></script>',
       '<script type="module" src="node-globals.js"></script>',
       '<script type="module" src="app.js"></script>',
     ].join("");
 
     expect(rewriteDevShellScriptPaths(html)).toBe(
       [
-        '<script type="module" src="/sshwifty/assets/@vite/client"></script>',
+        '<script type="module" src="/shellport/assets/@vite/client"></script>',
         '<script type="module" src="/node-globals.js"></script>',
         '<script type="module" src="/app.js"></script>',
       ].join(""),
@@ -173,22 +173,22 @@ describe("vite config cleanup guards", () => {
 
   test("development shell emits fixed public asset URLs after Vite transforms it", async () => {
     const sourceHtml = [
-      '<link rel="icon" type="image/svg+xml" href="%BASE_URL%sshwifty.svg" />',
+      '<link rel="icon" type="image/svg+xml" href="%BASE_URL%shellport.svg" />',
       '<link rel="manifest" href="%BASE_URL%site.webmanifest" />',
       '<script type="module" src="node-globals.js"></script>',
       '<script type="module" src="app.js"></script>',
     ].join("");
     const server = {
       transformIndexHtml: async (_url, html) =>
-        html.replaceAll("%BASE_URL%", "/sshwifty/assets/sshwifty/assets/"),
+        html.replaceAll("%BASE_URL%", "/shellport/assets/shellport/assets/"),
     };
 
     const html = await renderDevShellHtml(server, "", sourceHtml);
 
-    expect(html).toContain('href="/sshwifty/assets/sshwifty.svg"');
-    expect(html).toContain('href="/sshwifty/assets/site.webmanifest"');
+    expect(html).toContain('href="/shellport/assets/shellport.svg"');
+    expect(html).toContain('href="/shellport/assets/site.webmanifest"');
     expect(html).toContain('src="/node-globals.js"');
     expect(html).toContain('src="/app.js"');
-    expect(html).not.toContain("/sshwifty/assets/sshwifty/assets/");
+    expect(html).not.toContain("/shellport/assets/shellport/assets/");
   });
 });
