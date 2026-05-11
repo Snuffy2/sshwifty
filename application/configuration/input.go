@@ -24,6 +24,7 @@ type serverInput struct {
 	WriteDelay            int    // Write delay, in millisecond
 	TLSCertificateFile    string // Location of TLS certificate file
 	TLSCertificateKeyFile string // Location of TLS certificate key
+	ServerTitle           string // Server title displayed on the Home page
 	ServerMessage         string // Server message displayed on the Home page
 }
 
@@ -42,6 +43,7 @@ func (f *serverInput) concretize() Server {
 		WriteDelay:            time.Duration(f.WriteDelay) * time.Millisecond,
 		TLSCertificateFile:    f.TLSCertificateFile,
 		TLSCertificateKeyFile: f.TLSCertificateKeyFile,
+		ServerTitle:           f.ServerTitle,
 		ServerMessage:         f.ServerMessage,
 	}.normalize()
 }

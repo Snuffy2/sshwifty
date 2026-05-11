@@ -55,9 +55,8 @@ SPDX-License-Identifier: AGPL-3.0-only
       @updated="tabUpdated"
     >
       <div id="home-content-wrap">
-        <h1>Hi, this is ShellPort</h1>
-
-        <p>Browser-based remote shell access over SSH, Telnet, and Mosh.</p>
+        <h1>{{ homeTitle }}</h1>
+        <p v-html="homeMessage"></p>
 
         <p>
           To get started, click the
@@ -66,14 +65,10 @@ SPDX-License-Identifier: AGPL-3.0-only
             class="icon icon-plus1"
             @click="showConnectWindow"
           ></span>
-          icon near the top left corner.
+          icon near the top left corner
         </p>
 
-        <div v-if="serverMessage.length > 0">
-          <hr />
-          <p class="secondary" v-html="serverMessage"></p>
-        </div>
-
+        <p class="secondary" v-html="shellPortTag"></p>
         <p id="home-content-source" class="secondary">
           <a :href="sourceURL" target="_blank" rel="noopener noreferrer">
             View source code
@@ -207,6 +202,15 @@ export default {
       default: () => null,
     },
     /**
+     * Optional title from the server rendered as the welcome heading.
+     *
+     * @type {string}
+     */
+    serverTitle: {
+      type: String,
+      default: "",
+    },
+    /**
      * Optional HTML message from the server rendered below the welcome text.
      *
      * @type {string}
@@ -263,7 +267,13 @@ export default {
       default: () => null,
     },
   },
-  emits: ["navigate-to", "tab-opened", "tab-closed", "tab-updated"],
+  emits: [
+    "navigate-to",
+    "tab-opened",
+    "tab-closed",
+    "tab-updated",
+    "title-change",
+  ],
   data() {
     return {
       ticker: null,
@@ -290,7 +300,51 @@ export default {
       sourceURL: __SHELLPORT_SOURCE_URL__,
     };
   },
+  computed: {
+    /**
+     * Returns the heading shown on the home screen.
+     *
+     * @returns {string} Configured server title, or the default product name.
+     */
+    homeTitle() {
+      return this.serverTitle.length > 0 ? this.serverTitle : "ShellPort";
+    },
+    /**
+     * Returns the secondary home-screen text below the heading.
+     *
+     * @returns {string} Configured server message or blank.
+     */
+    homeMessage() {
+      if (!this.serverTitle.length > 0 && !this.serverMessage.length > 0) {
+        return "Browser-based remote shell access over SSH, Telnet, and Mosh";
+      }
+      return this.serverMessage.length > 0 ? this.serverMessage : "";
+    },
+    /**
+     * Returns the ShellPort tagline if it is not already shown above.
+     *
+     * @returns {string} ShellPort tagline or blank.
+     */
+    shellPortTag() {
+      if (this.serverTitle.length > 0 || this.serverMessage.length > 0) {
+        return "ShellPort - browser-based remote shell access over SSH, Telnet, and Mosh";
+      }
+      return "";
+    },
+  },
+  watch: {
+    /**
+     * Publishes the computed home title whenever configuration changes it.
+     *
+     * @returns {void}
+     */
+    homeTitle() {
+      this.emitTitleChange();
+    },
+  },
   mounted() {
+    this.emitTitleChange();
+
     this.ticker = setInterval(() => {
       this.tick();
     }, 1000);
@@ -316,6 +370,14 @@ export default {
     }
   },
   methods: {
+    /**
+     * Emits the title currently shown by the home screen.
+     *
+     * @returns {void}
+     */
+    emitTitleChange() {
+      this.$emit("title-change", this.homeTitle);
+    },
     /**
      * `beforeunload` handler that prompts the user before closing the tab when
      * sessions are still active.

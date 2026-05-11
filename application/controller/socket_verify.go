@@ -50,9 +50,12 @@ type socketRemotePreset struct {
 
 // socketAccessConfiguration is the top-level JSON envelope sent to the client
 // after successful authentication on the verification endpoint. It carries the
-// list of preset remote connections and the HTML-escaped server message.
+// list of preset remote connections, server title, and HTML-escaped server
+// message. ServerTitle is plain text; the client renders it with Vue text
+// interpolation rather than v-html.
 type socketAccessConfiguration struct {
 	Presets              []socketRemotePreset `json:"presets"`
+	ServerTitle          string               `json:"server_title"`
 	ServerMessage        string               `json:"server_message"`
 	PresetConfigWritable bool                 `json:"preset_config_writable"`
 }
@@ -66,11 +69,12 @@ const (
 )
 
 // newSocketAccessConfiguration builds a socketAccessConfiguration from the
-// given slice of configured presets and a server message. The server message
-// is HTML-escaped and then Markdown-link-converted before being embedded in
-// the response.
+// given slice of configured presets, a server title, and a server message. The
+// server message is HTML-escaped and then Markdown-link-converted before being
+// embedded in the response.
 func newSocketAccessConfiguration(
 	remotes []configuration.Preset,
+	serverTitle string,
 	serverMessage string,
 	presetConfigWritable bool,
 ) socketAccessConfiguration {
@@ -87,6 +91,7 @@ func newSocketAccessConfiguration(
 	}
 	return socketAccessConfiguration{
 		Presets:              presets,
+		ServerTitle:          serverTitle,
 		ServerMessage:        parseServerMessage(html.EscapeString(serverMessage)),
 		PresetConfigWritable: presetConfigWritable,
 	}
@@ -132,6 +137,7 @@ func newSocketVerification(
 		configRspBody: buildAccessConfigRespondBody(
 			newSocketAccessConfiguration(
 				commCfg.Presets,
+				srvCfg.ServerTitle,
 				srvCfg.ServerMessage,
 				commCfg.PresetConfigWritable(),
 			),
@@ -221,6 +227,7 @@ func (s socketVerification) setServerConfigRespond(
 	w.Write(buildAccessConfigRespondBody(
 		newSocketAccessConfiguration(
 			s.commonCfg.CurrentPresets(),
+			s.serverCfg.ServerTitle,
 			s.serverCfg.ServerMessage,
 			role >= authRoleUser && s.commonCfg.PresetConfigWritable(),
 		),

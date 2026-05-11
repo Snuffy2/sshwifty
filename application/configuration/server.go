@@ -25,6 +25,7 @@ type Server struct {
 	WriteDelay            time.Duration
 	TLSCertificateFile    string
 	TLSCertificateKeyFile string
+	ServerTitle           string
 	ServerMessage         string
 }
 
@@ -110,6 +111,7 @@ func (s Server) normalize() Server {
 		WriteDelay:            atLeast(s.WriteDelay, 0), // No less than 0
 		TLSCertificateFile:    s.TLSCertificateFile,
 		TLSCertificateKeyFile: s.TLSCertificateKeyFile,
+		ServerTitle:           s.ServerTitle,
 		ServerMessage:         s.ServerMessage,
 	}
 }

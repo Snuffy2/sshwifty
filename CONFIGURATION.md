@@ -146,6 +146,9 @@ as a starting point for your own configuration.
       // Path to TLS certificate key file. Set empty to use HTTP
       "TLSCertificateKeyFile": "",
 
+      // Display a custom title on the Home page
+      "ServerTitle": "",
+
       // Display a short text message on the Home page. Link is supported
       // through `[Title text](https://link.example.com)` format
       "ServerMessage": "",
@@ -349,6 +352,7 @@ SHELLPORT_WRITEDELAY
 SHELLPORT_LISTENINTERFACE
 SHELLPORT_TLSCERTIFICATEFILE
 SHELLPORT_TLSCERTIFICATEKEYFILE
+SHELLPORT_SERVERTITLE
 SHELLPORT_SERVERMESSAGE
 SHELLPORT_PRESETS
 SHELLPORT_ONLYALLOWPRESETREMOTES

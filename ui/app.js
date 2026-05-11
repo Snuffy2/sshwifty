@@ -51,12 +51,14 @@ const mainTemplate = `
   :connection="socket"
   :controls="controls"
   :commands="commands"
+  :server-title="serverTitle"
   :server-message="serverMessage"
   :preset-data="presetData.presets"
   :restricted-to-presets="presetData.restricted"
   :preset-config-writable="presetData.writable"
   :save-preset-fingerprint="savePresetFingerprint"
   :view-port="viewPort"
+  @title-change="updatePageTitle"
   @navigate-to="changeURLHash"
   @tab-opened="tabOpened"
   @tab-closed="tabClosed"
@@ -92,7 +94,8 @@ const socksKeyTimeTruncater = 100 * 1000;
  * @returns {void}
  */
 function startApp(rootEl) {
-  const pageTitle = document.title;
+  let pageTitle = document.title;
+  let titleInfo = "";
 
   let uiControlColors = new ControlColors();
 
@@ -148,6 +151,7 @@ function startApp(rootEl) {
             : "",
         page: "loading",
         key: "",
+        serverTitle: "",
         serverMessage: "",
         presetData: {
           presets: markRaw(new Presets([])),
@@ -226,13 +230,33 @@ function startApp(rootEl) {
     },
     methods: {
       /**
+       * Applies the current base page title and optional status prefix to the browser tab.
+       *
+       * @returns {void}
+       */
+      applyPageTitleInfo() {
+        document.title =
+          titleInfo.length > 0 ? titleInfo + " " + pageTitle : pageTitle;
+      },
+      /**
+       * Updates the base browser tab title.
+       *
+       * @param {string} newPageTitle - New title text from the active page.
+       * @returns {void}
+       */
+      updatePageTitle(newPageTitle) {
+        pageTitle = newPageTitle;
+        this.applyPageTitleInfo();
+      },
+      /**
        * Prepends status information to the browser tab title.
        *
        * @param {string} newTitleInfo - Text to prepend (e.g. "(3*)").
        * @returns {void}
        */
       changeTitleInfo(newTitleInfo) {
-        document.title = newTitleInfo + " " + pageTitle;
+        titleInfo = newTitleInfo;
+        this.applyPageTitleInfo();
       },
       /**
        * Restores the original page title, removing any prepended status text.
@@ -240,7 +264,8 @@ function startApp(rootEl) {
        * @returns {void}
        */
       resetTitleInfo() {
-        document.title = pageTitle;
+        titleInfo = "";
+        this.applyPageTitleInfo();
       },
       /**
        * Updates the browser URL hash without a full page navigation.
@@ -333,6 +358,7 @@ function startApp(rootEl) {
        */
       executeHomeApp(authResult, key, passphrase = "") {
         let authData = JSON.parse(authResult.data);
+        this.serverTitle = authData.server_title ? authData.server_title : "";
         this.serverMessage = authData.server_message
           ? authData.server_message
           : "";

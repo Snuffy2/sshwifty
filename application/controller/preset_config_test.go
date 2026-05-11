@@ -1008,10 +1008,29 @@ func TestPresetConfigPutPreservesPlaintextPasswordWhenEncryptedAlsoPresentWithou
 }
 
 func TestSocketAccessConfigurationIncludesPresetConfigWritable(t *testing.T) {
-	accessConfig := newSocketAccessConfiguration(nil, "", true)
+	accessConfig := newSocketAccessConfiguration(nil, "", "", true)
 
 	if !accessConfig.PresetConfigWritable {
 		t.Fatal("PresetConfigWritable = false, want true")
+	}
+}
+
+func TestSocketAccessConfigurationIncludesServerTitle(t *testing.T) {
+	accessConfig := newSocketAccessConfiguration(nil, "Homelab Shells", "", false)
+
+	if accessConfig.ServerTitle != "Homelab Shells" {
+		t.Fatalf("ServerTitle = %q, want Homelab Shells", accessConfig.ServerTitle)
+	}
+}
+
+func TestSocketAccessConfigurationLeavesServerTitleUnescaped(t *testing.T) {
+	accessConfig := newSocketAccessConfiguration(nil, "Ops & Lab <Prod>", "", false)
+
+	if accessConfig.ServerTitle != "Ops & Lab <Prod>" {
+		t.Fatalf(
+			"ServerTitle = %q, want Ops & Lab <Prod>",
+			accessConfig.ServerTitle,
+		)
 	}
 }
 
@@ -1100,7 +1119,7 @@ func TestSocketAccessConfigurationDoesNotExposePlaintextPasswords(t *testing.T) 
 				configuration.PresetMetaEncryptedPassword: "encrypted",
 			},
 		},
-	}, "", true)
+	}, "", "", true)
 
 	if _, ok := accessConfig.Presets[0].Meta[configuration.PresetMetaPassword]; ok {
 		t.Fatal("socket access configuration exposed plaintext Password")

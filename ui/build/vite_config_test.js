@@ -105,6 +105,25 @@ describe("vite config cleanup guards", () => {
     );
   });
 
+  test("home screen renders an optional server title and secondary message", () => {
+    const appJs = readSource(path.join(repoRoot, "ui", "app.js"));
+    const homeVue = readSource(homeVuePath);
+
+    expect(appJs).toContain(':server-title="serverTitle"');
+    expect(appJs).toContain('@title-change="updatePageTitle"');
+    expect(appJs).toContain("updatePageTitle(newPageTitle)");
+    expect(appJs).toContain("this.serverTitle = authData.server_title");
+    expect(homeVue).toContain("<h1>{{ homeTitle }}</h1>");
+    expect(homeVue).toContain('<p v-html="homeMessage"></p>');
+    expect(homeVue).toContain("homeTitle()");
+    expect(homeVue).toContain('"title-change"');
+    expect(homeVue).toContain('this.$emit("title-change", this.homeTitle)');
+    expect(homeVue).toContain("homeMessage()");
+    expect(homeVue).toContain(
+      '"ShellPort - browser-based remote shell access over SSH, Telnet, and Mosh"',
+    );
+  });
+
   test("ui/index.html uses BASE_URL asset links and local scripts", () => {
     const indexHtml = readSource(indexHtmlPath);
 
