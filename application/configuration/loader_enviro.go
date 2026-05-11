@@ -97,6 +97,7 @@ func Environ() Loader {
 			),
 			TLSCertificateFile:    GetEnv("SHELLPORT_TLSCERTIFICATEFILE"),
 			TLSCertificateKeyFile: GetEnv("SHELLPORT_TLSCERTIFICATEKEYFILE"),
+			ServerTitle:           GetEnv("SHELLPORT_SERVERTITLE"),
 			ServerMessage:         GetEnv("SHELLPORT_SERVERMESSAGE"),
 		}
 

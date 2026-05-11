@@ -51,6 +51,7 @@ const mainTemplate = `
   :connection="socket"
   :controls="controls"
   :commands="commands"
+  :server-title="serverTitle"
   :server-message="serverMessage"
   :preset-data="presetData.presets"
   :restricted-to-presets="presetData.restricted"
@@ -148,6 +149,7 @@ function startApp(rootEl) {
             : "",
         page: "loading",
         key: "",
+        serverTitle: "",
         serverMessage: "",
         presetData: {
           presets: markRaw(new Presets([])),
@@ -333,6 +335,7 @@ function startApp(rootEl) {
        */
       executeHomeApp(authResult, key, passphrase = "") {
         let authData = JSON.parse(authResult.data);
+        this.serverTitle = authData.server_title ? authData.server_title : "";
         this.serverMessage = authData.server_message
           ? authData.server_message
           : "";

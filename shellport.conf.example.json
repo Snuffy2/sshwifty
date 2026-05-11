@@ -22,6 +22,7 @@
       "WriteDelay": 10,
       "TLSCertificateFile": "",
       "TLSCertificateKeyFile": "",
+      "ServerTitle": "",
       "ServerMessage": ""
     }
   ],

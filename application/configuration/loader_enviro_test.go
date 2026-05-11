@@ -32,3 +32,24 @@ func TestEnvironUsesWriteDelayEnvironmentVariable(t *testing.T) {
 		)
 	}
 }
+
+func TestEnvironLoadsServerTitleEnvironmentVariable(t *testing.T) {
+	t.Setenv("SHELLPORT_SERVERTITLE", "Homelab Shells")
+
+	name, cfg, err := Environ()(log.NewDitch())
+	if err != nil {
+		t.Fatalf("Environ returned an error: %s", err)
+	}
+	if name != environTypeName {
+		t.Fatalf("Expected loader name %q, got %q", environTypeName, name)
+	}
+	if len(cfg.Servers) != 1 {
+		t.Fatalf("Expected one server, got %d", len(cfg.Servers))
+	}
+	if cfg.Servers[0].ServerTitle != "Homelab Shells" {
+		t.Fatalf(
+			"Expected ServerTitle to use SHELLPORT_SERVERTITLE, got %q",
+			cfg.Servers[0].ServerTitle,
+		)
+	}
+}

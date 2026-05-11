@@ -55,9 +55,9 @@ SPDX-License-Identifier: AGPL-3.0-only
       @updated="tabUpdated"
     >
       <div id="home-content-wrap">
-        <h1>ShellPort</h1>
+        <h1>{{ homeTitle }}</h1>
 
-        <p>Browser-based remote shell access over SSH, Telnet, and Mosh.</p>
+        <p class="secondary" v-html="homeMessage"></p>
 
         <p>
           To get started, click the
@@ -69,7 +69,7 @@ SPDX-License-Identifier: AGPL-3.0-only
           icon near the top left corner.
         </p>
 
-        <div v-if="serverMessage.length > 0">
+        <div v-if="showStandaloneServerMessage">
           <hr />
           <p class="secondary" v-html="serverMessage"></p>
         </div>
@@ -207,6 +207,15 @@ export default {
       default: () => null,
     },
     /**
+     * Optional title from the server rendered as the welcome heading.
+     *
+     * @type {string}
+     */
+    serverTitle: {
+      type: String,
+      default: "",
+    },
+    /**
      * Optional HTML message from the server rendered below the welcome text.
      *
      * @type {string}
@@ -289,6 +298,36 @@ export default {
       },
       sourceURL: __SHELLPORT_SOURCE_URL__,
     };
+  },
+  computed: {
+    /**
+     * Returns the heading shown on the home screen.
+     *
+     * @returns {string} Configured server title, or the default product name.
+     */
+    homeTitle() {
+      return this.serverTitle.length > 0 ? this.serverTitle : "ShellPort";
+    },
+    /**
+     * Returns the secondary home-screen text below the heading.
+     *
+     * @returns {string} Configured server message when paired with a custom
+     *   title, or the default ShellPort tagline.
+     */
+    homeMessage() {
+      if (this.serverTitle.length > 0 && this.serverMessage.length > 0) {
+        return this.serverMessage;
+      }
+      return "ShellPort - browser-based remote shell access over SSH, Telnet, and Mosh.";
+    },
+    /**
+     * Returns whether to show the server message in its legacy standalone slot.
+     *
+     * @returns {boolean} True when a message exists without a custom title.
+     */
+    showStandaloneServerMessage() {
+      return this.serverTitle.length <= 0 && this.serverMessage.length > 0;
+    },
   },
   mounted() {
     this.ticker = setInterval(() => {
