@@ -51,8 +51,6 @@ const FingerprintPromptVerifyPassed = 0x00;
 const FingerprintPromptVerifyNoRecord = 0x01;
 const FingerprintPromptVerifyMismatch = 0x02;
 
-const HostMaxSearchResults = 3;
-
 /**
  * SSH command handler for a single active stream.
  *
@@ -539,7 +537,7 @@ class Wizard {
    * @param {subscribe.Subscribe} subs Channel for pushing wizard steps to the UI.
    * @param {controls.Controls} controls Control registry for looking up the
    *   SSH control object.
-   * @param {history.History} history Connection history manager.
+   * @param {object} _history Deprecated connection history placeholder.
    *
    */
   constructor(
@@ -550,7 +548,7 @@ class Wizard {
     streams,
     subs,
     controls,
-    history,
+    _history,
     saveFingerprint = null,
   ) {
     this.info = info;
@@ -565,7 +563,6 @@ class Wizard {
     this.keptSessions = keptSessions;
     this.step = subs;
     this.controls = controls.get("SSH");
-    this.history = history;
     this.saveFingerprint = saveFingerprint;
   }
 
@@ -777,15 +774,8 @@ class Wizard {
           ),
         );
 
-        self.history.save(
-          self.info.name() + ":" + configInput.user + "@" + configInput.host,
-          configInput.user + "@" + configInput.host,
-          new Date(),
-          self.info,
-          configInput,
-          sessionData,
-          keptSessions,
-        );
+        void sessionData;
+        void keptSessions;
       },
       async "connect.fingerprint"(rd, sd) {
         self.step.resolve(
@@ -880,29 +870,8 @@ class Wizard {
         [
           {
             name: "Host",
-            suggestions(input) {
-              const hosts = self.history.search(
-                "SSH",
-                "host",
-                input,
-                HostMaxSearchResults,
-              );
-
-              let sugg = [];
-
-              for (let i = 0; i < hosts.length; i++) {
-                sugg.push({
-                  title: hosts[i].title,
-                  value: hosts[i].data.host,
-                  meta: {
-                    User: hosts[i].data.user,
-                    Authentication: hosts[i].data.authentication,
-                    Encoding: hosts[i].data.charset,
-                  },
-                });
-              }
-
-              return sugg;
+            suggestions(_input) {
+              return [];
             },
           },
           { name: "User" },
@@ -1135,7 +1104,7 @@ class Executer extends Wizard {
    * @param {streams.Streams} streams Active stream multiplexer.
    * @param {subscribe.Subscribe} subs Step channel.
    * @param {controls.Controls} controls Control registry.
-   * @param {history.History} history Connection history manager.
+   * @param {object|null} history Deprecated connection history placeholder.
    *
    */
   constructor(
@@ -1248,7 +1217,7 @@ export class Command {
    * @param {streams.Streams} streams Active stream multiplexer.
    * @param {subscribe.Subscribe} subs Step channel.
    * @param {controls.Controls} controls Control registry.
-   * @param {history.History} history Connection history.
+   * @param {object|null} history Deprecated connection history placeholder.
    * @returns {Wizard} Configured SSH wizard instance.
    */
   wizard(
@@ -1285,7 +1254,7 @@ export class Command {
    * @param {streams.Streams} streams Active stream multiplexer.
    * @param {subscribe.Subscribe} subs Step channel.
    * @param {controls.Controls} controls Control registry.
-   * @param {history.History} history Connection history.
+   * @param {object|null} history Deprecated connection history placeholder.
    * @returns {Executer} Configured SSH executer instance.
    */
   execute(
@@ -1320,7 +1289,7 @@ export class Command {
    * @param {streams.Streams} streams Active stream multiplexer.
    * @param {subscribe.Subscribe} subs Step channel.
    * @param {controls.Controls} controls Control registry.
-   * @param {history.History} history Connection history.
+   * @param {object|null} history Deprecated connection history placeholder.
    * @returns {Executer} Configured SSH executer instance.
    * @throws {Exception} When the launcher string is malformed or contains
    *   invalid field values.

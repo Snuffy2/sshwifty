@@ -773,7 +773,7 @@ class Builder {
    *
    * @param {stream.Streams} streams
    * @param {controls.Controls} controls
-   * @param {history.History} history
+   * @param {object|null} history Deprecated connection history placeholder.
    * @param {presets.Preset} preset
    * @param {object} session
    * @param {Array<string>} keptSessions
@@ -816,7 +816,7 @@ class Builder {
    *
    * @param {stream.Streams} streams
    * @param {controls.Controls} controls
-   * @param {history.History} history
+   * @param {object|null} history Deprecated connection history placeholder.
    * @param {object} config
    * @param {object} session
    * @param {Array<string>} keptSessions
@@ -849,7 +849,7 @@ class Builder {
    *
    * @param {stream.Streams} streams
    * @param {controls.Controls} controls
-   * @param {history.History} history
+   * @param {object|null} history Deprecated connection history placeholder.
    * @param {string} launcher Launcher format
    * @param {function} done Callback which will be called when launching is done
    *

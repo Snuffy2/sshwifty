@@ -18,7 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 
       <connect-switch
         v-if="!inputting"
-        :presets-length="knowns.length + presets.length"
+        :presets-length="presets.length"
         :tab="tab"
         @switch="switchTab"
       ></connect-switch>
@@ -27,14 +27,7 @@ SPDX-License-Identifier: AGPL-3.0-only
         v-if="tab === 'known' && !inputting"
         :presets="presets"
         :restricted-to-presets="restrictedToPresets"
-        :knowns="knowns"
-        :launcher-builder="knownsLauncherBuilder"
-        :knowns-export="knownsExport"
-        :knowns-import="knownsImport"
-        @select="selectKnown"
         @select-preset="selectPreset"
-        @remove="removeKnown"
-        @clear-session="clearSessionKnown"
       ></connect-known>
 
       <connect-new
@@ -53,28 +46,21 @@ import "./connect.css";
 
 /**
  * @fileoverview Root connection-establishment widget. Composes the new-remote
- * picker, the known-remotes list, and the tab-switch control into a single
- * overlay window. Delegates connector selection and known-host management
- * upward via emitted events so the parent can drive the wizard flow.
+ * picker, the preset list, and the tab-switch control into a single
+ * overlay window. Delegates connector and preset selection upward via emitted
+ * events so the parent can drive the wizard flow.
  *
  * @prop {boolean}  display             - Controls overlay visibility.
  * @prop {boolean}  inputting           - When true, hides list panels and
  *   shows a slotted content (e.g. the wizard fieldset) instead.
  * @prop {Array}    presets             - Server-defined preset connections.
  * @prop {boolean}  restrictedToPresets - Hides "New remote" when true.
- * @prop {Array}    knowns              - Previously connected remotes.
- * @prop {Function} knownsLauncherBuilder - Builds a shareable launch URL for a known.
- * @prop {Function} knownsExport        - Serialises knowns to exportable data.
- * @prop {Function} knownsImport        - Deserialises and merges imported data.
  * @prop {Array}    connectors          - Available connector types (SSH, Telnet…).
  * @prop {boolean}  busy                - When true, overlays the panel to block interaction.
  *
  * @emits display           - Forwarded from the window widget; payload: `{boolean}`.
  * @emits connector-select  - User chose a new connector type. Payload: connector object.
- * @emits known-select      - User clicked a known remote. Payload: known object.
- * @emits known-remove      - User removed a known remote. Payload: `{string}` uid.
  * @emits preset-select     - User selected a preset. Payload: preset object.
- * @emits known-clear-session - User cleared session data for a known. Payload: `{string}` uid.
  */
 
 import Window from "./window.vue";
@@ -106,22 +92,6 @@ export default {
       type: Boolean,
       default: () => false,
     },
-    knowns: {
-      type: Array,
-      default: () => [],
-    },
-    knownsLauncherBuilder: {
-      type: Function,
-      default: () => [],
-    },
-    knownsExport: {
-      type: Function,
-      default: () => [],
-    },
-    knownsImport: {
-      type: Function,
-      default: () => [],
-    },
     connectors: {
       type: Array,
       default: () => [],
@@ -131,14 +101,7 @@ export default {
       default: false,
     },
   },
-  emits: [
-    "display",
-    "connector-select",
-    "known-select",
-    "known-remove",
-    "preset-select",
-    "known-clear-session",
-  ],
+  emits: ["display", "connector-select", "preset-select"],
   /**
    * @returns {{tab: string, canSelect: boolean}}
    *   `tab` — active panel: `"known"` or `"new"`.
@@ -183,34 +146,6 @@ export default {
       this.$emit("connector-select", connector);
     },
     /**
-     * Emits `known-select` with the chosen known-remote. No-op while `inputting`.
-     *
-     * @param {Object} known - The known-remote descriptor chosen by the user.
-     * @emits known-select
-     * @returns {void}
-     */
-    selectKnown(known) {
-      if (this.inputting) {
-        return;
-      }
-
-      this.$emit("known-select", known);
-    },
-    /**
-     * Emits `known-remove` for the given uid. No-op while `inputting`.
-     *
-     * @param {string} uid - Unique identifier of the known remote to remove.
-     * @emits known-remove
-     * @returns {void}
-     */
-    removeKnown(uid) {
-      if (this.inputting) {
-        return;
-      }
-
-      this.$emit("known-remove", uid);
-    },
-    /**
      * Emits `preset-select` with the chosen preset. No-op while `inputting`.
      *
      * @param {Object} preset - The preset descriptor chosen by the user.
@@ -223,20 +158,6 @@ export default {
       }
 
       this.$emit("preset-select", preset);
-    },
-    /**
-     * Emits `known-clear-session` for the given uid. No-op while `inputting`.
-     *
-     * @param {string} uid - Unique identifier of the known remote whose session to clear.
-     * @emits known-clear-session
-     * @returns {void}
-     */
-    clearSessionKnown(uid) {
-      if (this.inputting) {
-        return;
-      }
-
-      this.$emit("known-clear-session", uid);
     },
   },
 };

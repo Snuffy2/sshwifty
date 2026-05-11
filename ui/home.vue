@@ -91,17 +91,10 @@ SPDX-License-Identifier: AGPL-3.0-only
       :connectors="connector.connectors"
       :presets="presets"
       :restricted-to-presets="restrictedToPresets"
-      :knowns="connector.knowns"
-      :knowns-launcher-builder="buildknownLauncher"
-      :knowns-export="exportKnowns"
-      :knowns-import="importKnowns"
       :busy="connector.busy"
       @display="windows.connect = $event"
       @connector-select="connectNew"
-      @known-select="connectKnown"
-      @known-remove="removeKnown"
       @preset-select="connectPreset"
-      @known-clear-session="clearSessionKnown"
     >
       <connector
         :connector="connector.connector"
@@ -134,9 +127,8 @@ SPDX-License-Identifier: AGPL-3.0-only
  * @file home.vue
  * @description Main application shell rendered after successful authentication.
  * Owns the tab lifecycle (open, switch, close, retap), the connection wizard
- * flow (new/preset/known/launch), and the socket status indicator. Delegates
- * traffic history tracking to {@link home_socketctl} and known-remote
- * persistence to {@link home_historyctl}.
+ * flow (new/preset/launch), and the socket status indicator. Delegates traffic
+ * history tracking to {@link home_socketctl}.
  */
 import "./home.css";
 
@@ -150,10 +142,10 @@ import TabWindow from "./widgets/tab_window.vue";
 import Screens from "./widgets/screens.vue";
 
 import * as home_socket from "./home_socketctl.js";
-import * as home_history from "./home_historyctl.js";
 
 import * as presets from "./commands/presets.js";
 import { buildPresetExecution } from "./home_preset_execution.js";
+import { cleanupLegacyConnectionHistory } from "./legacy_connection_history_cleanup.js";
 
 /* global __SSHWIFTY_SOURCE_URL__ */
 
@@ -277,8 +269,6 @@ export default {
   },
   emits: ["navigate-to", "tab-opened", "tab-closed", "tab-updated"],
   data() {
-    let history = home_history.build(this);
-
     return {
       ticker: null,
       windows: {
@@ -288,13 +278,12 @@ export default {
       },
       socket: home_socket.build(this),
       connector: {
-        historyRec: markRaw(history),
+        historyRec: null,
         connector: null,
         connectors: markRaw(this.commands.all()),
         inputting: false,
         acquired: false,
         busy: false,
-        knowns: history.all(),
       },
       presets: markRaw(this.commands.mergePresets(this.presetData)),
       tab: {
@@ -306,6 +295,8 @@ export default {
     };
   },
   mounted() {
+    cleanupLegacyConnectionHistory();
+
     this.ticker = setInterval(() => {
       this.tick();
     }, 1000);
@@ -531,9 +522,7 @@ export default {
                 presetExecution.config,
                 presetExecution.session,
                 presetExecution.keptSessions,
-                () => {
-                  self.connector.knowns = self.connector.historyRec.all();
-                },
+                () => {},
               ),
             ),
           };
@@ -608,52 +597,6 @@ export default {
       return connector;
     },
     /**
-     * Reconnects to a previously used remote from the known-remotes history.
-     *
-     * Resolves the protocol connector by `known.type` and executes the session
-     * directly, bypassing the multi-step wizard.
-     *
-     * @param {{ type: string, data: object, session: object, keptSessions: Array }} known
-     *   A known-remote entry from `connector.knowns`.
-     * @returns {void}
-     */
-    connectKnown(known) {
-      const self = this;
-
-      self.runConnect((stream) => {
-        let connector = self.getConnectorByType(known.type);
-
-        if (!connector) {
-          alert("Unknown connector: " + known.type);
-
-          self.connector.inputting = false;
-
-          return;
-        }
-
-        self.connector.connector = {
-          id: connector.id(),
-          name: connector.name(),
-          description: connector.description(),
-          wizard: markRaw(
-            connector.execute(
-              stream,
-              self.controls,
-              self.connector.historyRec,
-              known.data,
-              known.session,
-              known.keptSessions,
-              () => {
-                self.connector.knowns = self.connector.historyRec.all();
-              },
-            ),
-          ),
-        };
-
-        self.connector.inputting = true;
-      });
-    },
-    /**
      * Parses a launcher string of the form `"TYPE:query"` into its components.
      *
      * @param {string} ll - Launcher string from the URL hash (after stripping `+`).
@@ -701,8 +644,6 @@ export default {
           return;
         }
 
-        const self = this;
-
         this.connector.connector = {
           id: connector.id(),
           name: connector.name(),
@@ -714,8 +655,6 @@ export default {
               this.connector.historyRec,
               ll.query,
               (n) => {
-                self.connector.knowns = self.connector.historyRec.all();
-
                 done(n.data().success);
               },
             ),
@@ -724,67 +663,6 @@ export default {
 
         this.connector.inputting = true;
       });
-    },
-    /**
-     * Constructs a shareable URL hash launcher string for a known remote.
-     *
-     * Returns `undefined` when the remote's connector type is not registered.
-     *
-     * @param {{ type: string, data: object }} known - A known-remote entry.
-     * @returns {string|undefined} Full URL with `#+` launcher hash, or `undefined`.
-     */
-    buildknownLauncher(known) {
-      let connector = this.getConnectorByType(known.type);
-
-      if (!connector) {
-        return;
-      }
-
-      return this.hostPath + "#+" + connector.launcher(known.data);
-    },
-    /**
-     * Returns the serialised export data for all known remotes.
-     *
-     * Delegates to `historyRec.export()` and passes the result to the
-     * connect widget for download.
-     *
-     * @returns {string} JSON-encoded known-remotes export payload.
-     */
-    exportKnowns() {
-      return this.connector.historyRec.export();
-    },
-    /**
-     * Imports a known-remotes payload and refreshes the reactive knowns list.
-     *
-     * @param {string} d - JSON-encoded known-remotes import payload.
-     * @returns {void}
-     */
-    importKnowns(d) {
-      this.connector.historyRec.import(d);
-
-      this.connector.knowns = this.connector.historyRec.all();
-    },
-    /**
-     * Removes a known remote by its unique ID and refreshes the reactive list.
-     *
-     * @param {string} uid - The unique identifier of the known remote to remove.
-     * @returns {void}
-     */
-    removeKnown(uid) {
-      this.connector.historyRec.del(uid);
-
-      this.connector.knowns = this.connector.historyRec.all();
-    },
-    /**
-     * Clears the saved session data for a known remote without removing the entry.
-     *
-     * @param {string} uid - The unique identifier of the known remote.
-     * @returns {void}
-     */
-    clearSessionKnown(uid) {
-      this.connector.historyRec.clearSession(uid);
-
-      this.connector.knowns = this.connector.historyRec.all();
     },
     /**
      * Cancels an in-progress connection wizard and releases the connection lock.
