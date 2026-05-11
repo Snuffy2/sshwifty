@@ -358,17 +358,10 @@ SHELLPORT_PRESET_SECRET_KEY
 These options correspond to their counterparts in the configuration file.
 
 `SHELLPORT_PRESETS` must contain valid JSON-encoded preset data. Its format is
-shown in [preset.example.json](preset.example.json) and can be loaded with:
+shown in [shellport.conf.example.json](shellport.conf.example.json) and can be loaded with:
 
 ```sh
-SHELLPORT_PRESETS="$(cat preset.example.json)" ./shellport
-```
-
-You can also set `SHELLPORT_PRESETS` directly as a string. In that case you may
-need to escape the JSON characters. One option is:
-
-```sh
-jq -c . preset.example.json | jq -Rs
+SHELLPORT_PRESETS="$(cat shellport.conf.example.json)" ./shellport
 ```
 
 `SHELLPORT_PRESET_SECRET_KEY` is optional. When unset, plaintext preset
