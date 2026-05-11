@@ -159,7 +159,7 @@ func (s socketVerification) setServerConfigRespond(
 	if s.commonCfg.OnlyAllowPresetRemotes {
 		hd.Add("X-OnlyAllowPresetRemotes", "yes")
 	}
-	hd.Add("Content-Type", "text/json; charset=utf-8")
+	hd.Set("Content-Type", "application/json; charset=utf-8")
 	w.Write(buildAccessConfigRespondBody(
 		newSocketAccessConfiguration(
 			s.commonCfg.CurrentPresets(),

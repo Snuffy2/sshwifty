@@ -520,7 +520,7 @@ func (p presetConfig) writePresets(
 ) error {
 	w.Header().Add("Cache-Control", "no-store")
 	w.Header().Add("Pragma", "no-store")
-	w.Header().Add("Content-Type", "text/json; charset=utf-8")
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	return json.NewEncoder(w).Encode(presetConfigResponse{
 		Presets: newSocketAccessConfiguration(presets, "", false).Presets,
 	})
