@@ -71,10 +71,9 @@ preset `Password` values are migrated on startup to `Encrypted Password` and the
 plaintext value is removed from the JSON file. That key must be set through the
 environment, not in JSON. Without that key, plaintext password presets continue
 to work as before. Full preset add/edit/remove API writes require admin access.
-`SharedKey` grants normal UI access. `AdminKey` grants admin access for the
-preset config API, but a distinct `AdminKey` is not accepted for normal
-WebSocket bootstrap because the encrypted terminal socket is derived from
-`SharedKey`. If `AdminKey` is blank, `SharedKey` grants admin access. If both
+The current authentication UI accepts `SharedKey` only. `AdminKey` grants admin
+access for the preset config API, but there is not yet a separate UI prompt for
+entering it. If `AdminKey` is blank, `SharedKey` grants admin access. If both
 keys are blank, everyone gets admin access without authentication. Fingerprint
 saves from the current UI remain limited to the selected preset's fingerprint.
 

@@ -303,22 +303,23 @@ Presets without an `id` are assigned one automatically. Duplicate preset IDs are
 rejected.
 
 When authentication is required, `PUT` uses the same time-windowed `X-Key`
-authentication format as `/sshwifty/socket/verify`. `SharedKey` grants normal
-UI access. `AdminKey` grants admin access for the preset config API, but a
-distinct `AdminKey` is not accepted for normal WebSocket bootstrap because the
-encrypted terminal socket is derived from `SharedKey`. Full preset-list
-replacement requires admin access. Fingerprint saves from the current UI
-require user access and are limited server-side to changing only the selected
-preset's `Fingerprint` metadata. When the active configuration was loaded from
-environment variables, writes are rejected because there is no JSON file to
-update.
+authentication format as `/sshwifty/socket/verify`. The current authentication
+UI accepts `SharedKey` only. `AdminKey` grants admin access for the preset
+config API, but there is not yet a separate UI prompt for entering it. Full
+preset-list replacement requires admin access. Fingerprint saves from the
+current UI require user access and are limited server-side to changing only the
+selected preset's `Fingerprint` metadata. When the active configuration was
+loaded from environment variables, writes are rejected because there is no JSON
+file to update.
 
 Key behavior:
 
 - `SharedKey` and `AdminKey` both set: `SharedKey` is normal UI access,
-  `AdminKey` is admin access for the preset config API.
+  `AdminKey` is admin access for the preset config API. The current UI only
+  prompts for `SharedKey`.
 - `SharedKey` blank and `AdminKey` set: all visitors are users without
-  authentication; admin actions require entering `AdminKey`.
+  authentication; admin actions require `AdminKey`, which currently needs a
+  direct API client.
 - `SharedKey` set and `AdminKey` blank: anyone who authenticates with
   `SharedKey` has admin access.
 - `SharedKey` and `AdminKey` both blank: all visitors have admin access without

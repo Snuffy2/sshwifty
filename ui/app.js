@@ -263,7 +263,7 @@ function startApp(rootEl) {
        * Derives a 32-byte HMAC-SHA-512 auth key from the private key and the
        * current time truncated to 100-second buckets.
        *
-       * @param {string} privateKey - The user-supplied passphrase.
+       * @param {string} privateKey - The configured SharedKey.
        * @returns {Promise<Uint8Array>} Resolved with the 32-byte auth key.
        */
       async getSocketAuthKey(privateKey) {
@@ -423,7 +423,7 @@ function startApp(rootEl) {
        * Delegates the actual HTTP request to `requestAuth`, then persists the
        * `X-Key` header value in `this.key` when the server returns one.
        *
-       * @param {string} privateKey - The user passphrase, or an empty string for
+       * @param {string} privateKey - The SharedKey, or an empty string for
        *   unauthenticated (no-passphrase) mode.
        * @returns {Promise<object>} Auth result object (see `requestAuth`).
        */
@@ -442,8 +442,9 @@ function startApp(rootEl) {
        *
        * When a non-empty `privateKey` and a previously stored `this.key` are
        * present, an HMAC auth token is derived and sent in the `X-Key` header.
+       * The current UI only submits SharedKey values through this path.
        *
-       * @param {string} privateKey - Passphrase used to compute the HMAC token,
+       * @param {string} privateKey - SharedKey used to compute the HMAC token,
        *   or an empty string to skip token computation.
        * @returns {Promise<{ result: number, key: string|null, timeout: string|null,
        *   heartbeat: string|null, date: Date|null, data: string,
@@ -556,12 +557,12 @@ function startApp(rootEl) {
         }
       },
       /**
-       * Handles a user-submitted passphrase from the auth form.
+       * Handles a user-submitted SharedKey from the auth form.
        *
        * Clears any previous auth error, attempts authentication, and on success
        * transitions to the home app. Sets `this.authErr` on 403 or other errors.
        *
-       * @param {string} passphrase - The passphrase entered by the user.
+       * @param {string} passphrase - The SharedKey entered by the user.
        * @returns {Promise<void>}
        */
       async submitAuth(passphrase) {
@@ -597,7 +598,7 @@ function startApp(rootEl) {
               break;
 
             case 403:
-              this.authErr = "Authentication has failed. Wrong passphrase?";
+              this.authErr = "Authentication has failed. Wrong SharedKey?";
               break;
 
             default:
