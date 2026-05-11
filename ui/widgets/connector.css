@@ -8,20 +8,6 @@
   padding: 0 20px 40px 20px;
 }
 
-#connector-cancel {
-  text-decoration: none;
-  color: #e9a;
-}
-
-#connector-cancel.disabled {
-  color: #444;
-}
-
-#connector-cancel::before {
-  content: "\000AB";
-  margin-right: 3px;
-}
-
 #connector-title {
   margin-top: 10px;
   text-align: center;

@@ -12,15 +12,6 @@ SPDX-License-Identifier: AGPL-3.0-only
     method="POST"
     @submit="submitAndGetNext"
   >
-    <a
-      id="connector-cancel"
-      href="javascript:;"
-      :class="{ disabled: working || cancelled }"
-      @click="cancel()"
-    >
-      Cancel
-    </a>
-
     <div
       v-if="!working"
       id="connector-title"
@@ -238,7 +229,7 @@ SPDX-License-Identifier: AGPL-3.0-only
         ></div>
       </div>
 
-      <div class="field">
+      <div v-if="current.submittable || showCancelButton()" class="field">
         <button
           v-if="current.submittable"
           v-focus="submitterTabIndex === 1"
@@ -251,11 +242,12 @@ SPDX-License-Identifier: AGPL-3.0-only
           {{ current.actionText }}
         </button>
         <button
-          v-if="current.cancellable"
-          :disabled="current.submitting || disabled"
-          :tabindex="submitterTabIndex + 1"
+          v-if="showCancelButton()"
+          type="button"
+          :disabled="cancelButtonDisabled()"
+          :tabindex="cancelButtonTabIndex()"
           class="secondary"
-          @click="cancelAndGetNext"
+          @click="cancelFromButton"
         >
           Cancel
         </button>
@@ -314,12 +306,13 @@ const hightlightClearTimeout = 1000;
  *
  * @private
  * @returns {{data: null, alert: boolean, clearHightlightTimeout: null, title: string,
- *   message: string, fields: Array, actionText: string, cancellable: boolean,
+ *   type: number|null, message: string, fields: Array, actionText: string, cancellable: boolean,
  *   submittable: boolean, submitting: boolean}} A fresh empty step descriptor.
  */
 function buildEmptyCurrent() {
   return {
     data: null,
+    type: null,
     alert: false,
     clearHightlightTimeout: null,
     title: "",
@@ -420,6 +413,55 @@ export default {
       await this.closeWizard();
 
       this.$emit("cancel", true);
+    },
+    /**
+     * Return whether the footer should show a Cancel button.
+     *
+     * Prompts always expose cancellation from the footer. Active prompts use
+     * their step-specific cancellation handler, while the initial prompt and
+     * final error state close the modal through the top-level cancellation path.
+     *
+     * @returns {boolean} True when footer cancellation is available.
+     */
+    showCancelButton() {
+      return (
+        this.current.data !== null &&
+        (this.current.submittable || (!this.working && this.disabled))
+      );
+    },
+    /**
+     * Return whether the footer Cancel button should be disabled.
+     *
+     * @returns {boolean} True when cancellation is already in progress.
+     */
+    cancelButtonDisabled() {
+      return this.current.submitting || this.cancelled;
+    },
+    /**
+     * Return the tab index for the footer Cancel button.
+     *
+     * @returns {number} Tab index immediately after the submit button, or first
+     *   when Cancel is the only footer action.
+     */
+    cancelButtonTabIndex() {
+      return this.current.submittable ? this.submitterTabIndex + 1 : 1;
+    },
+    /**
+     * Handles the footer Cancel button.
+     *
+     * Uses the step-specific prompt cancellation when available, otherwise
+     * closes the connector modal through the top-level cancellation path.
+     *
+     * @returns {Promise<void>}
+     */
+    async cancelFromButton() {
+      if (this.current.cancellable) {
+        await this.cancelAndGetNext();
+
+        return;
+      }
+
+      this.cancel();
     },
     /**
      * Initiates wizard cancellation if not already working or cancelled.

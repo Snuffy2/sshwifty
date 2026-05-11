@@ -18,16 +18,10 @@ SPDX-License-Identifier: AGPL-3.0-only
 
       <connect-switch
         v-if="!inputting"
-        :knowns-length="knowns.length"
+        :presets-length="knowns.length + presets.length"
         :tab="tab"
         @switch="switchTab"
       ></connect-switch>
-
-      <connect-new
-        v-if="tab === 'new' && !inputting"
-        :connectors="connectors"
-        @select="selectConnector"
-      ></connect-new>
 
       <connect-known
         v-if="tab === 'known' && !inputting"
@@ -43,23 +37,11 @@ SPDX-License-Identifier: AGPL-3.0-only
         @clear-session="clearSessionKnown"
       ></connect-known>
 
-      <div id="connect-warning">
-        <span id="connect-warning-icon" class="icon icon-warning1"></span>
-        <div id="connect-warning-msg">
-          <p>
-            <strong>An insecured service may steal your secrets.</strong>
-            Always exam the safety of the service before using it.
-          </p>
-
-          <p>
-            Sshwifty is a free software, you can deploy it on your own trusted
-            infrastructure.
-            <a :href="sourceURL" target="_blank" rel="noopener noreferrer"
-              >View source code</a
-            >
-          </p>
-        </div>
-      </div>
+      <connect-new
+        v-if="tab === 'new' && !inputting && !restrictedToPresets"
+        :connectors="connectors"
+        @select="selectConnector"
+      ></connect-new>
 
       <div v-if="busy" id="connect-busy-overlay"></div>
     </div>
@@ -99,8 +81,6 @@ import Window from "./window.vue";
 import ConnectSwitch from "./connect_switch.vue";
 import ConnectKnown from "./connect_known.vue";
 import ConnectNew from "./connect_new.vue";
-
-/* global __SSHWIFTY_SOURCE_URL__ */
 
 export default {
   components: {
@@ -161,15 +141,13 @@ export default {
   ],
   /**
    * @returns {{tab: string, canSelect: boolean}}
-   *   `tab` — active panel: `"new"` or `"known"`.
+   *   `tab` — active panel: `"known"` or `"new"`.
    *   `canSelect` — reserved flag for future debounce logic.
-   *   `sourceURL` — exact source location for the running build.
    */
   data() {
     return {
-      tab: !this.restrictedToPresets ? "new" : "known",
+      tab: "known",
       canSelect: true,
-      sourceURL: __SSHWIFTY_SOURCE_URL__,
     };
   },
   methods: {
@@ -181,6 +159,10 @@ export default {
      */
     switchTab(to) {
       if (this.inputting) {
+        return;
+      }
+
+      if (to === "new" && this.restrictedToPresets) {
         return;
       }
 

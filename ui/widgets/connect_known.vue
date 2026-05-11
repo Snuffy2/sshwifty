@@ -7,10 +7,10 @@ SPDX-License-Identifier: AGPL-3.0-only
 <template>
   <div id="connect-known-list" :class="{ reloaded: reloaded }">
     <div
-      v-if="knownList.length <= 0 && presets <= 0"
+      v-if="knownList.length <= 0 && presetCount <= 0"
       id="connect-known-list-empty"
     >
-      No known remote available
+      No presets or saved remotes available
     </div>
     <div v-else>
       <div v-if="knownList.length > 0" id="connect-known-list-list">
@@ -67,7 +67,7 @@ SPDX-License-Identifier: AGPL-3.0-only
       </div>
 
       <div
-        v-if="presets.length > 0"
+        v-if="presetCount > 0"
         id="connect-known-list-presets"
         :class="{
           'last-planel': knownList.length > 0,
@@ -179,6 +179,16 @@ export default {
       reloaded: false,
       busy: false,
     };
+  },
+  computed: {
+    /**
+     * Returns the number of renderable presets.
+     *
+     * @returns {number} Preset count, or zero when presets is not an array.
+     */
+    presetCount() {
+      return Array.isArray(this.presets) ? this.presets.length : 0;
+    },
   },
   watch: {
     knowns(newVal) {

@@ -20,6 +20,7 @@ const viteConfigPath = path.join(repoRoot, "vite.config.js");
 const indexHtmlPath = path.join(repoRoot, "ui", "index.html");
 const errorHtmlPath = path.join(repoRoot, "ui", "error.html");
 const connectVuePath = path.join(repoRoot, "ui", "widgets", "connect.vue");
+const homeVuePath = path.join(repoRoot, "ui", "home.vue");
 const legacyHelperNames = [
   ["passthrough", "AssetToken"],
   ["replace", "PublicAssetPaths"],
@@ -91,12 +92,14 @@ describe("vite config cleanup guards", () => {
     );
   });
 
-  test("connect widget binds the source link to the configured frontend value", () => {
+  test("home screen binds the source link to the configured frontend value", () => {
     const connectVue = readSource(connectVuePath);
+    const homeVue = readSource(homeVuePath);
 
-    expect(connectVue).toContain(':href="sourceURL"');
-    expect(connectVue).toContain('rel="noopener noreferrer"');
-    expect(connectVue).toContain("sourceURL: __SSHWIFTY_SOURCE_URL__");
+    expect(homeVue).toContain(':href="sourceURL"');
+    expect(homeVue).toContain('rel="noopener noreferrer"');
+    expect(homeVue).toContain("sourceURL: __SSHWIFTY_SOURCE_URL__");
+    expect(connectVue).not.toContain("connect-warning");
     expect(connectVue).not.toContain(
       'href="https://github.com/Snuffy2/sshwifty"',
     );

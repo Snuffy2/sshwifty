@@ -76,6 +76,12 @@ SPDX-License-Identifier: AGPL-3.0-only
           <hr />
           <p class="secondary" v-html="serverMessage"></p>
         </div>
+
+        <p id="home-content-source" class="secondary">
+          <a :href="sourceURL" target="_blank" rel="noopener noreferrer">
+            View source code
+          </a>
+        </p>
       </div>
     </screens>
 
@@ -147,6 +153,9 @@ import * as home_socket from "./home_socketctl.js";
 import * as home_history from "./home_historyctl.js";
 
 import * as presets from "./commands/presets.js";
+import { buildPresetExecution } from "./home_preset_execution.js";
+
+/* global __SSHWIFTY_SOURCE_URL__ */
 
 const BACKEND_CONNECT_ERROR =
   "Unable to connect to the Sshwifty backend server: ";
@@ -275,6 +284,7 @@ export default {
         lastID: 0,
         tabs: [],
       },
+      sourceURL: __SSHWIFTY_SOURCE_URL__,
     };
   },
   mounted() {
@@ -486,6 +496,31 @@ export default {
       const self = this;
 
       self.runConnect((stream) => {
+        const presetExecution = buildPresetExecution(preset);
+        if (presetExecution !== null) {
+          self.connector.connector = {
+            id: preset.command.id(),
+            name: preset.command.name(),
+            description: preset.command.description(),
+            wizard: markRaw(
+              preset.command.execute(
+                stream,
+                self.controls,
+                self.connector.historyRec,
+                presetExecution.config,
+                presetExecution.session,
+                presetExecution.keptSessions,
+                () => {
+                  self.connector.knowns = self.connector.historyRec.all();
+                },
+              ),
+            ),
+          };
+
+          self.connector.inputting = true;
+          return;
+        }
+
         self.connector.connector = {
           id: preset.command.id(),
           name: preset.command.name(),
