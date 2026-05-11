@@ -1,6 +1,9 @@
 name: Publish Docker Image
 
 on:
+  push:
+    branches:
+      - main
   release:
     types:
       - published
@@ -14,6 +17,10 @@ on:
 permissions:
   contents: read
   packages: write
+
+concurrency:
+  group: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && format('{0}-main-edge', github.workflow) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
 
 env:
   REGISTRY: ghcr.io
@@ -48,6 +55,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
+            type=edge,branch=main,enable=${{ github.event_name == 'push' }}
             type=semver,pattern={{version}},value=${{ github.event.release.tag_name }},enable=${{ github.event_name == 'release' }}
             type=raw,value=latest,enable=${{ github.event_name == 'release' && !github.event.release.prerelease }}
             type=raw,value=${{ inputs.tag_name }},enable=${{ github.event_name == 'workflow_dispatch' }}
@@ -63,7 +71,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            SHELLPORT_VERSION=${{ github.event_name == 'release' && github.event.release.tag_name || inputs.tag_name }}
+            SHELLPORT_VERSION=${{ github.event_name == 'release' && github.event.release.tag_name || github.event_name == 'workflow_dispatch' && inputs.tag_name || 'edge' }}
             SHELLPORT_SOURCE_URL=https://github.com/Snuffy2/shellport/archive/${{ github.sha }}.tar.gz
           cache-from: type=gha
           cache-to: type=gha,mode=max
