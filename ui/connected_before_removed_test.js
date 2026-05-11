@@ -50,4 +50,28 @@ describe("connected-before removal", () => {
 
     expect(removedKeys).toEqual(["sshwifty-knowns", "knowns"]);
   });
+
+  test("does not throw when browser storage access is blocked", () => {
+    const originalWindow = Object.getOwnPropertyDescriptor(
+      globalThis,
+      "window",
+    );
+
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      get() {
+        throw new Error("blocked storage");
+      },
+    });
+
+    try {
+      expect(() => cleanupLegacyConnectionHistory()).not.toThrow();
+    } finally {
+      if (originalWindow) {
+        Object.defineProperty(globalThis, "window", originalWindow);
+      } else {
+        delete globalThis.window;
+      }
+    }
+  });
 });
