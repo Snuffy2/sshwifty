@@ -32,8 +32,6 @@ const SERVER_DIAL_CONNECTED = 0x03;
 
 const DEFAULT_PORT = 23;
 
-const HostMaxSearchResults = 3;
-
 /**
  * Telnet command handler for a single active stream.
  *
@@ -271,7 +269,7 @@ class Wizard {
    * @param {streams.Streams} streams Active stream multiplexer.
    * @param {subscribe.Subscribe} subs Channel for pushing wizard steps to the UI.
    * @param {controls.Controls} controls Control registry.
-   * @param {history.History} history Connection history manager.
+   * @param {object} _history Deprecated connection history placeholder.
    *
    */
   constructor(
@@ -282,7 +280,7 @@ class Wizard {
     streams,
     subs,
     controls,
-    history,
+    _history,
   ) {
     this.info = info;
     this.preset = preset;
@@ -292,7 +290,6 @@ class Wizard {
     this.keptSessions = keptSessions;
     this.step = subs;
     this.controls = controls.get("Telnet");
-    this.history = history;
   }
 
   /**
@@ -481,15 +478,8 @@ class Wizard {
           ),
         );
 
-        self.history.save(
-          self.info.name() + ":" + configInput.host,
-          configInput.host,
-          new Date(),
-          self.info,
-          configInput,
-          sessionData,
-          keptSessions,
-        );
+        void sessionData;
+        void keptSessions;
       },
       async "connect.failed"(rd) {
         let readed = await reader.readCompletely(rd),
@@ -539,27 +529,8 @@ class Wizard {
         [
           {
             name: "Host",
-            suggestions(input) {
-              const hosts = self.history.search(
-                "Telnet",
-                "host",
-                input,
-                HostMaxSearchResults,
-              );
-
-              let sugg = [];
-
-              for (let i = 0; i < hosts.length; i++) {
-                sugg.push({
-                  title: hosts[i].title,
-                  value: hosts[i].data.host,
-                  meta: {
-                    Encoding: hosts[i].data.charset,
-                  },
-                });
-              }
-
-              return sugg;
+            suggestions(_input) {
+              return [];
             },
           },
           { name: "Encoding" },
@@ -592,7 +563,7 @@ class Executor extends Wizard {
    * @param {streams.Streams} streams Active stream multiplexer.
    * @param {subscribe.Subscribe} subs Step channel.
    * @param {controls.Controls} controls Control registry.
-   * @param {history.History} history Connection history manager.
+   * @param {object|null} history Deprecated connection history placeholder.
    *
    */
   constructor(
@@ -697,7 +668,7 @@ export class Command {
    * @param {streams.Streams} streams Active stream multiplexer.
    * @param {subscribe.Subscribe} subs Step channel.
    * @param {controls.Controls} controls Control registry.
-   * @param {history.History} history Connection history.
+   * @param {object|null} history Deprecated connection history placeholder.
    * @returns {Wizard} Configured Telnet wizard instance.
    */
   wizard(
@@ -732,7 +703,7 @@ export class Command {
    * @param {streams.Streams} streams Active stream multiplexer.
    * @param {subscribe.Subscribe} subs Step channel.
    * @param {controls.Controls} controls Control registry.
-   * @param {history.History} history Connection history.
+   * @param {object|null} history Deprecated connection history placeholder.
    * @returns {Executor} Configured Telnet executor instance.
    */
   execute(
@@ -767,7 +738,7 @@ export class Command {
    * @param {streams.Streams} streams Active stream multiplexer.
    * @param {subscribe.Subscribe} subs Step channel.
    * @param {controls.Controls} controls Control registry.
-   * @param {history.History} history Connection history.
+   * @param {object|null} history Deprecated connection history placeholder.
    * @returns {Executor} Configured Telnet executor instance.
    * @throws {Exception} When the launcher string is malformed or contains
    *   invalid field values.

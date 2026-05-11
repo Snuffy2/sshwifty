@@ -57,8 +57,6 @@ const FingerprintPromptVerifyPassed = 0x00;
 const FingerprintPromptVerifyNoRecord = 0x01;
 const FingerprintPromptVerifyMismatch = 0x02;
 
-const HostMaxSearchResults = 3;
-
 export class Mosh {
   /**
    * constructor
@@ -569,7 +567,7 @@ class Wizard {
    * @param {streams.Streams} streams
    * @param {subscribe.Subscribe} subs
    * @param {controls.Controls} controls
-   * @param {history.History} history
+   * @param {object} _history Deprecated connection history placeholder.
    *
    */
   constructor(
@@ -580,7 +578,7 @@ class Wizard {
     streams,
     subs,
     controls,
-    history,
+    _history,
     saveFingerprint = null,
   ) {
     this.info = info;
@@ -595,7 +593,6 @@ class Wizard {
     this.keptSessions = keptSessions;
     this.step = subs;
     this.controls = controls.get("Mosh");
-    this.history = history;
     this.saveFingerprint = saveFingerprint;
   }
 
@@ -768,15 +765,8 @@ class Wizard {
           ),
         );
 
-        self.history.save(
-          self.info.name() + ":" + configInput.user + "@" + configInput.host,
-          configInput.user + "@" + configInput.host,
-          new Date(),
-          self.info,
-          configInput,
-          sessionData,
-          keptSessions,
-        );
+        void sessionData;
+        void keptSessions;
       },
       async "connect.fingerprint"(rd, sd) {
         self.step.resolve(
@@ -866,30 +856,8 @@ class Wizard {
         [
           {
             name: "Host",
-            suggestions(input) {
-              const hosts = self.history.search(
-                "Mosh",
-                "host",
-                input,
-                HostMaxSearchResults,
-              );
-
-              let sugg = [];
-
-              for (let i = 0; i < hosts.length; i++) {
-                sugg.push({
-                  title: hosts[i].title,
-                  value: hosts[i].data.host,
-                  meta: {
-                    User: hosts[i].data.user,
-                    Authentication: hosts[i].data.authentication,
-                    Encoding: hosts[i].data.charset,
-                    "Mosh Server": hosts[i].data.moshServer,
-                  },
-                });
-              }
-
-              return sugg;
+            suggestions(_input) {
+              return [];
             },
           },
           { name: "User" },
@@ -1075,7 +1043,7 @@ class Executer extends Wizard {
    * @param {streams.Streams} streams
    * @param {subscribe.Subscribe} subs
    * @param {controls.Controls} controls
-   * @param {history.History} history
+   * @param {object|null} history Deprecated connection history placeholder.
    *
    */
   constructor(
