@@ -16,5 +16,5 @@ services:
       # Optional: base64-encoded 32-byte key for encrypted preset passwords.
       # Generate with: openssl rand -base64 32
       # SSHWIFTY_PRESET_SECRET_KEY: "replace-with-generated-key"
-      # Optional: enables future full preset add/edit/remove API clients.
+      # Optional override: otherwise auto-generated into writable JSON config.
       # SSHWIFTY_PRESET_ADMIN_KEY: "replace-with-admin-key"

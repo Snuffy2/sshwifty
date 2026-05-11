@@ -27,7 +27,9 @@ as a starting point for your own configuration.
   // web interface (bypass the Authenticate page)
   "SharedKey": "WEB_ACCESS_PASSWORD",
 
-  // Optional admin key for full preset add/edit/remove API writes.
+  // Optional admin key for full preset add/edit/remove API writes. When
+  // SharedKey is set and this field is empty in a writable JSON config,
+  // Sshwifty generates one and writes it to the config on startup.
   // Fingerprint saves from the current UI do not require this key.
   "PresetAdminKey": "",
 
@@ -307,11 +309,13 @@ rejected.
 use the same `X-Key` authentication flow as `/sshwifty/socket/verify`. Full
 preset-list replacement also requires `PresetAdminKey` or
 `SSHWIFTY_PRESET_ADMIN_KEY` via the `X-Preset-Admin-Key` header, using the same
-time-windowed key derivation as `X-Key`. Fingerprint saves from the current UI
-do not require the admin key and are limited server-side to changing only the
-selected preset's `Fingerprint` metadata. When the active configuration was
-loaded from environment variables, writes are rejected because there is no JSON
-file to update.
+time-windowed key derivation as `X-Key`. When `SharedKey` is set and a writable
+JSON config omits `PresetAdminKey`, Sshwifty generates one and writes it to the
+config on startup. Fingerprint saves from the current UI do not require the
+admin key and are limited server-side to changing only the selected preset's
+`Fingerprint` metadata. When the active configuration was loaded from
+environment variables, writes are rejected because there is no JSON file to
+update.
 
 ## Environment Variables
 

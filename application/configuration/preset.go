@@ -6,6 +6,7 @@ package configuration
 
 import (
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 )
@@ -77,4 +78,13 @@ func newPresetID() (string, error) {
 		return "", fmt.Errorf("generate preset ID: %w", err)
 	}
 	return "preset-" + hex.EncodeToString(data[:]), nil
+}
+
+// NewPresetAdminKey returns a random preset admin key suitable for config use.
+func NewPresetAdminKey() (string, error) {
+	var data [32]byte
+	if _, err := rand.Read(data[:]); err != nil {
+		return "", fmt.Errorf("generate preset admin key: %w", err)
+	}
+	return base64.StdEncoding.EncodeToString(data[:]), nil
 }
