@@ -1023,6 +1023,17 @@ func TestSocketAccessConfigurationIncludesServerTitle(t *testing.T) {
 	}
 }
 
+func TestSocketAccessConfigurationLeavesServerTitleUnescaped(t *testing.T) {
+	accessConfig := newSocketAccessConfiguration(nil, "Ops & Lab <Prod>", "", false)
+
+	if accessConfig.ServerTitle != "Ops & Lab <Prod>" {
+		t.Fatalf(
+			"ServerTitle = %q, want Ops & Lab <Prod>",
+			accessConfig.ServerTitle,
+		)
+	}
+}
+
 func TestSocketVerificationAdvertisesPresetConfigWritableWhenConfigIsWritable(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "shellport.conf.json")
 	writePresetAPIConfig(t, configPath, nil)

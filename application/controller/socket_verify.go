@@ -51,7 +51,8 @@ type socketRemotePreset struct {
 // socketAccessConfiguration is the top-level JSON envelope sent to the client
 // after successful authentication on the verification endpoint. It carries the
 // list of preset remote connections, server title, and HTML-escaped server
-// message.
+// message. ServerTitle is plain text; the client renders it with Vue text
+// interpolation rather than v-html.
 type socketAccessConfiguration struct {
 	Presets              []socketRemotePreset `json:"presets"`
 	ServerTitle          string               `json:"server_title"`
@@ -90,7 +91,7 @@ func newSocketAccessConfiguration(
 	}
 	return socketAccessConfiguration{
 		Presets:              presets,
-		ServerTitle:          html.EscapeString(serverTitle),
+		ServerTitle:          serverTitle,
 		ServerMessage:        parseServerMessage(html.EscapeString(serverMessage)),
 		PresetConfigWritable: presetConfigWritable,
 	}
