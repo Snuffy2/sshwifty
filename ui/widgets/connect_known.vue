@@ -11,8 +11,6 @@ SPDX-License-Identifier: AGPL-3.0-only
     </div>
     <div v-else>
       <div id="connect-known-list-presets">
-        <h3>Presets</h3>
-
         <ul class="hlst lstcl2">
           <li
             v-for="(preset, pk) in presets"

@@ -38,6 +38,12 @@ describe("connected-before removal", () => {
     }
   });
 
+  test("preset panel does not repeat the presets tab label as a heading", () => {
+    const source = readProjectFile("ui/widgets/connect_known.vue");
+
+    expect(source).not.toContain("<h3>Presets</h3>");
+  });
+
   test("removes legacy connection history storage keys", () => {
     const removedKeys = [];
     const storage = {
