@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
+import { cleanupLegacyConnectionHistory } from "./legacy_connection_history_cleanup.js";
 
 const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -35,5 +36,18 @@ describe("connected-before removal", () => {
       expect(source, checkedFile).not.toContain("known-remotes");
       expect(source, checkedFile).not.toContain("sshwifty-knowns");
     }
+  });
+
+  test("removes legacy connection history storage keys", () => {
+    const removedKeys = [];
+    const storage = {
+      removeItem(key) {
+        removedKeys.push(key);
+      },
+    };
+
+    cleanupLegacyConnectionHistory(storage);
+
+    expect(removedKeys).toEqual(["sshwifty-knowns", "knowns"]);
   });
 });

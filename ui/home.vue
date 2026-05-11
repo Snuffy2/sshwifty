@@ -145,6 +145,7 @@ import * as home_socket from "./home_socketctl.js";
 
 import * as presets from "./commands/presets.js";
 import { buildPresetExecution } from "./home_preset_execution.js";
+import { cleanupLegacyConnectionHistory } from "./legacy_connection_history_cleanup.js";
 
 /* global __SSHWIFTY_SOURCE_URL__ */
 
@@ -294,6 +295,8 @@ export default {
     };
   },
   mounted() {
+    cleanupLegacyConnectionHistory();
+
     this.ticker = setInterval(() => {
       this.tick();
     }, 1000);
