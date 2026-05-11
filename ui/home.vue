@@ -55,7 +55,7 @@ SPDX-License-Identifier: AGPL-3.0-only
       @updated="tabUpdated"
     >
       <div id="home-content-wrap">
-        <h1>Hi, this is ShellPort</h1>
+        <h1>ShellPort</h1>
 
         <p>Browser-based remote shell access over SSH, Telnet, and Mosh.</p>
 
