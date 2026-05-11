@@ -1,0 +1,512 @@
+// Copyright (C) 2019-2026 Ni Rui <ranqus@gmail.com>
+// Copyright (C) 2026 Snuffy2
+// SPDX-License-Identifier: AGPL-3.0-only
+
+package configuration
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"testing"
+)
+
+func writePresetConfig(t *testing.T, path string, presets []map[string]any) {
+	t.Helper()
+
+	data := map[string]any{
+		"Servers": []map[string]any{
+			{"ListenInterface": "127.0.0.1", "ListenPort": 8182},
+		},
+		"Presets": presets,
+	}
+	content, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		t.Fatalf("json.MarshalIndent returned error: %v", err)
+	}
+	if err := os.WriteFile(path, content, 0o600); err != nil {
+		t.Fatalf("os.WriteFile returned error: %v", err)
+	}
+}
+
+func requirePresetCount(t *testing.T, presets []Preset, want int) {
+	t.Helper()
+
+	if len(presets) != want {
+		t.Fatalf("preset count = %d, want %d", len(presets), want)
+	}
+}
+
+func requireRawPresetCount(t *testing.T, presets presetInputs, want int) {
+	t.Helper()
+
+	if len(presets) != want {
+		t.Fatalf("raw preset count = %d, want %d", len(presets), want)
+	}
+}
+
+func TestLoadFileRecordsSourceFile(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	writePresetConfig(t, configPath, []map[string]any{
+		{"ID": "preset-existing", "Title": "Atlantis", "Type": "SSH", "Host": "atlantis.home"},
+	})
+
+	_, cfg, err := loadFile(configPath)
+	if err != nil {
+		t.Fatalf("loadFile returned error: %v", err)
+	}
+	if cfg.SourceFile != configPath {
+		t.Fatalf("SourceFile = %q, want %q", cfg.SourceFile, configPath)
+	}
+}
+
+func TestLoadFileAppliesAdminKeyEnvironmentOverride(t *testing.T) {
+	t.Setenv("SSHWIFTY_ADMIN_KEY", "env-admin-key")
+	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	writePresetConfig(t, configPath, []map[string]any{
+		{"ID": "preset-existing", "Title": "Atlantis", "Type": "SSH", "Host": "atlantis.home"},
+	})
+
+	_, cfg, err := loadFile(configPath)
+	if err != nil {
+		t.Fatalf("loadFile returned error: %v", err)
+	}
+	if cfg.AdminKey != "env-admin-key" {
+		t.Fatalf("AdminKey = %q, want env-admin-key", cfg.AdminKey)
+	}
+}
+
+func TestPersistPresetIDsAddsMissingIDsToConfigFile(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	writePresetConfig(t, configPath, []map[string]any{
+		{"Title": "Atlantis", "Type": "SSH", "Host": "atlantis.home"},
+	})
+
+	_, cfg, err := loadFile(configPath)
+	if err != nil {
+		t.Fatalf("loadFile returned error: %v", err)
+	}
+	presets, changed, err := EnsurePresetIDs(cfg.Presets)
+	if err != nil {
+		t.Fatalf("EnsurePresetIDs returned error: %v", err)
+	}
+	if !changed {
+		t.Fatal("EnsurePresetIDs changed = false, want true")
+	}
+	if err := PersistPresetIDs(cfg.SourceFile, presets); err != nil {
+		t.Fatalf("PersistPresetIDs returned error: %v", err)
+	}
+
+	_, reloaded, err := loadFile(configPath)
+	if err != nil {
+		t.Fatalf("second loadFile returned error: %v", err)
+	}
+	requirePresetCount(t, reloaded.Presets, 1)
+	if reloaded.Presets[0].ID == "" {
+		t.Fatal("reloaded preset ID is empty")
+	}
+}
+
+func TestPersistPresetIDsPreservesUnknownTopLevelFields(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	content := []byte(`{
+  "Servers": [
+    {"ListenInterface": "127.0.0.1", "ListenPort": 8182}
+  ],
+  "Presets": [
+    {"Title": "Atlantis", "Type": "SSH", "Host": "atlantis.home"}
+  ],
+  "FutureTopLevel": {"enabled": true}
+}`)
+	if err := os.WriteFile(configPath, content, 0o600); err != nil {
+		t.Fatalf("os.WriteFile returned error: %v", err)
+	}
+
+	_, cfg, err := loadFile(configPath)
+	if err != nil {
+		t.Fatalf("loadFile returned error: %v", err)
+	}
+	presets, _, err := EnsurePresetIDs(cfg.Presets)
+	if err != nil {
+		t.Fatalf("EnsurePresetIDs returned error: %v", err)
+	}
+	if err := PersistPresetIDs(cfg.SourceFile, presets); err != nil {
+		t.Fatalf("PersistPresetIDs returned error: %v", err)
+	}
+
+	var raw map[string]json.RawMessage
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("os.ReadFile returned error: %v", err)
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("json.Unmarshal returned error: %v", err)
+	}
+	if _, ok := raw["FutureTopLevel"]; !ok {
+		t.Fatal("unknown top-level field was not preserved")
+	}
+}
+
+func TestReplaceFilePresetsPreservesRawMetaValues(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	keyPath := filepath.Join(t.TempDir(), "id_ed25519")
+	if err := os.WriteFile(keyPath, []byte("PRIVATE KEY DATA"), 0o600); err != nil {
+		t.Fatalf("os.WriteFile key returned error: %v", err)
+	}
+	writePresetConfig(t, configPath, []map[string]any{
+		{
+			"ID":    "preset-atlantis",
+			"Title": "Atlantis",
+			"Type":  "SSH",
+			"Host":  "atlantis.home:22",
+			"Meta": map[string]any{
+				"User":           "pi",
+				"Authentication": "Private Key",
+				"Private Key":    "file://" + keyPath,
+			},
+		},
+	})
+
+	_, cfg, err := loadFile(configPath)
+	if err != nil {
+		t.Fatalf("loadFile returned error: %v", err)
+	}
+	requirePresetCount(t, cfg.Presets, 1)
+	preset := cfg.Presets[0]
+	preset.Meta["Fingerprint"] = "SHA256:abc"
+	if err := ReplaceFilePresets(configPath, []Preset{preset}); err != nil {
+		t.Fatalf("ReplaceFilePresets returned error: %v", err)
+	}
+
+	raw, _, err := readCommonInputFile(configPath)
+	if err != nil {
+		t.Fatalf("readCommonInputFile returned error: %v", err)
+	}
+	requireRawPresetCount(t, raw.Presets, 1)
+	if raw.Presets[0].Meta["Private Key"] != String("file://"+keyPath) {
+		t.Fatalf(
+			"raw private key = %q, want file URI",
+			raw.Presets[0].Meta["Private Key"],
+		)
+	}
+	if raw.Presets[0].Meta["Fingerprint"] != "SHA256:abc" {
+		t.Fatal("raw fingerprint was not updated")
+	}
+}
+
+func TestReplaceFilePresetsPreservesUnsupportedRawPresets(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	writePresetConfig(t, configPath, []map[string]any{
+		{"ID": "preset-atlantis", "Title": "Atlantis", "Type": "SSH", "Host": "atlantis.home:22"},
+		{"ID": "preset-future", "Title": "Future", "Type": "Future", "Host": "future.home"},
+	})
+
+	if err := ReplaceFilePresets(configPath, []Preset{
+		{
+			ID:    "preset-atlantis",
+			Title: "Atlantis",
+			Type:  "SSH",
+			Host:  "atlantis.home:22",
+			Meta: map[string]string{
+				"Fingerprint": "SHA256:abc",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("ReplaceFilePresets returned error: %v", err)
+	}
+
+	raw, _, err := readCommonInputFile(configPath)
+	if err != nil {
+		t.Fatalf("readCommonInputFile returned error: %v", err)
+	}
+	requireRawPresetCount(t, raw.Presets, 2)
+	if raw.Presets[1].ID != "preset-future" {
+		t.Fatalf("second raw preset ID = %q, want preset-future", raw.Presets[1].ID)
+	}
+}
+
+func TestReplaceFilePresetsPreservesUnknownPresetFields(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	content := []byte(`{
+  "Servers": [
+    {"ListenInterface": "127.0.0.1", "ListenPort": 8182}
+  ],
+  "Presets": [
+    {
+      "ID": "preset-atlantis",
+      "Title": "Atlantis",
+      "Type": "SSH",
+      "Host": "atlantis.home:22",
+      "FuturePresetField": {"enabled": true}
+    }
+  ]
+}`)
+	if err := os.WriteFile(configPath, content, 0o600); err != nil {
+		t.Fatalf("os.WriteFile returned error: %v", err)
+	}
+
+	if err := ReplaceFilePresets(configPath, []Preset{
+		{
+			ID:    "preset-atlantis",
+			Title: "Atlantis",
+			Type:  "SSH",
+			Host:  "atlantis.home:22",
+			Meta: map[string]string{
+				"Fingerprint": "SHA256:abc",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("ReplaceFilePresets returned error: %v", err)
+	}
+
+	var raw struct {
+		Presets []map[string]json.RawMessage
+	}
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("os.ReadFile returned error: %v", err)
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("json.Unmarshal returned error: %v", err)
+	}
+	if len(raw.Presets) != 1 {
+		t.Fatalf("raw preset count = %d, want 1", len(raw.Presets))
+	}
+	if _, ok := raw.Presets[0]["FuturePresetField"]; !ok {
+		t.Fatal("unknown preset field was not preserved")
+	}
+}
+
+func TestReplaceFilePresetsPreservesUnknownTopLevelFields(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	content := []byte(`{
+  "Servers": [
+    {"ListenInterface": "127.0.0.1", "ListenPort": 8182}
+  ],
+  "Presets": [
+    {"ID": "preset-atlantis", "Title": "Atlantis", "Type": "SSH", "Host": "atlantis.home:22"}
+  ],
+  "FutureTopLevel": {"enabled": true}
+}`)
+	if err := os.WriteFile(configPath, content, 0o600); err != nil {
+		t.Fatalf("os.WriteFile returned error: %v", err)
+	}
+
+	if err := ReplaceFilePresets(configPath, []Preset{
+		{
+			ID:    "preset-atlantis",
+			Title: "Atlantis",
+			Type:  "SSH",
+			Host:  "atlantis.home:22",
+			Meta: map[string]string{
+				"Fingerprint": "SHA256:abc",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("ReplaceFilePresets returned error: %v", err)
+	}
+
+	var raw map[string]json.RawMessage
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("os.ReadFile returned error: %v", err)
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("json.Unmarshal returned error: %v", err)
+	}
+	if _, ok := raw["FutureTopLevel"]; !ok {
+		t.Fatal("unknown top-level field was not preserved")
+	}
+}
+
+func TestReplaceFilePresetsWithRuntimeDoesNotResolveRawMeta(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	keyPath := filepath.Join(t.TempDir(), "id_ed25519")
+	writePresetConfig(t, configPath, []map[string]any{
+		{
+			"ID":    "preset-atlantis",
+			"Title": "Atlantis",
+			"Type":  "SSH",
+			"Host":  "atlantis.home:22",
+			"Meta": map[string]any{
+				"User":           "pi",
+				"Authentication": "Private Key",
+				"Private Key":    "file://" + keyPath,
+			},
+		},
+	})
+	runtime := []Preset{
+		{
+			ID:    "preset-atlantis",
+			Title: "Atlantis",
+			Type:  "SSH",
+			Host:  "atlantis.home:22",
+			Meta: map[string]string{
+				"User":           "pi",
+				"Authentication": "Private Key",
+				"Private Key":    "PRIVATE KEY DATA",
+			},
+		},
+	}
+	next := []Preset{
+		{
+			ID:       runtime[0].ID,
+			Title:    runtime[0].Title,
+			Type:     runtime[0].Type,
+			Host:     runtime[0].Host,
+			TabColor: runtime[0].TabColor,
+			Meta: map[string]string{
+				"User":           runtime[0].Meta["User"],
+				"Authentication": runtime[0].Meta["Authentication"],
+				"Private Key":    runtime[0].Meta["Private Key"],
+				"Fingerprint":    "SHA256:abc",
+			},
+		},
+	}
+
+	if err := ReplaceFilePresetsWithRuntime(configPath, next, runtime); err != nil {
+		t.Fatalf("ReplaceFilePresetsWithRuntime returned error: %v", err)
+	}
+
+	raw, _, err := readCommonInputFile(configPath)
+	if err != nil {
+		t.Fatalf("readCommonInputFile returned error: %v", err)
+	}
+	requireRawPresetCount(t, raw.Presets, 1)
+	if raw.Presets[0].Meta["Private Key"] != String("file://"+keyPath) {
+		t.Fatalf("raw private key = %q, want file URI", raw.Presets[0].Meta["Private Key"])
+	}
+}
+
+func TestReplaceFilePresetsWithRuntimePreservesOmittedRawOnlyMeta(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	writePresetConfig(t, configPath, []map[string]any{
+		{
+			"ID":    "preset-atlantis",
+			"Title": "Atlantis",
+			"Type":  "SSH",
+			"Host":  "atlantis.home:22",
+			"Meta": map[string]any{
+				"User":            "pi",
+				"Future Raw Meta": "preserve-me",
+			},
+		},
+	})
+	runtime := []Preset{
+		{
+			ID:    "preset-atlantis",
+			Title: "Atlantis",
+			Type:  "SSH",
+			Host:  "atlantis.home:22",
+			Meta: map[string]string{
+				"User": "pi",
+			},
+		},
+	}
+	next := []Preset{
+		{
+			ID:    "preset-atlantis",
+			Title: "Atlantis",
+			Type:  "SSH",
+			Host:  "atlantis.home:22",
+			Meta: map[string]string{
+				"User":        "pi",
+				"Fingerprint": "SHA256:abc",
+			},
+		},
+	}
+
+	if err := ReplaceFilePresetsWithRuntime(configPath, next, runtime); err != nil {
+		t.Fatalf("ReplaceFilePresetsWithRuntime returned error: %v", err)
+	}
+
+	raw, _, err := readCommonInputFile(configPath)
+	if err != nil {
+		t.Fatalf("readCommonInputFile returned error: %v", err)
+	}
+	requireRawPresetCount(t, raw.Presets, 1)
+	if raw.Presets[0].Meta["Future Raw Meta"] != String("preserve-me") {
+		t.Fatal("raw-only metadata was not preserved")
+	}
+	if raw.Presets[0].Meta["Fingerprint"] != "SHA256:abc" {
+		t.Fatal("raw fingerprint was not updated")
+	}
+}
+
+func TestReplaceFilePresetsUpdatesSymlinkTarget(t *testing.T) {
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "sshwifty.conf.json")
+	linkPath := filepath.Join(tempDir, "linked.conf.json")
+	writePresetConfig(t, configPath, []map[string]any{
+		{"ID": "preset-atlantis", "Title": "Atlantis", "Type": "SSH", "Host": "atlantis.home:22"},
+	})
+	if err := os.Symlink(configPath, linkPath); err != nil {
+		t.Fatalf("os.Symlink returned error: %v", err)
+	}
+
+	if err := ReplaceFilePresets(linkPath, []Preset{
+		{
+			ID:    "preset-atlantis",
+			Title: "Atlantis",
+			Type:  "SSH",
+			Host:  "columbia.home:22",
+		},
+	}); err != nil {
+		t.Fatalf("ReplaceFilePresets returned error: %v", err)
+	}
+
+	linkInfo, err := os.Lstat(linkPath)
+	if err != nil {
+		t.Fatalf("os.Lstat returned error: %v", err)
+	}
+	if linkInfo.Mode()&os.ModeSymlink == 0 {
+		t.Fatal("config symlink was replaced")
+	}
+	raw, _, err := readCommonInputFile(configPath)
+	if err != nil {
+		t.Fatalf("readCommonInputFile returned error: %v", err)
+	}
+	requireRawPresetCount(t, raw.Presets, 1)
+	if raw.Presets[0].Host != "columbia.home:22" {
+		t.Fatalf("target host = %q, want columbia.home:22", raw.Presets[0].Host)
+	}
+}
+
+func TestReplaceFilePresetsPreservesOmittedRawMetaKeys(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	writePresetConfig(t, configPath, []map[string]any{
+		{
+			"ID":    "preset-atlantis",
+			"Title": "Atlantis",
+			"Type":  "SSH",
+			"Host":  "atlantis.home:22",
+			"Meta": map[string]any{
+				"User":        "pi",
+				"Fingerprint": "SHA256:abc",
+			},
+		},
+	})
+
+	if err := ReplaceFilePresets(configPath, []Preset{
+		{
+			ID:    "preset-atlantis",
+			Title: "Atlantis",
+			Type:  "SSH",
+			Host:  "atlantis.home:22",
+			Meta: map[string]string{
+				"User": "pi",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("ReplaceFilePresets returned error: %v", err)
+	}
+
+	raw, _, err := readCommonInputFile(configPath)
+	if err != nil {
+		t.Fatalf("readCommonInputFile returned error: %v", err)
+	}
+	requireRawPresetCount(t, raw.Presets, 1)
+	if raw.Presets[0].Meta["Fingerprint"] != String("SHA256:abc") {
+		t.Fatal("raw fingerprint was not preserved")
+	}
+}

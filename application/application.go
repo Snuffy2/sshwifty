@@ -83,11 +83,9 @@ func (a Application) run(
 		return false, cErr
 	}
 
-	// Allowing command to alter presets
-	c.Presets, err = commands.Reconfigure(c.Presets)
-
+	c, err = normalizeStartupPresets(c, commands)
 	if err != nil {
-		a.logger.Error("Unable to reconfigure presets: %s", err)
+		a.logger.Error("Unable to normalize presets: %s", err)
 
 		return false, err
 	}
@@ -117,6 +115,7 @@ func (a Application) run(
 
 	servers := make([]*server.Serving, 0, len(c.Servers))
 	s := server.New(a.logger)
+	commonCfg := c.Common()
 
 	defer func() {
 		for i := len(servers); i > 0; i-- {
@@ -126,7 +125,7 @@ func (a Application) run(
 	}()
 
 	for _, ss := range c.Servers {
-		newServer := s.Serve(c.Common(), ss, func(e error) {
+		newServer := s.Serve(commonCfg, ss, func(e error) {
 			closeNotifyDisableLock.Lock()
 			defer closeNotifyDisableLock.Unlock()
 			if closeNotify == nil {
@@ -155,6 +154,57 @@ func (a Application) run(
 		defer closeNotifyDisableLock.Unlock()
 		return false, err
 	}
+}
+
+// normalizeStartupPresets ensures loaded presets have stable IDs and secrets.
+//
+// File-backed configurations are rewritten when IDs are generated so future
+// API edits can target stable identifiers. Duplicate IDs are returned as
+// configuration errors.
+func normalizeStartupPresets(
+	c configuration.Configuration,
+	commands command.Commands,
+) (configuration.Configuration, error) {
+	presets, changed, err := configuration.EnsurePresetIDs(c.Presets)
+	if err != nil {
+		return configuration.Configuration{}, err
+	}
+	c.Presets = presets
+	if changed && configuration.PresetConfigWritable(c.SourceFile) {
+		if err := configuration.PersistPresetIDs(c.SourceFile, presets); err != nil {
+			return configuration.Configuration{}, err
+		}
+	}
+
+	presets, err = commands.Reconfigure(c.Presets)
+	if err != nil {
+		return configuration.Configuration{}, err
+	}
+	runtimePresets := presets
+
+	presets, secretsChanged, err := configuration.ApplyPresetSecrets(presets)
+	if err != nil {
+		return configuration.Configuration{}, err
+	}
+	c.Presets = presets
+	if secretsChanged {
+		if !configuration.PresetConfigWritable(c.SourceFile) {
+			if c.SourceFile != "" {
+				return configuration.Configuration{}, fmt.Errorf(
+					"preset password migration requires a writable file-backed configuration",
+				)
+			}
+			return c, nil
+		}
+		if err := configuration.ReplaceFilePresetsWithRuntime(
+			c.SourceFile,
+			presets,
+			runtimePresets,
+		); err != nil {
+			return configuration.Configuration{}, err
+		}
+	}
+	return c, nil
 }
 
 // Run executes the application loop. It prints the startup banner, redirects

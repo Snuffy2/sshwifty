@@ -32,12 +32,36 @@ func loadFile(filePath string) (string, Configuration, error) {
 	defer f.Close()
 	cfg := commonInput{}
 	jDecoder := json.NewDecoder(f)
-	jDecodeErr := jDecoder.Decode(&cfg)
-	if jDecodeErr != nil {
+	raw := map[string]json.RawMessage{}
+	if jDecodeErr := jDecoder.Decode(&raw); jDecodeErr != nil {
 		return fileTypeName, Configuration{}, jDecodeErr
 	}
+	if err := rejectFilePresetSecretKey(raw); err != nil {
+		return fileTypeName, Configuration{}, err
+	}
+	data, marshalErr := json.Marshal(raw)
+	if marshalErr != nil {
+		return fileTypeName, Configuration{}, marshalErr
+	}
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return fileTypeName, Configuration{}, err
+	}
 	finalCfg, err := cfg.concretize()
+	if adminKey := GetEnv("SSHWIFTY_ADMIN_KEY"); adminKey != "" {
+		finalCfg.AdminKey = adminKey
+	}
+	finalCfg.SourceFile = filePath
 	return fileTypeName, finalCfg, err
+}
+
+func rejectFilePresetSecretKey(raw map[string]json.RawMessage) error {
+	if _, ok := raw["PresetSecretKey"]; ok {
+		return fmt.Errorf("%s must be set as an environment variable, not in JSON config", PresetSecretKeyEnv)
+	}
+	if _, ok := raw[PresetSecretKeyEnv]; ok {
+		return fmt.Errorf("%s must be set as an environment variable, not in JSON config", PresetSecretKeyEnv)
+	}
+	return nil
 }
 
 // CustomFile creates a configuration file loader that loads configuration from

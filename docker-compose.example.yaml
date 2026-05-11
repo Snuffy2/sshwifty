@@ -10,6 +10,11 @@ services:
     ports:
       - "8182:8182"
     volumes:
-      - ./sshwifty.conf.json:/etc/sshwifty/sshwifty.conf.json:ro
+      - ./config:/etc/sshwifty
     environment:
       SSHWIFTY_CONFIG: /etc/sshwifty/sshwifty.conf.json
+      # Optional: base64-encoded 32-byte key for encrypted preset passwords.
+      # Generate with: openssl rand -base64 32
+      # SSHWIFTY_PRESET_SECRET_KEY: "replace-with-generated-key"
+      # Optional admin key for preset config API writes.
+      # SSHWIFTY_ADMIN_KEY: "replace-with-admin-key"

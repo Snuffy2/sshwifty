@@ -54,6 +54,8 @@ const mainTemplate = `
   :server-message="serverMessage"
   :preset-data="presetData.presets"
   :restricted-to-presets="presetData.restricted"
+  :preset-config-writable="presetData.writable"
+  :save-preset-fingerprint="savePresetFingerprint"
   :view-port="viewPort"
   @navigate-to="changeURLHash"
   @tab-opened="tabOpened"
@@ -72,6 +74,8 @@ const mainTemplate = `
 const socksInterface = "/sshwifty/socket";
 /** @type {string} HTTP verification endpoint used to obtain a session key. */
 const socksVerificationInterface = socksInterface + "/verify";
+/** @type {string} HTTP preset configuration endpoint. */
+const presetConfigInterface = "/sshwifty/config/presets";
 /**
  * @type {number} Time bucket size (ms) used to truncate the current timestamp
  * before mixing it into the socket key, limiting key reuse windows.
@@ -148,7 +152,9 @@ function startApp(rootEl) {
         presetData: {
           presets: markRaw(new Presets([])),
           restricted: false,
+          writable: false,
         },
+        presetConfigPassphrase: "",
         authErr: "",
         loadErr: "",
         socket: null,
@@ -257,7 +263,7 @@ function startApp(rootEl) {
        * Derives a 32-byte HMAC-SHA-512 auth key from the private key and the
        * current time truncated to 100-second buckets.
        *
-       * @param {string} privateKey - The user-supplied passphrase.
+       * @param {string} privateKey - The configured SharedKey.
        * @returns {Promise<Uint8Array>} Resolved with the 32-byte auth key.
        */
       async getSocketAuthKey(privateKey) {
@@ -325,7 +331,7 @@ function startApp(rootEl) {
        * @param {object} key - Key provider with a `fetch()` method.
        * @returns {void}
        */
-      executeHomeApp(authResult, key) {
+      executeHomeApp(authResult, key, passphrase = "") {
         let authData = JSON.parse(authResult.data);
         this.serverMessage = authData.server_message
           ? authData.server_message
@@ -335,11 +341,81 @@ function startApp(rootEl) {
             new Presets(authData.presets ? authData.presets : []),
           ),
           restricted: authResult.onlyAllowPresetRemotes,
+          writable: authData.preset_config_writable === true,
         };
+        this.presetConfigPassphrase = passphrase;
         this.socket = markRaw(
           this.buildSocket(key, authResult.timeout, authResult.heartbeat),
         );
         this.page = "app";
+      },
+      /**
+       * Builds auth headers for preset config API calls.
+       *
+       * @returns {Promise<Object.<string, string>>} HTTP headers.
+       */
+      async presetConfigHeaders() {
+        let headers = {
+          "Content-Type": "application/json",
+        };
+
+        if (this.presetConfigPassphrase.length <= 0 || !this.key) {
+          headers["X-Key"] = "";
+
+          return headers;
+        }
+
+        const authKey = await this.getSocketAuthKey(
+          this.presetConfigPassphrase,
+        );
+
+        headers["X-Key"] = btoa(String.fromCharCode.apply(null, authKey));
+
+        return headers;
+      },
+      /**
+       * Saves an accepted SSH/Mosh fingerprint into one preset.
+       *
+       * @param {string} presetID Stable preset ID.
+       * @param {string} fingerprint Accepted fingerprint.
+       * @returns {Promise<Array<object>>} Updated preset config list.
+       */
+      async savePresetFingerprint(presetID, fingerprint) {
+        if (!this.presetData.writable) {
+          throw new Error("Preset config is not writable");
+        }
+
+        const headers = await this.presetConfigHeaders();
+        headers["X-Preserve-Hidden-Preset-Passwords"] = "yes";
+        headers["X-Preset-Fingerprint-ID"] = presetID;
+
+        const putResponse = await xhr.put(
+          presetConfigInterface,
+          headers,
+          JSON.stringify({
+            presets: [
+              {
+                id: presetID,
+                meta: {
+                  Fingerprint: fingerprint,
+                },
+              },
+            ],
+          }),
+        );
+        if (putResponse.status !== 200) {
+          throw new Error("Preset config write failed: " + putResponse.status);
+        }
+
+        const body = JSON.parse(putResponse.responseText);
+        const updatedPresets = body.presets ? body.presets : [];
+        this.presetData = {
+          presets: markRaw(new Presets(updatedPresets)),
+          restricted: this.presetData.restricted,
+          writable: this.presetData.writable,
+        };
+
+        return updatedPresets;
       },
       /**
        * Performs authentication and stores the server-returned key for later use.
@@ -347,7 +423,7 @@ function startApp(rootEl) {
        * Delegates the actual HTTP request to `requestAuth`, then persists the
        * `X-Key` header value in `this.key` when the server returns one.
        *
-       * @param {string} privateKey - The user passphrase, or an empty string for
+       * @param {string} privateKey - The SharedKey, or an empty string for
        *   unauthenticated (no-passphrase) mode.
        * @returns {Promise<object>} Auth result object (see `requestAuth`).
        */
@@ -366,8 +442,9 @@ function startApp(rootEl) {
        *
        * When a non-empty `privateKey` and a previously stored `this.key` are
        * present, an HMAC auth token is derived and sent in the `X-Key` header.
+       * The current UI only submits SharedKey values through this path.
        *
-       * @param {string} privateKey - Passphrase used to compute the HMAC token,
+       * @param {string} privateKey - SharedKey used to compute the HMAC token,
        *   or an empty string to skip token computation.
        * @returns {Promise<{ result: number, key: string|null, timeout: string|null,
        *   heartbeat: string|null, date: Date|null, data: string,
@@ -480,12 +557,12 @@ function startApp(rootEl) {
         }
       },
       /**
-       * Handles a user-submitted passphrase from the auth form.
+       * Handles a user-submitted SharedKey from the auth form.
        *
        * Clears any previous auth error, attempts authentication, and on success
        * transitions to the home app. Sets `this.authErr` on 403 or other errors.
        *
-       * @param {string} passphrase - The passphrase entered by the user.
+       * @param {string} passphrase - The SharedKey entered by the user.
        * @returns {Promise<void>}
        */
       async submitAuth(passphrase) {
@@ -497,27 +574,31 @@ function startApp(rootEl) {
           let self = this;
           switch (result.result) {
             case 200:
-              this.executeHomeApp(result, {
-                async fetch() {
-                  let result = await self.doAuth(passphrase);
+              this.executeHomeApp(
+                result,
+                {
+                  async fetch() {
+                    let result = await self.doAuth(passphrase);
 
-                  if (result.result !== 200) {
-                    throw new Error(
-                      "Unable to fetch key from remote, unexpected " +
-                        "error code: " +
-                        result.result,
+                    if (result.result !== 200) {
+                      throw new Error(
+                        "Unable to fetch key from remote, unexpected " +
+                          "error code: " +
+                          result.result,
+                      );
+                    }
+
+                    return await buildSocketKey(
+                      atob(result.key) + "+" + passphrase,
                     );
-                  }
-
-                  return await buildSocketKey(
-                    atob(result.key) + "+" + passphrase,
-                  );
+                  },
                 },
-              });
+                passphrase,
+              );
               break;
 
             case 403:
-              this.authErr = "Authentication has failed. Wrong passphrase?";
+              this.authErr = "Authentication has failed. Wrong SharedKey?";
               break;
 
             default:

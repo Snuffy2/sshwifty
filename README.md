@@ -27,9 +27,14 @@ services:
     ports:
       - "8182:8182"
     volumes:
-      - ./sshwifty.conf.json:/etc/sshwifty/sshwifty.conf.json:ro
+      - ./config:/etc/sshwifty
     environment:
       SSHWIFTY_CONFIG: /etc/sshwifty/sshwifty.conf.json
+      # Optional: base64-encoded 32-byte key for encrypted preset passwords.
+      # Generate with: openssl rand -base64 32
+      # SSHWIFTY_PRESET_SECRET_KEY: "replace-with-generated-key"
+      # Optional admin key for preset config API writes.
+      # SSHWIFTY_ADMIN_KEY: "replace-with-admin-key"
 ```
 
 Then open `http://localhost:8182`.
@@ -55,10 +60,37 @@ Sshwifty can be configured with a JSON configuration file or environment
 variables. See [CONFIGURATION.md](CONFIGURATION.md) for the full configuration
 reference.
 
-The Docker Compose example above mounts `./sshwifty.conf.json` and points
-`SSHWIFTY_CONFIG` at the mounted file. Start from
-[sshwifty.conf.example.json](sshwifty.conf.example.json) when creating your own
-configuration.
+The Docker Compose example above mounts `./config` as a writable configuration
+directory and points `SSHWIFTY_CONFIG` at `sshwifty.conf.json` inside it. Start
+from [sshwifty.conf.example.json](sshwifty.conf.example.json) when creating your
+own configuration.
+
+Writable file-backed configuration enables preset updates from the UI, such as
+saving SSH/Mosh fingerprints. If `SSHWIFTY_PRESET_SECRET_KEY` is set, plaintext
+preset `Password` values are migrated on startup to `Encrypted Password` and the
+plaintext value is removed from the JSON file. That key must be set through the
+environment, not in JSON. Without that key, plaintext password presets continue
+to work as before. Full preset add/edit/remove API writes require admin access.
+The current authentication UI accepts `SharedKey` only. `AdminKey` grants admin
+access for the preset config API, but there is not yet a separate UI prompt for
+entering it. If `AdminKey` is blank, `SharedKey` grants admin access. If both
+keys are blank, everyone gets admin access without authentication. Fingerprint
+saves from the current UI remain limited to the selected preset's fingerprint.
+
+Generate a preset secret key with one of these commands:
+
+```sh
+# macOS/Linux
+openssl rand -base64 32
+```
+
+```powershell
+# Windows PowerShell
+$rng = [Security.Cryptography.RandomNumberGenerator]::Create()
+$bytes = New-Object byte[] 32
+$rng.GetBytes($bytes)
+[Convert]::ToBase64String($bytes)
+```
 
 Mosh support is available in v1 with SSH used for bootstrap only. The browser
 connection to Sshwifty still uses WebSocket, while Mosh data flows over UDP

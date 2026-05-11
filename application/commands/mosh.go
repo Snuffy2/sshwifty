@@ -173,15 +173,28 @@ func (d *moshClient) Bootup(
 		return nil, command.ToFSMError(rErr, MoshRequestErrorBadAuthMethod)
 	}
 
-	authMethodBuilder, authMethodBuilderErr := d.buildAuthMethod(rData[0])
-	if authMethodBuilderErr != nil {
-		return nil, command.ToFSMError(authMethodBuilderErr, MoshRequestErrorBadAuthMethod)
-	}
 	requestMeta, requestMetaErr := parseMoshRequestMeta(r, (*sBuf)[:])
 	if requestMetaErr != nil {
 		return nil, command.ToFSMError(requestMetaErr, MoshRequestErrorBadMetadata)
 	}
 	d.meta = requestMeta
+	presetID, presetIDErr := parseOptionalPresetID(
+		r,
+		(*sBuf)[:configuration.MaxPresetIDLength],
+	)
+	if presetIDErr != nil {
+		return nil, command.ToFSMError(presetIDErr, MoshRequestErrorBadMetadata)
+	}
+
+	authMethodBuilder, authMethodBuilderErr := d.buildAuthMethod(
+		rData[0],
+		presetID,
+		userNameStr,
+		addrStr,
+	)
+	if authMethodBuilderErr != nil {
+		return nil, command.ToFSMError(authMethodBuilderErr, MoshRequestErrorBadAuthMethod)
+	}
 
 	d.remoteCloseWait.Add(1)
 	if d.remoteStarter != nil {
@@ -234,7 +247,12 @@ func validateMoshServerPath(serverPath string) error {
 	return nil
 }
 
-func (d *moshClient) buildAuthMethod(methodType byte) (sshAuthMethodBuilder, error) {
+func (d *moshClient) buildAuthMethod(
+	methodType byte,
+	presetID string,
+	user string,
+	host string,
+) (sshAuthMethodBuilder, error) {
 	switch methodType {
 	case SSHAuthMethodNone:
 		return func(b []byte) []ssh.AuthMethod { return nil }, nil
@@ -242,6 +260,16 @@ func (d *moshClient) buildAuthMethod(methodType byte) (sshAuthMethodBuilder, err
 		return func(b []byte) []ssh.AuthMethod {
 			return []ssh.AuthMethod{
 				ssh.PasswordCallback(func() (string, error) {
+					if credential, ok := presetPasswordCredential(
+						d.cfg,
+						"Mosh",
+						presetID,
+						user,
+						host,
+					); ok {
+						return credential, nil
+					}
+
 					d.enableRemoteReadTimeoutRetry()
 					defer d.disableRemoteReadTimeoutRetry()
 
@@ -605,7 +633,11 @@ func (d *moshClient) validateMoshRemoteAllowed(address string) error {
 		return nil
 	}
 
-	for _, preset := range d.cfg.Presets {
+	presets := d.cfg.Presets
+	if d.cfg.PresetRepository != nil {
+		presets = d.cfg.PresetRepository.List()
+	}
+	for _, preset := range presets {
 		if preset.Host == address {
 			return nil
 		}

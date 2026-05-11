@@ -28,6 +28,8 @@ type Configuration struct {
 	Socks5Configured bool
 	// Presets is the list of pre-configured remote endpoints.
 	Presets []configuration.Preset
+	// PresetRepository stores live preset updates for long-lived sessions.
+	PresetRepository *configuration.PresetRepository
 	// OnlyAllowPresetRemotes restricts command connections to preset hosts.
 	OnlyAllowPresetRemotes bool
 }

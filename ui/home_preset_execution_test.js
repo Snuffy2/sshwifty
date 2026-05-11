@@ -33,6 +33,7 @@ describe("preset execution helpers", () => {
         type: "SSH",
         host: "example.com:22",
         tab_color: "#123",
+        id: "preset-ssh",
         meta: {
           User: "alice",
           Authentication: "Password",
@@ -51,6 +52,7 @@ describe("preset execution helpers", () => {
         charset: "utf-8",
         tabColor: "#123",
         fingerprint: "SHA256:abc",
+        presetID: "preset-ssh",
       },
       session: {
         credential: "secret",
@@ -95,6 +97,7 @@ describe("preset execution helpers", () => {
       charset: "utf-8",
       tabColor: "",
       fingerprint: "",
+      presetID: "",
     });
     assert.strictEqual(execution.session.credential, "PRIVATE KEY DATA");
     assert.deepStrictEqual(execution.keptSessions, ["credential"]);
@@ -120,6 +123,7 @@ describe("preset execution helpers", () => {
       charset: "utf-8",
       tabColor: "",
       fingerprint: "",
+      presetID: "",
     });
     assert.strictEqual(execution.session.credential, "");
     assert.deepStrictEqual(execution.keptSessions, []);

@@ -85,6 +85,7 @@ export function buildPresetExecution(preset) {
     charset,
     tabColor,
     fingerprint,
+    presetID: presetData.id(),
   };
 
   if (commandName === "Mosh") {

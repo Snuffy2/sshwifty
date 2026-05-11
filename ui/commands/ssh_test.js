@@ -6,6 +6,7 @@ import assert from "assert";
 import * as address from "./address.js";
 import * as command from "./commands.js";
 import * as common from "./common.js";
+import * as presets from "./presets.js";
 import * as ssh from "./ssh.js";
 import * as strings from "./string.js";
 
@@ -136,7 +137,13 @@ describe("SSH Command", () => {
     };
     const wizard = new ssh.Command().wizard(
       new command.Info(new ssh.Command()),
-      null,
+      new presets.Preset({
+        id: "preset-atlantis",
+        title: "Atlantis",
+        type: "SSH",
+        host: "example.com:22",
+        meta: {},
+      }),
       null,
       [],
       streams,
@@ -154,8 +161,11 @@ describe("SSH Command", () => {
       parsedHost.address,
       parsedHost.port,
     ).buffer();
+    const expectedPresetID = new strings.String(
+      common.strToUint8Array("preset-atlantis"),
+    ).buffer();
     const expected = new Uint8Array(
-      expectedUser.length + expectedAddr.length + 1,
+      expectedUser.length + expectedAddr.length + 1 + expectedPresetID.length,
     );
 
     prompt.respond({
@@ -167,7 +177,11 @@ describe("SSH Command", () => {
 
     expected.set(expectedUser, 0);
     expected.set(expectedAddr, expectedUser.length);
-    expected[expected.length - 1] = 0x01;
+    expected[expectedUser.length + expectedAddr.length] = 0x01;
+    expected.set(
+      expectedPresetID,
+      expectedUser.length + expectedAddr.length + 1,
+    );
 
     assert.ok(commandHandler);
     assert.strictEqual(initialSends.length, 1);

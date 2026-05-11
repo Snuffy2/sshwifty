@@ -193,6 +193,29 @@ func TestMoshValidateRemoteAllowedHonorsPresetRestriction(t *testing.T) {
 	}
 }
 
+func TestMoshValidateRemoteAllowedUsesLivePresetRepository(t *testing.T) {
+	repo := configuration.NewPresetRepository([]configuration.Preset{
+		{Host: "example.com:22"},
+	})
+	client := &moshClient{
+		baseCtx: context.Background(),
+		cfg: command.Configuration{
+			OnlyAllowPresetRemotes: true,
+			Presets: []configuration.Preset{
+				{Host: "example.com:22"},
+			},
+			PresetRepository: repo,
+		},
+	}
+	repo.Replace([]configuration.Preset{
+		{Host: "other.example.com:22"},
+	})
+
+	if err := client.validateMoshRemoteAllowed("other.example.com:22"); err != nil {
+		t.Fatalf("expected live preset repository host to be allowed, got %v", err)
+	}
+}
+
 func TestMoshBuildRemoteSessionDoesNotApplyPresetRestrictionAfterBootstrap(t *testing.T) {
 	client := &moshClient{
 		baseCtx: context.Background(),

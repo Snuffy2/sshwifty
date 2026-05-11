@@ -19,6 +19,7 @@ import Exception from "./exception.js";
  *
  */
 const presetItem = {
+  id: "",
   title: "",
   type: "",
   host: "",
@@ -109,6 +110,15 @@ export class Preset {
    */
   constructor(preset) {
     this.preset = parsePresetItem(preset);
+  }
+
+  /**
+   * Return the stable preset ID.
+   *
+   * @returns {string}
+   */
+  id() {
+    return this.preset.id;
   }
 
   /**
@@ -220,6 +230,28 @@ export class Preset {
 
     return keys;
   }
+
+  /**
+   * Return this preset in backend config shape.
+   *
+   * @returns {object}
+   */
+  toConfig() {
+    let meta = {};
+
+    for (let key in this.preset.meta) {
+      meta[key] = this.preset.meta[key];
+    }
+
+    return {
+      id: this.preset.id,
+      title: this.preset.title,
+      type: this.preset.type,
+      host: this.preset.host,
+      tab_color: this.preset.tab_color,
+      meta,
+    };
+  }
 }
 
 /**
@@ -230,6 +262,7 @@ export class Preset {
  */
 export function emptyPreset() {
   return new Preset({
+    id: "",
     title: "Default",
     type: "Default",
     host: "",
@@ -340,5 +373,20 @@ export class Presets {
     }
 
     return presets;
+  }
+
+  /**
+   * Return all presets in backend config shape.
+   *
+   * @returns {Array<object>}
+   */
+  toConfig() {
+    let configs = [];
+
+    for (let i = 0; i < this.presets.length; i++) {
+      configs.push(this.presets[i].toConfig());
+    }
+
+    return configs;
   }
 }

@@ -40,6 +40,7 @@ type socketVerification struct {
 // preset remote connection. It is derived from configuration.Preset and
 // transmitted to the client as part of the socket access configuration.
 type socketRemotePreset struct {
+	ID       string            `json:"id"`
 	Title    string            `json:"title"`
 	Type     string            `json:"type"`
 	Host     string            `json:"host"`
@@ -51,9 +52,18 @@ type socketRemotePreset struct {
 // after successful authentication on the verification endpoint. It carries the
 // list of preset remote connections and the HTML-escaped server message.
 type socketAccessConfiguration struct {
-	Presets       []socketRemotePreset `json:"presets"`
-	ServerMessage string               `json:"server_message"`
+	Presets              []socketRemotePreset `json:"presets"`
+	ServerMessage        string               `json:"server_message"`
+	PresetConfigWritable bool                 `json:"preset_config_writable"`
 }
+
+type authRole int
+
+const (
+	authRoleNone authRole = iota
+	authRoleUser
+	authRoleAdmin
+)
 
 // newSocketAccessConfiguration builds a socketAccessConfiguration from the
 // given slice of configured presets and a server message. The server message
@@ -62,21 +72,36 @@ type socketAccessConfiguration struct {
 func newSocketAccessConfiguration(
 	remotes []configuration.Preset,
 	serverMessage string,
+	presetConfigWritable bool,
 ) socketAccessConfiguration {
 	presets := make([]socketRemotePreset, len(remotes))
 	for i := range presets {
 		presets[i] = socketRemotePreset{
 			Title:    remotes[i].Title,
+			ID:       remotes[i].ID,
 			Type:     remotes[i].Type,
 			Host:     remotes[i].Host,
 			TabColor: remotes[i].TabColor,
-			Meta:     remotes[i].Meta,
+			Meta:     sanitizeSocketPresetMeta(remotes[i].Meta),
 		}
 	}
 	return socketAccessConfiguration{
-		Presets:       presets,
-		ServerMessage: parseServerMessage(html.EscapeString(serverMessage)),
+		Presets:              presets,
+		ServerMessage:        parseServerMessage(html.EscapeString(serverMessage)),
+		PresetConfigWritable: presetConfigWritable,
 	}
+}
+
+func sanitizeSocketPresetMeta(meta map[string]string) map[string]string {
+	sanitized := make(map[string]string, len(meta))
+	for key, value := range meta {
+		if key == configuration.PresetMetaPassword ||
+			key == configuration.PresetMetaEncryptedPassword {
+			continue
+		}
+		sanitized[key] = value
+	}
+	return sanitized
 }
 
 // buildAccessConfigRespondBody serializes accessCfg to JSON. It panics if
@@ -108,41 +133,98 @@ func newSocketVerification(
 			newSocketAccessConfiguration(
 				commCfg.Presets,
 				srvCfg.ServerMessage,
+				commCfg.PresetConfigWritable(),
 			),
 		),
 	}
 }
 
-// authKey derives the expected 32-byte authentication token for this request
-// using a truncated Unix timestamp (100-second window) combined with the
-// configured shared key. When no shared key is set a well-known default string
-// is used, which effectively disables authentication.
-func (s socketVerification) authKey(r *http.Request) []byte {
+// authKeyForSecret derives the expected 32-byte authentication token for this
+// request using a truncated Unix timestamp (100-second window) combined with
+// the configured secret.
+func (s socketVerification) authKeyForSecret(
+	r *http.Request,
+	secret string,
+) []byte {
+	return authKeyForSecret(secret)
+}
+
+func authKeyForSecret(secret string) []byte {
 	timeMixer := strconv.FormatInt(time.Now().Unix()/100, 10)
-	if len(s.commonCfg.SharedKey) > 0 {
-		return hashCombineSocketKeys(
-			timeMixer,
-			s.commonCfg.SharedKey,
-		)[:32]
-	}
 	return hashCombineSocketKeys(
 		timeMixer,
-		"DEFAULT VERIFY KEY",
+		secret,
 	)[:32]
+}
+
+func (s socketVerification) anonymousAuthRole() authRole {
+	return anonymousAuthRole(s.commonCfg)
+}
+
+func anonymousAuthRole(commonCfg configuration.Common) authRole {
+	if commonCfg.SharedKey == "" {
+		if commonCfg.AdminKey == "" {
+			return authRoleAdmin
+		}
+		return authRoleUser
+	}
+	return authRoleNone
+}
+
+func requestAuthRoleForCommon(
+	commonCfg configuration.Common,
+	r *http.Request,
+	allowAdminKey bool,
+) (authRole, error) {
+	key := r.Header.Get("X-Key")
+	if len(key) <= 0 {
+		return anonymousAuthRole(commonCfg), nil
+	}
+	if len(key) > 64 {
+		return authRoleNone, ErrSocketInvalidAuthKey
+	}
+	time.Sleep(500 * time.Millisecond)
+	decodedKey, decodedKeyErr := base64.StdEncoding.DecodeString(key)
+	if decodedKeyErr != nil {
+		return authRoleNone, NewError(http.StatusBadRequest, decodedKeyErr.Error())
+	}
+	if allowAdminKey &&
+		commonCfg.AdminKey != "" &&
+		hmac.Equal(authKeyForSecret(commonCfg.AdminKey), decodedKey) {
+		return authRoleAdmin, nil
+	}
+	if commonCfg.SharedKey != "" &&
+		hmac.Equal(authKeyForSecret(commonCfg.SharedKey), decodedKey) {
+		if commonCfg.AdminKey == "" {
+			return authRoleAdmin, nil
+		}
+		return authRoleUser, nil
+	}
+	return authRoleNone, ErrSocketAuthFailed
+}
+
+func (s socketVerification) requestAuthRole(r *http.Request) (authRole, error) {
+	return requestAuthRoleForCommon(s.commonCfg, r, false)
 }
 
 // setServerConfigRespond appends the X-Heartbeat, X-Timeout, and (when
 // applicable) X-OnlyAllowPresetRemotes headers to hd, sets the Content-Type,
 // and writes the pre-serialized JSON configuration body to w.
 func (s socketVerification) setServerConfigRespond(
-	hd *http.Header, w http.ResponseWriter) {
+	hd *http.Header, w http.ResponseWriter, role authRole) {
 	hd.Add("X-Heartbeat", s.heartbeat)
 	hd.Add("X-Timeout", s.timeout)
 	if s.commonCfg.OnlyAllowPresetRemotes {
 		hd.Add("X-OnlyAllowPresetRemotes", "yes")
 	}
-	hd.Add("Content-Type", "text/json; charset=utf-8")
-	w.Write(s.configRspBody)
+	hd.Set("Content-Type", "application/json; charset=utf-8")
+	w.Write(buildAccessConfigRespondBody(
+		newSocketAccessConfiguration(
+			s.commonCfg.CurrentPresets(),
+			s.serverCfg.ServerMessage,
+			role >= authRoleUser && s.commonCfg.PresetConfigWritable(),
+		),
+	))
 }
 
 // Get handles HTTP GET requests for the socket verification endpoint. When no
@@ -161,27 +243,18 @@ func (s socketVerification) Get(
 	key := r.Header.Get("X-Key")
 	if len(key) <= 0 {
 		hd.Add("X-Key", base64.StdEncoding.EncodeToString(s.mixerKey(r)))
-		if len(s.commonCfg.SharedKey) <= 0 {
-			s.setServerConfigRespond(&hd, w)
+		role := s.anonymousAuthRole()
+		if role >= authRoleUser {
+			s.setServerConfigRespond(&hd, w, role)
 			return nil
 		}
 		return ErrSocketInvalidAuthKey
 	}
-	if len(key) > 64 {
-		return ErrSocketInvalidAuthKey
-	}
-	// Delay the brute force attack. Use it with connection limits (via
-	// iptables or nginx etc)
-	time.Sleep(500 * time.Millisecond)
-	decodedKey, decodedKeyErr := base64.StdEncoding.DecodeString(key)
-	if decodedKeyErr != nil {
-		return NewError(http.StatusBadRequest, decodedKeyErr.Error())
-	}
-	authKey := s.authKey(r)
-	if !hmac.Equal(authKey, decodedKey) {
-		return ErrSocketAuthFailed
+	role, err := s.requestAuthRole(r)
+	if err != nil {
+		return err
 	}
 	hd.Add("X-Key", base64.StdEncoding.EncodeToString(s.mixerKey(r)))
-	s.setServerConfigRespond(&hd, w)
+	s.setServerConfigRespond(&hd, w, role)
 	return nil
 }

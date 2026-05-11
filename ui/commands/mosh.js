@@ -109,15 +109,27 @@ export class Mosh {
         common.strToUint8Array(this.config.moshServer || DEFAULT_MOSH_SERVER),
       ),
       moshServerBuf = moshServer.buffer();
+    const presetID = new strings.String(
+        common.strToUint8Array(this.config.presetID || ""),
+      ),
+      presetIDBuf = presetID.buffer();
 
     let data = new Uint8Array(
-      userBuf.length + addrBuf.length + 1 + moshServerBuf.length,
+      userBuf.length +
+        addrBuf.length +
+        1 +
+        moshServerBuf.length +
+        presetIDBuf.length,
     );
 
     data.set(userBuf, 0);
     data.set(addrBuf, userBuf.length);
     data.set(authMethod, userBuf.length + addrBuf.length);
     data.set(moshServerBuf, userBuf.length + addrBuf.length + 1);
+    data.set(
+      presetIDBuf,
+      userBuf.length + addrBuf.length + 1 + moshServerBuf.length,
+    );
 
     initialSender.send(data);
   }
@@ -569,6 +581,7 @@ class Wizard {
     subs,
     controls,
     history,
+    saveFingerprint = null,
   ) {
     this.info = info;
     this.preset = preset;
@@ -583,6 +596,7 @@ class Wizard {
     this.step = subs;
     this.controls = controls.get("Mosh");
     this.history = history;
+    this.saveFingerprint = saveFingerprint;
   }
 
   run() {
@@ -658,6 +672,7 @@ class Wizard {
       host: address.parseHostPort(configInput.host, DEFAULT_PORT),
       fingerprint: configInput.fingerprint,
       moshServer: configInput.moshServer,
+      presetID: configInput.presetID ? configInput.presetID : "",
     };
 
     // Copy the keptSessions from the record so it will not be overwritten here
@@ -782,6 +797,7 @@ class Wizard {
             (newFingerprint) => {
               configInput.fingerprint = newFingerprint;
             },
+            configInput.saveFingerprint ? configInput.saveFingerprint : null,
           ),
         );
       },
@@ -835,6 +851,8 @@ class Wizard {
               fingerprint: self.preset
                 ? self.preset.metaDefault("Fingerprint", "")
                 : "",
+              presetID: self.preset ? self.preset.id() : "",
+              saveFingerprint: self.saveFingerprint,
             },
             self.session,
           );
@@ -886,7 +904,13 @@ class Wizard {
     );
   }
 
-  async stepFingerprintPrompt(rd, sd, verify, newFingerprint) {
+  async stepFingerprintPrompt(
+    rd,
+    sd,
+    verify,
+    newFingerprint,
+    saveFingerprint = null,
+  ) {
     const self = this;
 
     let fingerprintData = new TextDecoder("utf-8").decode(
@@ -904,6 +928,31 @@ class Wizard {
         fingerprintChanged = true;
     }
 
+    const acceptFingerprint = () => {
+      newFingerprint(fingerprintData);
+
+      sd.send(CLIENT_CONNECT_RESPOND_FINGERPRINT, new Uint8Array([0]));
+
+      self.step.resolve(self.stepContinueWaitForEstablishWait());
+    };
+    const actions = [];
+
+    if (saveFingerprint !== null) {
+      actions.push({
+        text: "Save",
+        async respond() {
+          try {
+            await saveFingerprint(fingerprintData);
+          } catch (e) {
+            throw new Error("Unable to save fingerprint: " + e, {
+              cause: e,
+            });
+          }
+          acceptFingerprint();
+        },
+      });
+    }
+
     return command.prompt(
       !fingerprintChanged
         ? "Do you recognize this server?"
@@ -911,14 +960,8 @@ class Wizard {
       !fingerprintChanged
         ? "Verify server fingerprint displayed below"
         : "It's very unusual. Please verify the new server fingerprint below",
-      !fingerprintChanged ? "Yes, I do" : "I'm aware of the change",
-      () => {
-        newFingerprint(fingerprintData);
-
-        sd.send(CLIENT_CONNECT_RESPOND_FINGERPRINT, new Uint8Array([0]));
-
-        self.step.resolve(self.stepContinueWaitForEstablishWait());
-      },
+      "Continue",
+      () => acceptFingerprint(),
       () => {
         sd.send(CLIENT_CONNECT_RESPOND_FINGERPRINT, new Uint8Array([1]));
 
@@ -932,6 +975,7 @@ class Wizard {
           value: fingerprintData,
         },
       ]),
+      actions,
     );
   }
 
@@ -1076,6 +1120,10 @@ class Executer extends Wizard {
             : "mosh-server",
           tabColor: self.config.tabColor ? self.config.tabColor : "",
           fingerprint: self.config.fingerprint,
+          presetID: self.config.presetID ? self.config.presetID : "",
+          saveFingerprint: self.config.saveFingerprint
+            ? self.config.saveFingerprint
+            : null,
         },
         self.session,
       );
@@ -1113,6 +1161,7 @@ export class Command {
     subs,
     controls,
     history,
+    saveFingerprint = null,
   ) {
     return new Wizard(
       info,
@@ -1123,6 +1172,7 @@ export class Command {
       subs,
       controls,
       history,
+      saveFingerprint,
     );
   }
 

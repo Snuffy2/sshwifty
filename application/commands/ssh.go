@@ -316,7 +316,21 @@ func (d *sshClient) Bootup(
 			rErr, SSHRequestErrorBadAuthMethod)
 	}
 
-	authMethodBuilder, authMethodBuilderErr := d.buildAuthMethod(rData[0])
+	presetID, presetIDErr := parseOptionalPresetID(
+		r,
+		(*sBuf)[:configuration.MaxPresetIDLength],
+	)
+	if presetIDErr != nil {
+		return nil, command.ToFSMError(
+			presetIDErr, SSHRequestErrorBadAuthMethod)
+	}
+
+	authMethodBuilder, authMethodBuilderErr := d.buildAuthMethod(
+		rData[0],
+		presetID,
+		userNameStr,
+		addrStr,
+	)
 	if authMethodBuilderErr != nil {
 		return nil, command.ToFSMError(
 			authMethodBuilderErr, SSHRequestErrorBadAuthMethod)
@@ -332,7 +346,11 @@ func (d *sshClient) Bootup(
 // method byte sent by the client during Bootup. Each builder, when called,
 // may block to exchange credentials with the client via the credential channel.
 func (d *sshClient) buildAuthMethod(
-	methodType byte) (sshAuthMethodBuilder, error) {
+	methodType byte,
+	presetID string,
+	user string,
+	host string,
+) (sshAuthMethodBuilder, error) {
 	switch methodType {
 	case SSHAuthMethodNone:
 		return func(b []byte) []ssh.AuthMethod {
@@ -343,6 +361,16 @@ func (d *sshClient) buildAuthMethod(
 		return func(b []byte) []ssh.AuthMethod {
 			return []ssh.AuthMethod{
 				ssh.PasswordCallback(func() (string, error) {
+					if credential, ok := presetPasswordCredential(
+						d.cfg,
+						"SSH",
+						presetID,
+						user,
+						host,
+					); ok {
+						return credential, nil
+					}
+
 					d.enableRemoteReadTimeoutRetry()
 					defer d.disableRemoteReadTimeoutRetry()
 

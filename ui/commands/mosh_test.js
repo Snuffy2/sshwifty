@@ -233,6 +233,7 @@ describe("Mosh Command", () => {
         charset: "utf-8",
         credential: "",
         moshServer: "/usr/local/bin/mosh-server",
+        presetID: "preset-mosh",
       },
       callbacks,
     );
@@ -254,6 +255,10 @@ describe("Mosh Command", () => {
     assert.deepStrictEqual(
       (await strings.String.read(rd)).data(),
       new TextEncoder().encode("/usr/local/bin/mosh-server"),
+    );
+    assert.deepStrictEqual(
+      (await strings.String.read(rd)).data(),
+      new TextEncoder().encode("preset-mosh"),
     );
   });
 
@@ -286,6 +291,10 @@ describe("Mosh Command", () => {
     assert.deepStrictEqual(
       (await strings.String.read(rd)).data(),
       new TextEncoder().encode("mosh-server"),
+    );
+    assert.deepStrictEqual(
+      (await strings.String.read(rd)).data(),
+      new TextEncoder().encode(""),
     );
   });
 });
