@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -402,6 +403,92 @@ func TestPresetConfigPutPreservesHiddenPasswordOnFingerprintSave(t *testing.T) {
 	}
 	if reloaded.Presets[0].Meta[configuration.PresetMetaEncryptedPassword] == "" {
 		t.Fatal("persisted config missing Encrypted Password")
+	}
+	if reloaded.Presets[0].Meta["Fingerprint"] != "SHA256:abc" {
+		t.Fatal("persisted config missing fingerprint")
+	}
+}
+
+func TestPresetConfigPutAcceptsCompactFingerprintSaveWithLargeMeta(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	largePrivateKey := strings.Repeat("k", maxPresetConfigStringBytes+1)
+	writePresetAPIConfig(t, configPath, []map[string]any{
+		{
+			"ID":    "preset-atlantis",
+			"Title": "Atlantis",
+			"Type":  "SSH",
+			"Host":  "atlantis.home",
+			"Meta": map[string]string{
+				"User":           "pi",
+				"Authentication": "Private Key",
+				"Private Key":    largePrivateKey,
+			},
+		},
+	})
+	controller := newAuthenticatedTestPresetConfig(t, configPath)
+	body := []byte(`{"presets":[{"id":"preset-atlantis","meta":{"Fingerprint":"SHA256:abc"}}]}`)
+	request := httptest.NewRequest(
+		http.MethodPut,
+		"/sshwifty/config/presets",
+		bytes.NewReader(body),
+	)
+	authorizePresetConfigRequest(controller, request)
+	request.Header.Set(preserveHiddenPresetPasswordsHeader, "yes")
+	request.Header.Set(presetFingerprintIDHeader, "preset-atlantis")
+	recorder := httptest.NewRecorder()
+	writer := newResponseWriter(recorder)
+
+	if err := controller.Put(&writer, request, log.Ditch{}); err != nil {
+		t.Fatalf("Put returned error: %v", err)
+	}
+
+	_, reloaded, err := configuration.CustomFile(configPath)(log.Ditch{})
+	if err != nil {
+		t.Fatalf("CustomFile returned error: %v", err)
+	}
+	if reloaded.Presets[0].Meta["Private Key"] != largePrivateKey {
+		t.Fatal("persisted config lost large private key")
+	}
+	if reloaded.Presets[0].Meta["Fingerprint"] != "SHA256:abc" {
+		t.Fatal("persisted config missing fingerprint")
+	}
+}
+
+func TestPresetConfigPutAcceptsCompactFingerprintSaveForLargePresetList(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "sshwifty.conf.json")
+	rawPresets := make([]map[string]any, maxPresetConfigPresets+1)
+	for i := range rawPresets {
+		rawPresets[i] = map[string]any{
+			"ID":    fmt.Sprintf("preset-%03d", i),
+			"Title": fmt.Sprintf("Preset %03d", i),
+			"Type":  "SSH",
+			"Host":  fmt.Sprintf("host-%03d.home", i),
+		}
+	}
+	writePresetAPIConfig(t, configPath, rawPresets)
+	controller := newAuthenticatedTestPresetConfig(t, configPath)
+	body := []byte(`{"presets":[{"id":"preset-000","meta":{"Fingerprint":"SHA256:abc"}}]}`)
+	request := httptest.NewRequest(
+		http.MethodPut,
+		"/sshwifty/config/presets",
+		bytes.NewReader(body),
+	)
+	authorizePresetConfigRequest(controller, request)
+	request.Header.Set(preserveHiddenPresetPasswordsHeader, "yes")
+	request.Header.Set(presetFingerprintIDHeader, "preset-000")
+	recorder := httptest.NewRecorder()
+	writer := newResponseWriter(recorder)
+
+	if err := controller.Put(&writer, request, log.Ditch{}); err != nil {
+		t.Fatalf("Put returned error: %v", err)
+	}
+
+	_, reloaded, err := configuration.CustomFile(configPath)(log.Ditch{})
+	if err != nil {
+		t.Fatalf("CustomFile returned error: %v", err)
+	}
+	if len(reloaded.Presets) != maxPresetConfigPresets+1 {
+		t.Fatalf("persisted preset count = %d, want %d", len(reloaded.Presets), maxPresetConfigPresets+1)
 	}
 	if reloaded.Presets[0].Meta["Fingerprint"] != "SHA256:abc" {
 		t.Fatal("persisted config missing fingerprint")

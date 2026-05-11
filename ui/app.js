@@ -388,46 +388,27 @@ function startApp(rootEl) {
         const headers = await this.presetConfigHeaders();
         headers["X-Preserve-Hidden-Preset-Passwords"] = "yes";
         headers["X-Preset-Fingerprint-ID"] = presetID;
-        const getResponse = await xhr.get(presetConfigInterface, headers);
-        if (getResponse.status !== 200) {
-          throw new Error("Preset config read failed: " + getResponse.status);
-        }
-
-        let body = JSON.parse(getResponse.responseText);
-        let found = false;
-        let updatedPresets = (body.presets ? body.presets : []).map(
-          (preset) => {
-            if (preset.id !== presetID) {
-              return preset;
-            }
-
-            found = true;
-
-            return {
-              ...preset,
-              meta: {
-                ...(preset.meta ? preset.meta : {}),
-                Fingerprint: fingerprint,
-              },
-            };
-          },
-        );
-
-        if (!found) {
-          throw new Error("Preset ID was not found: " + presetID);
-        }
 
         const putResponse = await xhr.put(
           presetConfigInterface,
           headers,
-          JSON.stringify({ presets: updatedPresets }),
+          JSON.stringify({
+            presets: [
+              {
+                id: presetID,
+                meta: {
+                  Fingerprint: fingerprint,
+                },
+              },
+            ],
+          }),
         );
         if (putResponse.status !== 200) {
           throw new Error("Preset config write failed: " + putResponse.status);
         }
 
-        body = JSON.parse(putResponse.responseText);
-        updatedPresets = body.presets ? body.presets : [];
+        const body = JSON.parse(putResponse.responseText);
+        const updatedPresets = body.presets ? body.presets : [];
         this.presetData = {
           presets: markRaw(new Presets(updatedPresets)),
           restricted: this.presetData.restricted,

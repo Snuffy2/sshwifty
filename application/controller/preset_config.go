@@ -100,38 +100,46 @@ func (p presetConfig) Put(
 	)).Decode(&request); err != nil {
 		return NewError(http.StatusBadRequest, err.Error())
 	}
-	if err := validatePresetConfigRequest(request); err != nil {
-		return NewError(http.StatusBadRequest, err.Error())
-	}
-
-	presets := make([]configuration.Preset, len(request.Presets))
-	for i, preset := range request.Presets {
-		presets[i] = configuration.Preset{
-			ID:       strings.TrimSpace(preset.ID),
-			Title:    preset.Title,
-			Type:     preset.Type,
-			Host:     preset.Host,
-			TabColor: preset.TabColor,
-			Meta:     preset.Meta,
-		}
-	}
 
 	p.lockPresetUpdates()
 	defer p.unlockPresetUpdates()
 
 	currentPresets := p.commonCfg.CurrentPresets()
 	fingerprintOnly := r.Header.Get(preserveHiddenPresetPasswordsHeader) == "yes"
+	var presets []configuration.Preset
 	if fingerprintOnly {
-		presets = preserveHiddenPresetPasswords(presets, currentPresets)
+		targetPresetID := strings.TrimSpace(r.Header.Get(presetFingerprintIDHeader))
+		var err error
+		if isCompactFingerprintRequest(request, targetPresetID) {
+			presets, err = applyCompactFingerprintUpdate(
+				currentPresets,
+				targetPresetID,
+				request.Presets[0].Meta["Fingerprint"],
+			)
+			if err != nil {
+				return NewError(http.StatusBadRequest, err.Error())
+			}
+		} else {
+			if err := validateFingerprintConfigRequest(request); err != nil {
+				return NewError(http.StatusBadRequest, err.Error())
+			}
+			presets = presetConfigRequestPresets(request)
+			presets = preserveHiddenPresetPasswords(presets, currentPresets)
+		}
 		if err := validateFingerprintOnlyPresetUpdate(
 			presets,
 			currentPresets,
-			strings.TrimSpace(r.Header.Get(presetFingerprintIDHeader)),
+			targetPresetID,
 		); err != nil {
 			return NewError(http.StatusBadRequest, err.Error())
 		}
 	} else if err := p.requirePresetAdminAuth(r); err != nil {
 		return err
+	} else {
+		if err := validatePresetConfigRequest(request); err != nil {
+			return NewError(http.StatusBadRequest, err.Error())
+		}
+		presets = presetConfigRequestPresets(request)
 	}
 	normalized, _, err := configuration.EnsurePresetIDs(presets)
 	if err != nil {
@@ -170,6 +178,23 @@ func (p presetConfig) unlockPresetUpdates() {
 	}
 }
 
+func presetConfigRequestPresets(
+	request presetConfigRequest,
+) []configuration.Preset {
+	presets := make([]configuration.Preset, len(request.Presets))
+	for i, preset := range request.Presets {
+		presets[i] = configuration.Preset{
+			ID:       strings.TrimSpace(preset.ID),
+			Title:    preset.Title,
+			Type:     preset.Type,
+			Host:     preset.Host,
+			TabColor: preset.TabColor,
+			Meta:     preset.Meta,
+		}
+	}
+	return presets
+}
+
 func validatePresetConfigRequest(request presetConfigRequest) error {
 	if len(request.Presets) > maxPresetConfigPresets {
 		return fmt.Errorf(
@@ -196,6 +221,79 @@ func validatePresetConfigRequest(request presetConfigRequest) error {
 		}
 	}
 	return nil
+}
+
+func validateFingerprintConfigRequest(request presetConfigRequest) error {
+	if len(request.Presets) > maxPresetConfigPresets {
+		return fmt.Errorf(
+			"preset count %d exceeds maximum %d",
+			len(request.Presets),
+			maxPresetConfigPresets,
+		)
+	}
+	for _, preset := range request.Presets {
+		if stringTooLong(preset.ID, configuration.MaxPresetIDLength) {
+			return fmt.Errorf("preset ID exceeds maximum length")
+		}
+	}
+	return nil
+}
+
+func isCompactFingerprintRequest(
+	request presetConfigRequest,
+	targetPresetID string,
+) bool {
+	if len(request.Presets) != 1 || targetPresetID == "" {
+		return false
+	}
+	preset := request.Presets[0]
+	if strings.TrimSpace(preset.ID) != targetPresetID {
+		return false
+	}
+	if preset.Title != "" ||
+		preset.Type != "" ||
+		preset.Host != "" ||
+		preset.TabColor != "" {
+		return false
+	}
+	_, hasFingerprint := preset.Meta["Fingerprint"]
+	return hasFingerprint && len(preset.Meta) == 1
+}
+
+func applyCompactFingerprintUpdate(
+	current []configuration.Preset,
+	targetPresetID string,
+	fingerprint string,
+) ([]configuration.Preset, error) {
+	presets := make([]configuration.Preset, len(current))
+	found := false
+	for i, preset := range current {
+		presets[i] = copyPreset(preset)
+		if preset.ID != targetPresetID {
+			continue
+		}
+		if presets[i].Meta == nil {
+			presets[i].Meta = map[string]string{}
+		}
+		presets[i].Meta["Fingerprint"] = fingerprint
+		found = true
+	}
+	if !found {
+		return nil, fmt.Errorf("fingerprint save cannot add preset %q", targetPresetID)
+	}
+	return presets, nil
+}
+
+func copyPreset(preset configuration.Preset) configuration.Preset {
+	copied := preset
+	copied.Meta = copyPresetMeta(preset.Meta)
+	if preset.SecretMeta != nil {
+		copied.SecretMeta = make(map[string]string, len(preset.SecretMeta))
+		for key, value := range preset.SecretMeta {
+			copied.SecretMeta[key] = value
+		}
+	}
+	return copied
 }
 
 func stringTooLong(value string, maxBytes int) bool {
