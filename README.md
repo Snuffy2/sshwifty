@@ -50,11 +50,13 @@ to work as before. Full preset add/edit/remove API writes require admin access. 
 Generate a preset secret key with one of these commands:
 
 #### macOS/Linux
+
 ```sh
 openssl rand -base64 32
 ```
 
 #### Windows PowerShell
+
 ```powershell
 $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
 $bytes = New-Object byte[] 32

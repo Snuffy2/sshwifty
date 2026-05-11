@@ -56,8 +56,7 @@ SPDX-License-Identifier: AGPL-3.0-only
     >
       <div id="home-content-wrap">
         <h1>{{ homeTitle }}</h1>
-
-        <p class="secondary" v-html="homeMessage"></p>
+        <p v-html="homeMessage"></p>
 
         <p>
           To get started, click the
@@ -66,14 +65,10 @@ SPDX-License-Identifier: AGPL-3.0-only
             class="icon icon-plus1"
             @click="showConnectWindow"
           ></span>
-          icon near the top left corner.
+          icon near the top left corner
         </p>
 
-        <div v-if="showStandaloneServerMessage">
-          <hr />
-          <p class="secondary" v-html="serverMessage"></p>
-        </div>
-
+        <p class="secondary" v-html="shellPortTag"></p>
         <p id="home-content-source" class="secondary">
           <a :href="sourceURL" target="_blank" rel="noopener noreferrer">
             View source code
@@ -272,7 +267,13 @@ export default {
       default: () => null,
     },
   },
-  emits: ["navigate-to", "tab-opened", "tab-closed", "tab-updated"],
+  emits: [
+    "navigate-to",
+    "tab-opened",
+    "tab-closed",
+    "tab-updated",
+    "title-change",
+  ],
   data() {
     return {
       ticker: null,
@@ -311,25 +312,39 @@ export default {
     /**
      * Returns the secondary home-screen text below the heading.
      *
-     * @returns {string} Configured server message when paired with a custom
-     *   title, or the default ShellPort tagline.
+     * @returns {string} Configured server message or blank.
      */
     homeMessage() {
-      if (this.serverTitle.length > 0 && this.serverMessage.length > 0) {
-        return this.serverMessage;
+      if (!this.serverTitle.length > 0 && !this.serverMessage.length > 0) {
+        return "Browser-based remote shell access over SSH, Telnet, and Mosh";
       }
-      return "ShellPort - browser-based remote shell access over SSH, Telnet, and Mosh.";
+      return this.serverMessage.length > 0 ? this.serverMessage : "";
     },
     /**
-     * Returns whether to show the server message in its legacy standalone slot.
+     * Returns the ShellPort tagline if it is not already shown above.
      *
-     * @returns {boolean} True when a message exists without a custom title.
+     * @returns {string} ShellPort tagline or blank.
      */
-    showStandaloneServerMessage() {
-      return this.serverTitle.length <= 0 && this.serverMessage.length > 0;
+    shellPortTag() {
+      if (this.serverTitle.length > 0 || this.serverMessage.length > 0) {
+        return "ShellPort - browser-based remote shell access over SSH, Telnet, and Mosh";
+      }
+      return "";
+    },
+  },
+  watch: {
+    /**
+     * Publishes the computed home title whenever configuration changes it.
+     *
+     * @returns {void}
+     */
+    homeTitle() {
+      this.emitTitleChange();
     },
   },
   mounted() {
+    this.emitTitleChange();
+
     this.ticker = setInterval(() => {
       this.tick();
     }, 1000);
@@ -355,6 +370,14 @@ export default {
     }
   },
   methods: {
+    /**
+     * Emits the title currently shown by the home screen.
+     *
+     * @returns {void}
+     */
+    emitTitleChange() {
+      this.$emit("title-change", this.homeTitle);
+    },
     /**
      * `beforeunload` handler that prompts the user before closing the tab when
      * sessions are still active.

@@ -110,13 +110,17 @@ describe("vite config cleanup guards", () => {
     const homeVue = readSource(homeVuePath);
 
     expect(appJs).toContain(':server-title="serverTitle"');
+    expect(appJs).toContain('@title-change="updatePageTitle"');
+    expect(appJs).toContain("updatePageTitle(newPageTitle)");
     expect(appJs).toContain("this.serverTitle = authData.server_title");
     expect(homeVue).toContain("<h1>{{ homeTitle }}</h1>");
-    expect(homeVue).toContain('<p class="secondary" v-html="homeMessage"></p>');
+    expect(homeVue).toContain('<p v-html="homeMessage"></p>');
     expect(homeVue).toContain("homeTitle()");
+    expect(homeVue).toContain('"title-change"');
+    expect(homeVue).toContain('this.$emit("title-change", this.homeTitle)');
     expect(homeVue).toContain("homeMessage()");
     expect(homeVue).toContain(
-      '"ShellPort - browser-based remote shell access over SSH, Telnet, and Mosh."',
+      '"ShellPort - browser-based remote shell access over SSH, Telnet, and Mosh"',
     );
   });
 
